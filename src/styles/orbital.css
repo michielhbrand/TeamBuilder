@@ -163,9 +163,11 @@ body {
   gap: 14px;
 }
 
-.theme-toggle {
-  width: 44px;
-  height: 44px;
+.theme-toggle.v-btn {
+  width: 38px;
+  height: 38px;
+  min-width: 38px;
+  border-radius: 50%;
 }
 
 .brand-lockup {
@@ -1138,6 +1140,7 @@ body {
 
 .board-controls {
   display: flex;
+  width: min(400px, 100%);
   flex-direction: column;
   align-items: flex-end;
   gap: 12px;
@@ -1145,7 +1148,7 @@ body {
 
 .board-switcher {
   display: flex;
-  width: min(320px, 100%);
+  width: 100%;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
@@ -1277,6 +1280,12 @@ body {
   gap: 10px;
 }
 
+.board-icon-btn.v-btn {
+  width: 48px;
+  height: 48px;
+  min-width: 48px;
+}
+
 .board-columns-wrap {
   overflow-x: auto;
   padding-bottom: 4px;
@@ -1369,9 +1378,10 @@ body {
 }
 
 .candidate-card {
+  position: relative;
+  padding: 12px;
   border: 1px solid var(--orbital-line);
   border-radius: var(--orbital-radius);
-  padding: 12px;
   background: var(--orbital-surface);
   box-shadow: var(--orbital-shadow-soft);
   transition:
@@ -1381,8 +1391,33 @@ body {
     box-shadow 160ms ease;
 }
 
-.candidate-card > * {
-  transition: opacity 160ms ease;
+.candidate-card__main {
+  min-width: 0;
+}
+
+.candidate-actions-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.candidate-lane-btn.v-btn {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  color: var(--orbital-muted);
+}
+
+.candidate-lane-btn.v-btn:hover {
+  background: var(--orbital-accent-soft);
+  color: var(--orbital-accent-text);
+}
+
+.candidate-favorite {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  z-index: 1;
 }
 
 .candidate-card--flagged {
@@ -1396,31 +1431,27 @@ body {
 }
 
 .candidate-card--dragging {
-  position: relative;
-  z-index: 2;
   cursor: grabbing;
-  border-color: var(--orbital-accent);
-  background: transparent;
-  box-shadow: var(--orbital-shadow);
-  transform: translateY(-2px) scale(1.02);
 }
 
-.candidate-card--dragging > * {
-  opacity: 0.25;
+.candidate-card--drag-ghost {
+  opacity: 1 !important;
+  border: 2px solid var(--orbital-accent) !important;
+  box-shadow:
+    0 0 0 2px var(--orbital-accent),
+    var(--orbital-shadow) !important;
 }
 
 .candidate-card--settling {
   animation: candidate-card-settle 180ms ease-out;
 }
 
-.candidate-card--settling > * {
-  animation: candidate-card-settle-content 180ms ease-out;
-}
-
 @keyframes candidate-card-settle {
   from {
     border-color: var(--orbital-accent);
-    box-shadow: var(--orbital-shadow);
+    box-shadow:
+      0 0 0 2px var(--orbital-accent),
+      var(--orbital-shadow);
     transform: translateY(-2px) scale(1.02);
   }
 
@@ -1430,20 +1461,11 @@ body {
   }
 }
 
-@keyframes candidate-card-settle-content {
-  from {
-    opacity: 0.25;
-  }
-
-  to {
-    opacity: 1;
-  }
-}
-
 .candidate-card__top {
   display: flex;
   align-items: center;
   gap: 10px;
+  padding-right: 24px;
 }
 
 .candidate-avatar {
@@ -1501,39 +1523,21 @@ body {
 
 .candidate-actions {
   display: flex;
+  min-width: 0;
+  flex: 1;
+  gap: 8px;
 }
 
-.candidate-actions .v-btn {
-  height: auto;
-  min-height: 40px;
-  padding-top: 8px;
-  padding-bottom: 8px;
-  line-height: 1.3;
-  white-space: normal;
+.candidate-action.v-btn {
+  min-width: 0;
+  height: 40px;
+  flex: 1;
+  font-size: 0.76rem;
+  font-weight: 700;
 }
 
-.candidate-more {
-  margin-top: 10px;
-}
-
-.candidate-more summary {
-  color: var(--orbital-muted);
-  font-size: 0.71rem;
-  cursor: pointer;
-}
-
-.candidate-more__list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  margin-top: 8px;
-}
-
-.candidate-more__list .v-btn {
-  height: auto;
-  min-height: 34px;
-  padding: 5px 9px;
-  font-size: 0.69rem;
+.candidate-action--reject.v-btn {
+  border-color: var(--orbital-danger);
 }
 
 .candidate-step {
@@ -1601,6 +1605,10 @@ body.applicant-drawer-open {
   flex: 1;
 }
 
+.applicant-drawer .eyebrow {
+  font-size: 0.78rem;
+}
+
 .applicant-drawer__identity h2 {
   margin: 4px 0 3px;
   font-family: var(--orbital-font-display);
@@ -1642,6 +1650,96 @@ body.applicant-drawer-open {
 
 .applicant-notes-field .v-field__input {
   line-height: 1.6;
+}
+
+.applicant-cv-card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid var(--orbital-line);
+  border-radius: var(--orbital-radius-sm);
+  padding: 14px;
+  background: var(--orbital-surface-2);
+}
+
+.applicant-cv-card__icon {
+  flex: none;
+  color: var(--orbital-danger);
+  opacity: 1;
+}
+
+.applicant-cv-card__copy {
+  min-width: 0;
+  flex: 1;
+}
+
+.applicant-cv-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.applicant-cv-hint {
+  margin: 0;
+  color: var(--orbital-muted);
+  font-size: 0.8rem;
+  line-height: 1.6;
+}
+
+.applicant-cv-input {
+  display: none;
+}
+
+.applicant-cv-preview {
+  display: flex;
+  min-height: calc(100dvh - 90px);
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px 24px 24px;
+}
+
+.applicant-cv-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px solid var(--orbital-line);
+  padding-bottom: 12px;
+}
+
+.applicant-cv-toolbar__name {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  color: var(--orbital-ink);
+  font-family: var(--orbital-font-display);
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.applicant-cv-toolbar__actions {
+  display: flex;
+  flex: none;
+  gap: 2px;
+  margin-left: auto;
+}
+
+.applicant-cv-frame {
+  width: 100%;
+  min-height: 60vh;
+  flex: 1;
+  border: 1px solid var(--orbital-line);
+  border-radius: var(--orbital-radius-sm);
+  background: var(--orbital-surface-2);
+}
+
+.applicant-cv-status {
+  padding: 18px 0;
+  color: var(--orbital-muted);
+  font-size: 0.82rem;
 }
 
 .applicant-drawer__note {

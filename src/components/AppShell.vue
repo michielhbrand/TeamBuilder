@@ -34,7 +34,7 @@ async function signOut(): Promise<void> {
     <div class="orbital-orbit orbital-orbit--b" aria-hidden="true" />
 
     <header class="app-topbar">
-      <BrandMark context="Hiring workspace" />
+      <BrandMark context="Recruitment platform" />
 
       <nav class="app-nav" aria-label="Workspace">
         <RouterLink class="app-nav-link" active-class="app-nav-link--active" to="/overview">

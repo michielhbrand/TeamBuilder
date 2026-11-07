@@ -9,7 +9,7 @@ import {
   previousStep,
   stepById,
 } from '@/lib/pipeline'
-import type { Board, Candidate } from '@/types/pipeline'
+import type { Board, Candidate, PipelineStep } from '@/types/pipeline'
 
 const props = defineProps<{
   board: Board
@@ -33,10 +33,6 @@ const canDrag = computed(() => Boolean(next.value || previous.value))
 
 const initials = computed(() => getInitials(props.candidate.name))
 
-const moveTargets = computed(() =>
-  props.board.steps.filter((target) => target.id !== props.candidate.stepId),
-)
-
 const daysLabel = computed(() => {
   const days = getDaysInStep(props.candidate)
 
@@ -57,13 +53,10 @@ const appliedLabel = computed(() => {
   return `applied ${days} ${days === 1 ? 'day' : 'days'} ago`
 })
 
-function advance(): void {
-  if (next.value) {
-    store.advanceCandidate(props.candidate.id)
-    return
+function moveTo(target: PipelineStep | undefined): void {
+  if (target) {
+    store.moveCandidate(props.candidate.id, target.id)
   }
-
-  store.hireCandidate(props.candidate.id)
 }
 
 function openProfile(): void {
@@ -72,10 +65,31 @@ function openProfile(): void {
   }
 }
 
+function createDragImage(source: HTMLElement): HTMLElement {
+  const ghost = source.cloneNode(true) as HTMLElement
+  ghost.classList.add('candidate-card--drag-ghost')
+  ghost.style.position = 'fixed'
+  ghost.style.top = '-1000px'
+  ghost.style.left = '-1000px'
+  ghost.style.width = `${source.offsetWidth}px`
+  ghost.style.pointerEvents = 'none'
+  document.body.appendChild(ghost)
+  return ghost
+}
+
 function onDragStart(event: DragEvent): void {
   if (!canDrag.value || !event.dataTransfer) {
     event.preventDefault()
     return
+  }
+
+  const source = event.currentTarget as HTMLElement | null
+
+  if (source) {
+    const rect = source.getBoundingClientRect()
+    const ghost = createDragImage(source)
+    event.dataTransfer.setDragImage(ghost, event.clientX - rect.left, event.clientY - rect.top)
+    window.setTimeout(() => ghost.remove(), 0)
   }
 
   event.dataTransfer.effectAllowed = 'move'
@@ -106,51 +120,70 @@ function onDragEnd(): void {
     @dragstart="onDragStart"
     @dragend="onDragEnd"
   >
-    <div class="candidate-card__top">
-      <span class="candidate-avatar" aria-hidden="true">{{ initials }}</span>
-      <div class="candidate-card__identity">
-        <p class="candidate-name">{{ candidate.name }}</p>
-        <p class="candidate-source">{{ candidate.currentRole || candidate.email }}</p>
+    <v-btn
+      class="candidate-favorite"
+      :icon="candidate.favorite ? 'mdi-star' : 'mdi-star-outline'"
+      :color="candidate.favorite ? 'primary' : undefined"
+      size="small"
+      variant="text"
+      :aria-label="candidate.favorite ? 'Remove from favourites' : 'Add to favourites'"
+      :aria-pressed="candidate.favorite"
+      @click.stop="store.toggleFavorite(candidate.id)"
+    />
+
+    <div class="candidate-card__main">
+      <div class="candidate-card__top">
+        <span class="candidate-avatar" aria-hidden="true">{{ initials }}</span>
+        <div class="candidate-card__identity">
+          <p class="candidate-name">{{ candidate.name }}</p>
+          <p class="candidate-source">{{ candidate.currentRole || candidate.email }}</p>
+        </div>
       </div>
-    </div>
 
-    <p class="candidate-days">{{ daysLabel }}. {{ appliedLabel }}.</p>
+      <p class="candidate-days">{{ daysLabel }}. {{ appliedLabel }}.</p>
 
-    <div class="candidate-actions" @click.stop>
-      <v-btn
-        block
-        color="primary"
-        :variant="next ? 'outlined' : 'flat'"
-        size="small"
-        @click="advance"
-      >
-        {{ next ? `Advance to ${next.name}` : 'Mark hired' }}
-      </v-btn>
-    </div>
-
-    <details class="candidate-more" @click.stop>
-      <summary>Move or reject</summary>
-      <div class="candidate-more__list">
+      <div class="candidate-actions-row" @click.stop>
         <v-btn
-          v-for="target in moveTargets"
-          :key="target.id"
+          v-if="previous"
+          class="candidate-lane-btn"
+          icon="mdi-chevron-left"
           size="small"
           variant="text"
-          @click="store.moveCandidate(candidate.id, target.id)"
-        >
-          {{ target.name }}
-        </v-btn>
+          :aria-label="`Move ${candidate.name} to ${previous.name}`"
+          @click="moveTo(previous)"
+        />
+
+        <div class="candidate-actions">
+          <v-btn
+            class="candidate-action candidate-action--hire"
+            color="success"
+            variant="flat"
+            @click="store.hireCandidate(candidate.id)"
+          >
+            Hire
+          </v-btn>
+          <v-btn
+            class="candidate-action candidate-action--reject"
+            color="error"
+            variant="outlined"
+            @click="store.rejectCandidate(candidate.id)"
+          >
+            Reject
+          </v-btn>
+        </div>
+
         <v-btn
-          color="error"
+          v-if="next"
+          class="candidate-lane-btn"
+          icon="mdi-chevron-right"
           size="small"
           variant="text"
-          @click="store.rejectCandidate(candidate.id)"
-        >
-          Reject
-        </v-btn>
+          :aria-label="`Move ${candidate.name} to ${next.name}`"
+          @click="moveTo(next)"
+        />
       </div>
-    </details>
 
-    <p v-if="step" class="candidate-step">Current step: {{ step.name }}</p>
+      <p v-if="step" class="candidate-step">Current step: {{ step.name }}</p>
+    </div>
   </article>
 </template>

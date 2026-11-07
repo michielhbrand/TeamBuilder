@@ -26,7 +26,7 @@ function onCreated(board: Board): void {
     <div class="page-heading">
       <div>
         <p class="eyebrow">Boards</p>
-        <h1 class="page-title">Hiring pipeline.</h1>
+        <h1 class="page-title">Hiring pipelines.</h1>
         <p class="lede">
           One board per open role, grouped by department. Search or filter to find the pipeline that
           needs attention.
@@ -34,9 +34,6 @@ function onCreated(board: Board): void {
       </div>
 
       <div class="board-nav">
-        <v-btn variant="outlined" prepend-icon="mdi-view-dashboard-outline" to="/overview">
-          Overview
-        </v-btn>
         <v-btn color="primary" prepend-icon="mdi-plus" @click="createOpen = true">
           New board
         </v-btn>

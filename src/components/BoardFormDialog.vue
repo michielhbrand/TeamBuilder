@@ -145,6 +145,13 @@ async function submit(): Promise<void> {
     return
   }
 
+  const deadlineIsNew = !props.board || deadlineValue !== props.board.deadline
+
+  if (deadlineIsNew && daysUntilDeadline(deadlineValue) < 0) {
+    localError.value = 'The deadline cannot be in the past.'
+    return
+  }
+
   const positions = Number(openPositions.value)
 
   if (!Number.isInteger(positions) || positions < 0) {

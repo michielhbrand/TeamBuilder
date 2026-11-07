@@ -28,8 +28,11 @@ onMounted(() => {
     :aria-label="isDark ? 'Switch to light mode' : 'Switch to dark mode'"
     :icon="isDark ? 'mdi-weather-sunny' : 'mdi-weather-night'"
     color="primary"
-    size="large"
+    height="38"
+    rounded="circle"
+    size="small"
     variant="outlined"
+    width="38"
     @click="toggle"
   />
 </template>

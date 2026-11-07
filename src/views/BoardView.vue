@@ -39,16 +39,6 @@ const summary = computed(() => (board.value ? summariseBoard(board.value) : unde
 const hired = computed(() => (board.value ? closedCandidates(board.value, 'hired') : []))
 const rejected = computed(() => (board.value ? closedCandidates(board.value, 'rejected') : []))
 
-const boardIndex = computed(() =>
-  store.orderedBoards.findIndex((item) => item.id === boardId.value),
-)
-const previous = computed(() =>
-  boardIndex.value > 0 ? store.orderedBoards[boardIndex.value - 1] : undefined,
-)
-const next = computed(() =>
-  boardIndex.value >= 0 ? store.orderedBoards[boardIndex.value + 1] : undefined,
-)
-
 const draggedStepIndex = computed(() => {
   if (!board.value || !dragged.value) {
     return -1
@@ -70,14 +60,6 @@ const dropStepIds = computed(() => {
 
 function candidatesFor(stepId: string): Candidate[] {
   return board.value ? candidatesInStep(board.value, stepId) : []
-}
-
-function goToBoard(id: string | undefined): void {
-  if (!id) {
-    return
-  }
-
-  void router.push({ name: 'board', params: { boardId: id } })
 }
 
 function onBoardDeleted(): void {
@@ -138,12 +120,6 @@ function onKeydown(event: KeyboardEvent): void {
   if (event.key === '/') {
     event.preventDefault()
     switcher.value?.open()
-  } else if (event.key === '[') {
-    event.preventDefault()
-    goToBoard(previous.value?.id)
-  } else if (event.key === ']') {
-    event.preventDefault()
-    goToBoard(next.value?.id)
   }
 }
 
@@ -185,44 +161,31 @@ onBeforeUnmount(() => {
           <BoardSwitcher ref="switcher" :groups="store.groups" :active-board-id="board.id" />
 
           <div class="board-nav">
-            <v-btn variant="outlined" prepend-icon="mdi-pencil-outline" @click="editOpen = true">
-              Edit
-            </v-btn>
             <v-btn
+              class="board-icon-btn"
+              icon="mdi-pencil-outline"
               variant="outlined"
-              prepend-icon="mdi-view-column-outline"
+              aria-label="Edit board"
+              title="Edit board"
+              @click="editOpen = true"
+            />
+            <v-btn
+              class="board-icon-btn"
+              icon="mdi-view-column-outline"
+              variant="outlined"
+              aria-label="Manage columns"
+              title="Manage columns"
               @click="columnsOpen = true"
-            >
-              Columns
-            </v-btn>
+            />
             <v-btn
+              class="board-icon-btn"
               color="primary"
-              prepend-icon="mdi-account-plus-outline"
+              icon="mdi-account-plus-outline"
+              aria-label="Add applicant"
+              title="Add applicant"
               @click="applicantOpen = true"
-            >
-              Add applicant
-            </v-btn>
+            />
           </div>
-
-          <nav class="board-nav" aria-label="Move between boards">
-            <v-btn
-              variant="outlined"
-              prepend-icon="mdi-arrow-left"
-              :disabled="!previous"
-              @click="goToBoard(previous?.id)"
-            >
-              Previous
-            </v-btn>
-            <span class="mono-label">{{ boardIndex + 1 }} / {{ store.orderedBoards.length }}</span>
-            <v-btn
-              variant="outlined"
-              append-icon="mdi-arrow-right"
-              :disabled="!next"
-              @click="goToBoard(next?.id)"
-            >
-              Next
-            </v-btn>
-          </nav>
         </div>
       </header>
 

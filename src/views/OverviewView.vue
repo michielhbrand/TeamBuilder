@@ -23,7 +23,7 @@ const departmentRows = computed(() =>
 
     <div class="page-heading">
       <div>
-        <p class="eyebrow">Hiring workspace</p>
+        <p class="eyebrow">Recruitment platform</p>
         <h1 class="page-title">Hiring overview.</h1>
         <p class="lede">
           Every open role, active candidate, and step that needs attention, grouped by department.

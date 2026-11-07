@@ -4,7 +4,7 @@ withDefaults(
     context?: string
   }>(),
   {
-    context: 'Hiring workspace',
+    context: 'Recruitment platform',
   },
 )
 </script>

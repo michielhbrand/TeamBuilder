@@ -163,6 +163,9 @@ See `docs/ARCHITECTURE.md` for the auth lifecycle and deployment pipeline.
   through `/set-password`.
 - Keep the cloud Site URL aligned with the Pages origin so invite links return to the app.
   Local invitations use `supabase/config.toml` and Mailpit at `http://localhost:54324`.
+- Applicant CVs use the private Supabase Storage bucket `cvs` (one PDF per applicant,
+  `<applicant-id>/cv.pdf`). Keep storage policies limited to `authenticated`, validate PDF
+  uploads client-side, and remove the object when its applicant or board is deleted.
 - Board data uses `public.boards`, `public.board_columns`, and `public.applicants`. Board
   names are unique within a department; applicant email and phone are optional and unique
   per board only when filled. New applicants default to the `Applied` column. If you

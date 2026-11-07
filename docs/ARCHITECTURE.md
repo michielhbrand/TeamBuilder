@@ -113,8 +113,9 @@ The schema lives in `supabase/migrations/`:
   deadline, timestamps.
 - `public.board_columns` — board, unique name per board, ordered `position`.
 - `public.applicants` — board, assigned column, contact details, current role, free-text
-  education and work experience, favourite flag, status, `applied_at`, and
-  `step_entered_at`. Email and phone are optional; when present they are unique per board.
+  education and work experience, favourite flag, status, CV path and filename, `applied_at`,
+  and `step_entered_at`. Email and phone are optional; when present they are unique per
+  board.
 
 The composite applicant foreign key `(board_id, column_id)` guarantees that an applicant is
 assigned to a column on the same board. New applicants default to the column named
@@ -126,6 +127,12 @@ multi-row changes atomic.
 `delete_board_column` moves the column's applicants to the first column, and the first column
 cannot be deleted. Deleting a board cascades to its columns and applicants; deleting an
 applicant is permanent.
+
+Applicant CVs use the private Supabase Storage bucket `cvs`. One PDF per applicant is stored
+at `<applicant-id>/cv.pdf`; the `applicants.cv_path` and `applicants.cv_name` columns hold the
+object reference and original filename. Storage policies allow the `authenticated` role only.
+The store removes the stored object when the CV is deleted, the applicant is deleted, or the
+board is deleted.
 
 RLS is enabled on all three tables. Table privileges are explicitly granted to
 `authenticated` and revoked from `anon`; RLS policies then grant `select`, `insert`,

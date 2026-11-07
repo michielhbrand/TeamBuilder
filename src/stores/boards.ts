@@ -162,14 +162,29 @@ export const useBoardsStore = defineStore('boards', () => {
 
   async function deleteBoard(id: string): Promise<boolean> {
     error.value = null
+    const cvPaths =
+      boardById(id)
+        ?.candidates.map((candidate) => candidate.cvPath)
+        .filter((path): path is string => Boolean(path)) ?? []
 
     try {
       await api.deleteBoard(id)
       boards.value = boards.value.filter((board) => board.id !== id)
+      await removeCvObjects(cvPaths)
       return true
     } catch (caught) {
       error.value = errorMessage(caught)
       return false
+    }
+  }
+
+  async function removeCvObjects(paths: string[]): Promise<void> {
+    for (const path of paths) {
+      try {
+        await api.deleteApplicantCv(path)
+      } catch {
+        // The applicant is already deleted; a missing object is not actionable here.
+      }
     }
   }
 
@@ -313,16 +328,95 @@ export const useBoardsStore = defineStore('boards', () => {
       return false
     }
 
+    const cvPath = context.candidate.cvPath
+
     try {
       clearSaveTimer(candidateId)
       await api.deleteApplicant(candidateId)
       context.board.candidates = context.board.candidates.filter(
         (candidate) => candidate.id !== candidateId,
       )
+
+      if (cvPath) {
+        await removeCvObjects([cvPath])
+      }
+
       return true
     } catch (caught) {
       error.value = errorMessage(caught)
       return false
+    }
+  }
+
+  async function uploadCv(candidateId: string, file: File): Promise<boolean> {
+    error.value = null
+    const context = candidateContext(candidateId)
+
+    if (!context) {
+      return false
+    }
+
+    try {
+      const previousPath = context.candidate.cvPath ?? null
+      const uploaded = await api.uploadApplicantCv(candidateId, file)
+
+      if (previousPath && previousPath !== uploaded.path) {
+        await removeCvObjects([previousPath])
+      }
+
+      context.candidate.cvPath = uploaded.path
+      context.candidate.cvName = uploaded.name
+      await api.updateApplicant(candidateId, {
+        cvPath: uploaded.path,
+        cvName: uploaded.name,
+      })
+      return true
+    } catch (caught) {
+      error.value = errorMessage(caught)
+      return false
+    }
+  }
+
+  async function removeCv(candidateId: string): Promise<boolean> {
+    error.value = null
+    const context = candidateContext(candidateId)
+    const path = context?.candidate.cvPath
+
+    if (!context || !path) {
+      return false
+    }
+
+    try {
+      await api.deleteApplicantCv(path)
+      context.candidate.cvPath = null
+      context.candidate.cvName = null
+      await api.updateApplicant(candidateId, { cvPath: null, cvName: null })
+      return true
+    } catch (caught) {
+      error.value = errorMessage(caught)
+      return false
+    }
+  }
+
+  async function cvSignedUrl(path: string): Promise<string | undefined> {
+    error.value = null
+
+    try {
+      return await api.createApplicantCvUrl(path)
+    } catch (caught) {
+      error.value = errorMessage(caught)
+      return undefined
+    }
+  }
+
+  async function cvBlob(path: string): Promise<Blob | undefined> {
+    error.value = null
+
+    try {
+      return await api.downloadApplicantCv(path)
+    } catch (caught) {
+      error.value = errorMessage(caught)
+      return undefined
     }
   }
 
@@ -495,6 +589,10 @@ export const useBoardsStore = defineStore('boards', () => {
     deleteColumn,
     createApplicant,
     deleteApplicant,
+    uploadCv,
+    removeCv,
+    cvSignedUrl,
+    cvBlob,
     updateCandidateField,
     toggleFavorite,
     advanceCandidate,

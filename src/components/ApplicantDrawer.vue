@@ -25,6 +25,12 @@ const open = computed({
 })
 const confirmDeleteOpen = ref(false)
 const deleting = ref(false)
+const cvBusy = ref(false)
+const cvError = ref('')
+const cvPreviewOpen = ref(false)
+const cvLoading = ref(false)
+const cvUrl = ref('')
+const cvFileInput = ref<HTMLInputElement | null>(null)
 const form = reactive<Record<EditableCandidateField, string>>({
   name: '',
   email: '',
@@ -114,6 +120,122 @@ async function confirmDeleteApplicant(): Promise<void> {
   }
 }
 
+function chooseCv(): void {
+  cvError.value = ''
+  cvFileInput.value?.click()
+}
+
+async function onCvSelected(event: Event): Promise<void> {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  const current = candidate.value
+  input.value = ''
+
+  if (!file || !current) {
+    return
+  }
+
+  const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
+
+  if (!isPdf) {
+    cvError.value = 'Choose a PDF file.'
+    return
+  }
+
+  cvBusy.value = true
+  const uploaded = await store.uploadCv(current.id, file)
+  cvBusy.value = false
+
+  if (!uploaded) {
+    cvError.value = store.error ?? 'The CV could not be uploaded.'
+  }
+}
+
+async function removeCv(): Promise<void> {
+  const current = candidate.value
+
+  if (!current) {
+    return
+  }
+
+  cvBusy.value = true
+  const removed = await store.removeCv(current.id)
+  cvBusy.value = false
+
+  if (removed) {
+    closeCvPreview()
+    return
+  }
+
+  cvError.value = store.error ?? 'The CV could not be removed.'
+}
+
+async function openCvPreview(): Promise<void> {
+  const path = candidate.value?.cvPath
+
+  if (!path) {
+    return
+  }
+
+  cvPreviewOpen.value = true
+  cvLoading.value = true
+  cvError.value = ''
+  cvUrl.value = ''
+
+  const url = await store.cvSignedUrl(path)
+  cvLoading.value = false
+
+  if (!url) {
+    cvError.value = store.error ?? 'The CV could not be opened.'
+    return
+  }
+
+  cvUrl.value = url
+}
+
+function closeCvPreview(): void {
+  cvPreviewOpen.value = false
+  cvLoading.value = false
+  cvUrl.value = ''
+  cvError.value = ''
+}
+
+function openCvFullscreen(): void {
+  if (cvUrl.value) {
+    window.open(cvUrl.value, '_blank', 'noopener,noreferrer')
+  }
+}
+
+async function printCv(): Promise<void> {
+  const path = candidate.value?.cvPath
+
+  if (!path) {
+    return
+  }
+
+  cvError.value = ''
+  const blob = await store.cvBlob(path)
+
+  if (!blob) {
+    cvError.value = store.error ?? 'The CV could not be printed.'
+    return
+  }
+
+  const url = URL.createObjectURL(blob)
+  const frame = document.createElement('iframe')
+  frame.style.cssText = 'position: fixed; right: 0; bottom: 0; width: 0; height: 0; border: 0;'
+  frame.src = url
+  frame.onload = () => {
+    frame.contentWindow?.focus()
+    frame.contentWindow?.print()
+    window.setTimeout(() => {
+      frame.remove()
+      URL.revokeObjectURL(url)
+    }, 60_000)
+  }
+  document.body.appendChild(frame)
+}
+
 function setPageScrollLocked(locked: boolean): void {
   const root = document.documentElement
   const body = document.body
@@ -137,6 +259,8 @@ function setPageScrollLocked(locked: boolean): void {
 watch([() => props.modelValue, () => props.candidateId], ([value]) => {
   if (value) {
     syncForm()
+    closeCvPreview()
+    cvError.value = ''
   }
 })
 
@@ -145,8 +269,12 @@ watch(
   (value) => {
     setPageScrollLocked(value)
 
-    if (!value && props.candidateId) {
-      void store.flushCandidate(props.candidateId)
+    if (!value) {
+      closeCvPreview()
+
+      if (props.candidateId) {
+        void store.flushCandidate(props.candidateId)
+      }
     }
   },
 )
@@ -194,7 +322,37 @@ onBeforeUnmount(() => setPageScrollLocked(false))
           </div>
         </header>
 
-        <div class="applicant-drawer__body">
+        <div v-if="cvPreviewOpen" class="applicant-cv-preview">
+          <div class="applicant-cv-toolbar">
+            <v-btn variant="text" prepend-icon="mdi-arrow-left" @click="closeCvPreview">Back</v-btn>
+            <span class="applicant-cv-toolbar__name">{{ candidate.cvName || 'CV.pdf' }}</span>
+            <div class="applicant-cv-toolbar__actions">
+              <v-btn
+                icon="mdi-open-in-new"
+                variant="text"
+                aria-label="Open CV in a new tab"
+                title="Open in a new tab"
+                @click="openCvFullscreen"
+              />
+              <v-btn
+                icon="mdi-printer-outline"
+                variant="text"
+                aria-label="Print CV"
+                title="Print CV"
+                @click="printCv"
+              />
+            </div>
+          </div>
+
+          <v-alert v-if="cvError" class="orbital-alert" type="error" density="compact">
+            {{ cvError }}
+          </v-alert>
+
+          <div v-if="cvLoading" class="applicant-cv-status">Loading preview...</div>
+          <iframe v-else-if="cvUrl" :src="cvUrl" class="applicant-cv-frame" title="CV preview" />
+        </div>
+
+        <div v-else class="applicant-drawer__body">
           <v-alert v-if="store.error" class="orbital-alert" type="error" density="compact">
             {{ store.error }}
           </v-alert>
@@ -247,6 +405,59 @@ onBeforeUnmount(() => setPageScrollLocked(false))
               rows="4"
               @update:model-value="updateField(section.key, $event)"
             />
+          </section>
+
+          <section class="applicant-section">
+            <p class="eyebrow">CV</p>
+
+            <div v-if="candidate.cvPath" class="applicant-cv-card">
+              <v-icon class="applicant-cv-card__icon" icon="mdi-file-pdf-box" size="36" />
+              <div class="applicant-cv-card__copy">
+                <p class="candidate-name">{{ candidate.cvName || 'CV.pdf' }}</p>
+                <p class="candidate-source">PDF document</p>
+              </div>
+              <div class="applicant-cv-card__actions">
+                <v-btn variant="outlined" prepend-icon="mdi-eye-outline" @click="openCvPreview">
+                  Preview
+                </v-btn>
+                <v-btn
+                  color="error"
+                  variant="text"
+                  prepend-icon="mdi-delete-outline"
+                  :disabled="cvBusy"
+                  :loading="cvBusy"
+                  @click="removeCv"
+                >
+                  Remove
+                </v-btn>
+              </div>
+            </div>
+
+            <template v-else>
+              <p class="applicant-cv-hint">Upload one PDF CV for this applicant.</p>
+              <v-btn
+                color="primary"
+                variant="outlined"
+                prepend-icon="mdi-upload"
+                :disabled="cvBusy"
+                :loading="cvBusy"
+                @click="chooseCv"
+              >
+                Upload CV
+              </v-btn>
+            </template>
+
+            <input
+              ref="cvFileInput"
+              class="applicant-cv-input"
+              type="file"
+              accept="application/pdf,.pdf"
+              @change="onCvSelected"
+            />
+
+            <v-alert v-if="cvError" class="orbital-alert" type="error" density="compact">
+              {{ cvError }}
+            </v-alert>
           </section>
 
           <p class="applicant-drawer__note">Changes save automatically to the shared workspace.</p>

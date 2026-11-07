@@ -32,6 +32,8 @@ export interface Candidate {
   stepEnteredAt: string
   education: string
   experience: string
+  cvPath?: string | null
+  cvName?: string | null
 }
 
 export interface Board {

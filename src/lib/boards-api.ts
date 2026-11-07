@@ -39,6 +39,8 @@ interface ApplicantRow {
   status: string
   applied_at: string
   step_entered_at: string
+  cv_path: string | null
+  cv_name: string | null
 }
 
 export interface ApplicantPatch {
@@ -52,7 +54,12 @@ export interface ApplicantPatch {
   status?: CandidateStatus
   columnId?: string
   stepEnteredAt?: string
+  cvPath?: string | null
+  cvName?: string | null
 }
+
+export const CV_BUCKET = 'cvs'
+const CV_MAX_BYTES = 10 * 1024 * 1024
 
 const BOARD_SELECT = `
   id,
@@ -74,7 +81,9 @@ const BOARD_SELECT = `
     favorite,
     status,
     applied_at,
-    step_entered_at
+    step_entered_at,
+    cv_path,
+    cv_name
   )
 `
 
@@ -107,6 +116,8 @@ function mapApplicant(row: ApplicantRow): Candidate {
     stepEnteredAt: row.step_entered_at,
     education: row.education,
     experience: row.experience,
+    cvPath: row.cv_path,
+    cvName: row.cv_name,
   }
 }
 
@@ -152,6 +163,8 @@ function applicantPatch(input: ApplicantPatch): Record<string, unknown> {
   if (input.status !== undefined) patch.status = input.status
   if (input.columnId !== undefined) patch.column_id = input.columnId
   if (input.stepEnteredAt !== undefined) patch.step_entered_at = input.stepEnteredAt
+  if (input.cvPath !== undefined) patch.cv_path = input.cvPath
+  if (input.cvName !== undefined) patch.cv_name = input.cvName
 
   return patch
 }
@@ -272,7 +285,7 @@ export async function createApplicant(
       experience: input.experience,
     })
     .select(
-      'id, board_id, column_id, full_name, email, phone, job_title, education, experience, favorite, status, applied_at, step_entered_at',
+      'id, board_id, column_id, full_name, email, phone, job_title, education, experience, favorite, status, applied_at, step_entered_at, cv_path, cv_name',
     )
     .single()
 
@@ -295,4 +308,58 @@ export async function updateApplicant(id: string, input: ApplicantPatch): Promis
 export async function deleteApplicant(id: string): Promise<void> {
   const { error } = await supabase.from('applicants').delete().eq('id', id)
   fail(error)
+}
+
+export function applicantCvPath(id: string): string {
+  return `${id}/cv.pdf`
+}
+
+export async function uploadApplicantCv(
+  id: string,
+  file: File,
+): Promise<{ path: string; name: string }> {
+  if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+    throw new Error('The CV must be a PDF file.')
+  }
+
+  if (file.size > CV_MAX_BYTES) {
+    throw new Error('The CV must be smaller than 10 MB.')
+  }
+
+  const path = applicantCvPath(id)
+  const { error } = await supabase.storage.from(CV_BUCKET).upload(path, file, {
+    contentType: 'application/pdf',
+    upsert: true,
+  })
+
+  fail(error)
+
+  return { path, name: file.name }
+}
+
+export async function deleteApplicantCv(path: string): Promise<void> {
+  const { error } = await supabase.storage.from(CV_BUCKET).remove([path])
+  fail(error)
+}
+
+export async function createApplicantCvUrl(path: string, expiresIn = 3600): Promise<string> {
+  const { data, error } = await supabase.storage.from(CV_BUCKET).createSignedUrl(path, expiresIn)
+  fail(error)
+
+  if (!data?.signedUrl) {
+    throw new Error('The CV link could not be created.')
+  }
+
+  return data.signedUrl
+}
+
+export async function downloadApplicantCv(path: string): Promise<Blob> {
+  const { data, error } = await supabase.storage.from(CV_BUCKET).download(path)
+  fail(error)
+
+  if (!data) {
+    throw new Error('The CV could not be downloaded.')
+  }
+
+  return data
 }

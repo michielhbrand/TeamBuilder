@@ -167,8 +167,8 @@ Use `AuthShell` for `/` and `/set-password`.
 
 Use `AppShell` for `/overview`, `/boards`, `/boards/:boardId`, and `/account`.
 
-- `app-topbar` with `BrandMark context="Hiring workspace"`, the Overview / Boards / Account
-  navigation, `ThemeToggle`, and the avatar account menu.
+- `app-topbar` with `BrandMark context="Recruitment platform"`, the Overview / Boards /
+  Account navigation, `ThemeToggle`, and the avatar account menu.
 - Eyebrow plus display title, one paragraph, and the page-level action.
 - The Overview page has a four-card stat row, an attention panel, and a department-load
   panel. Both panels become one column at `1024px`.
@@ -188,27 +188,30 @@ that prototype's palette, gradients, or Bricolage/Hanken fonts.
   active candidates, deadline, and a pipeline bar.
 - `/boards/:boardId` gives the step-column pipeline the full content width. A compact
   board-switcher button in the page header opens a searchable, department-grouped menu for
-  changing roles, paired with Previous / Next controls. At `1024px` the header stacks and
-  the switcher spans the available width.
+  changing roles. At `1024px` the header stacks and the switcher spans the available width.
+  Edit, Columns, and Add applicant are equal-sized icon-only buttons.
 - Step columns are a horizontal grid with a numbered step header, candidate count, and
   candidate cards. Columns use the surface-2 fill and hairline dividers. There are no
   per-step target days.
 - Candidate cards use a 12 px radius, a token-only initials avatar, current role, time in
-  step, and the primary advance/hire action. Move and reject actions sit in a disclosure.
+  step, a favourite star in the top-right corner, and persistent Hire and Reject actions.
+  Chevron-left and chevron-right buttons beside the Hire and Reject actions move the
+  candidate one column without opening the profile.
 - Clicking a candidate card opens a right-side applicant drawer at roughly half the viewport
   width. It uses the surface, hairline, and field tokens, with an editable basic-information
-  form, a star favourite toggle, and separate auto-growing textareas for career and work
-  experience. The drawer becomes full width at `720px`.
+  form, a star favourite toggle, separate auto-growing textareas for career and work
+  experience, and a single PDF CV document. The drawer becomes full width at `720px`.
 - Candidate cards can be dragged one step left or right. While a card is held, only the
-  adjacent columns highlight with the accent token and accept the drop. The dragged card
-  fades its content but keeps its outline, and lifts and settles with a short transition.
-  Cards in the first and final steps can still move in the available direction.
+  adjacent columns highlight with the accent token and accept the drop. The card in flight
+  keeps full opacity and uses an accent border ring. Cards in the first and final steps can
+  still move in the available direction.
 - Boards past their deadline use the danger token on the card label and in overview
   attention rows. Never rely on color alone; the copy says "Past deadline".
 - The closed-candidates disclosure uses two columns for hired and rejected, with a reopen
-  action. It stacks at `720px`.
-- Keyboard support mirrors the concept: `/` focuses board search, and `[` / `]` move to the
-  previous or next board.
+  action. It stacks at `720px`. Hiring or rejecting a candidate removes the card from the
+  step columns and adds the name to the matching closed column.
+- Keyboard support mirrors the concept: `/` focuses board search. The applicant drawer CV
+  preview supports back, open in a new tab, and print controls.
 
 ## Components
 
@@ -224,9 +227,10 @@ that prototype's palette, gradients, or Bricolage/Hanken fonts.
 ### Theme toggle
 
 - Use `ThemeToggle.vue`.
-- Render an outlined primary `v-btn` with `mdi-weather-sunny` or `mdi-weather-night`.
+- Render an outlined primary circular `v-btn` with `mdi-weather-sunny` or
+  `mdi-weather-night`.
 - Toggle with `theme.change` between `orbitalLight` and `orbitalDark`.
-- The control is `44px` and uses a dynamic accessible label.
+- The control matches the `38px` avatar circle and uses a dynamic accessible label.
 - The default is light; the button switches to dark mode.
 
 ### Fields
@@ -293,13 +297,17 @@ class. Keep the rules attached to the field.
 - The drawer is backed by Postgres. The note at the end tells the user that changes save
   automatically, and a destructive text button opens `ConfirmDialog` before deleting the
   applicant.
+- Each applicant can have one PDF CV stored in the private `cvs` Supabase Storage bucket.
+  Upload is limited to PDF files up to `10 MB`; remove is available from the profile. The
+  inline preview replaces the profile body with a back button, an open-in-new-tab button,
+  and a print button. Deleting the applicant or its board removes the stored CV.
 
 ### Brand, avatar, and status
 
 - `BrandMark` is the only application identity lockup. It combines the accent square, the
   `mdi-google-analytics` icon, `TeamBuilder`, and an uppercase mono context line. The browser
   favicon uses the same icon on an accent square.
-- Use `Identity console` on auth pages and `Hiring workspace` on protected pages.
+- Use `Identity console` on auth pages and `Recruitment platform` on protected pages.
 - The avatar is a `38px` accent-soft circle with two initials. It is decorative; never make
   it the only way to identify the account.
 - Session status belongs in the top bar and in the session panel. The labels are
