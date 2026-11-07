@@ -1536,6 +1536,10 @@ body {
   font-weight: 700;
 }
 
+.candidate-action--hire.v-btn {
+  border-color: var(--orbital-signal);
+}
+
 .candidate-action--reject.v-btn {
   border-color: var(--orbital-danger);
 }

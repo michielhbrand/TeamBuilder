@@ -223,7 +223,7 @@ onBeforeUnmount(() => {
         </div>
       </div>
 
-      <details class="closed-panel">
+      <details class="closed-panel" open>
         <summary>
           Closed candidates. {{ hired.length }} hired, {{ rejected.length }} rejected.
         </summary>
