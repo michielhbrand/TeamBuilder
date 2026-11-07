@@ -162,15 +162,26 @@ export const useBoardsStore = defineStore('boards', () => {
 
   async function deleteBoard(id: string): Promise<boolean> {
     error.value = null
+    const board = boardById(id)
     const cvPaths =
-      boardById(id)
-        ?.candidates.map((candidate) => candidate.cvPath)
+      board?.candidates
+        .map((candidate) => candidate.cvPath)
         .filter((path): path is string => Boolean(path)) ?? []
+    const jobSpecPath = board?.jobSpecPath ?? null
 
     try {
       await api.deleteBoard(id)
-      boards.value = boards.value.filter((board) => board.id !== id)
+      boards.value = boards.value.filter((item) => item.id !== id)
       await removeCvObjects(cvPaths)
+
+      if (jobSpecPath) {
+        try {
+          await api.deleteBoardJobSpec(jobSpecPath)
+        } catch {
+          // The board is already deleted; a missing object is not actionable here.
+        }
+      }
+
       return true
     } catch (caught) {
       error.value = errorMessage(caught)
@@ -420,6 +431,69 @@ export const useBoardsStore = defineStore('boards', () => {
     }
   }
 
+  async function uploadJobSpec(boardId: string, file: File): Promise<boolean> {
+    error.value = null
+    const board = boardById(boardId)
+
+    if (!board) {
+      return false
+    }
+
+    try {
+      const uploaded = await api.uploadBoardJobSpec(boardId, file)
+      await api.updateBoardJobSpec(boardId, uploaded.path, uploaded.name)
+      board.jobSpecPath = uploaded.path
+      board.jobSpecName = uploaded.name
+      return true
+    } catch (caught) {
+      error.value = errorMessage(caught)
+      return false
+    }
+  }
+
+  async function removeJobSpec(boardId: string): Promise<boolean> {
+    error.value = null
+    const board = boardById(boardId)
+    const path = board?.jobSpecPath
+
+    if (!board || !path) {
+      return false
+    }
+
+    try {
+      await api.deleteBoardJobSpec(path)
+      await api.updateBoardJobSpec(boardId, null, null)
+      board.jobSpecPath = null
+      board.jobSpecName = null
+      return true
+    } catch (caught) {
+      error.value = errorMessage(caught)
+      return false
+    }
+  }
+
+  async function jobSpecSignedUrl(path: string): Promise<string | undefined> {
+    error.value = null
+
+    try {
+      return await api.createBoardJobSpecUrl(path)
+    } catch (caught) {
+      error.value = errorMessage(caught)
+      return undefined
+    }
+  }
+
+  async function jobSpecBlob(path: string): Promise<Blob | undefined> {
+    error.value = null
+
+    try {
+      return await api.downloadBoardJobSpec(path)
+    } catch (caught) {
+      error.value = errorMessage(caught)
+      return undefined
+    }
+  }
+
   function updateCandidateField(
     candidateId: string,
     field: EditableCandidateField,
@@ -593,6 +667,10 @@ export const useBoardsStore = defineStore('boards', () => {
     removeCv,
     cvSignedUrl,
     cvBlob,
+    uploadJobSpec,
+    removeJobSpec,
+    jobSpecSignedUrl,
+    jobSpecBlob,
     updateCandidateField,
     toggleFavorite,
     advanceCandidate,

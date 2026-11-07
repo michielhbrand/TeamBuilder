@@ -37,6 +37,7 @@ scale, Orbital can read as a generic SaaS theme. Use the motif and the tokens de
 | Board column        | `src/components/BoardColumn.vue`           |
 | Candidate card      | `src/components/CandidateCard.vue`         |
 | Applicant drawer    | `src/components/ApplicantDrawer.vue`       |
+| Job spec dialog     | `src/components/JobSpecDialog.vue`         |
 | Confirmation dialog | `src/components/ConfirmDialog.vue`         |
 | Progress bar        | `src/components/PipelineBar.vue`           |
 | Theme toggle        | `src/components/ThemeToggle.vue`           |
@@ -189,7 +190,8 @@ that prototype's palette, gradients, or Bricolage/Hanken fonts.
 - `/boards/:boardId` gives the step-column pipeline the full content width. A compact
   board-switcher button in the page header opens a searchable, department-grouped menu for
   changing roles. At `1024px` the header stacks and the switcher spans the available width.
-  Edit, Columns, and Add applicant are equal-sized icon-only buttons.
+  Edit, Columns, Job spec, and Add applicant are equal-sized icon-only buttons. The Job spec
+  button opens the upload state when the board has no PDF and the preview state when it does.
 - Step columns are a horizontal grid with a numbered step header, candidate count, and
   candidate cards. Columns use the surface-2 fill and hairline dividers. There are no
   per-step target days.
@@ -211,7 +213,7 @@ that prototype's palette, gradients, or Bricolage/Hanken fonts.
   action. It stacks at `720px`. Hiring or rejecting a candidate removes the card from the
   step columns and adds the name to the matching closed column.
 - Keyboard support mirrors the concept: `/` focuses board search. The applicant drawer CV
-  preview supports back, open in a new tab, and print controls.
+  preview and the job spec preview support open in a new tab, print, and remove controls.
 
 ## Components
 
@@ -282,6 +284,10 @@ class. Keep the rules attached to the field.
 - `ColumnDialog` uses `.column-manage__row` for ordered name fields with move up, move down,
   and delete actions. Column names save automatically, and the first column cannot be moved
   or deleted.
+- `JobSpecDialog` is a single adaptive dialog. Without a PDF it shows the `.job-spec-empty`
+  upload state. With a PDF it expands to a document preview with open-in-new-tab, print, and
+  remove actions; remove opens `ConfirmDialog`. The preview reuses the CV toolbar and iframe
+  classes.
 
 ### Applicant drawer
 
@@ -301,6 +307,9 @@ class. Keep the rules attached to the field.
   Upload is limited to PDF files up to `10 MB`; remove is available from the profile. The
   inline preview replaces the profile body with a back button, an open-in-new-tab button,
   and a print button. Deleting the applicant or its board removes the stored CV.
+- Every PDF upload passes through the browser compressor in `src/lib/pdf.ts` before it
+  reaches Supabase. It re-encodes embedded images, preserves selectable text, and never
+  returns a larger file.
 
 ### Brand, avatar, and status
 

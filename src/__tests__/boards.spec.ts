@@ -14,6 +14,15 @@ const mocks = vi.hoisted(() => ({
   createApplicant: vi.fn<(...args: unknown[]) => unknown>(),
   updateApplicant: vi.fn<(...args: unknown[]) => unknown>(),
   deleteApplicant: vi.fn<(...args: unknown[]) => unknown>(),
+  uploadApplicantCv: vi.fn<(...args: unknown[]) => unknown>(),
+  deleteApplicantCv: vi.fn<(...args: unknown[]) => unknown>(),
+  createApplicantCvUrl: vi.fn<(...args: unknown[]) => unknown>(),
+  downloadApplicantCv: vi.fn<(...args: unknown[]) => unknown>(),
+  uploadBoardJobSpec: vi.fn<(...args: unknown[]) => unknown>(),
+  updateBoardJobSpec: vi.fn<(...args: unknown[]) => unknown>(),
+  deleteBoardJobSpec: vi.fn<(...args: unknown[]) => unknown>(),
+  createBoardJobSpecUrl: vi.fn<(...args: unknown[]) => unknown>(),
+  downloadBoardJobSpec: vi.fn<(...args: unknown[]) => unknown>(),
 }))
 
 vi.mock('@/lib/boards-api', () => mocks)
@@ -226,6 +235,55 @@ describe('boards store', () => {
     expect(deleted).toBe(true)
     expect(mocks.deleteBoard).toHaveBeenCalledExactlyOnceWith(board.id)
     expect(store.boards).toEqual([])
+  })
+
+  it('uploads and removes a board job spec', async () => {
+    const store = await initializedStore()
+    const board = store.boards[0]
+
+    expect(board).toBeDefined()
+    if (!board) return
+
+    mocks.uploadBoardJobSpec.mockResolvedValue({
+      path: 'b1/job-spec.pdf',
+      name: 'Role.pdf',
+    })
+    mocks.updateBoardJobSpec.mockResolvedValue(undefined)
+    mocks.deleteBoardJobSpec.mockResolvedValue(undefined)
+
+    const uploaded = await store.uploadJobSpec(
+      board.id,
+      new File(['pdf'], 'Role.pdf', { type: 'application/pdf' }),
+    )
+
+    expect(uploaded).toBe(true)
+    expect(mocks.uploadBoardJobSpec).toHaveBeenCalledWith(board.id, expect.any(File))
+    expect(mocks.updateBoardJobSpec).toHaveBeenCalledWith(board.id, 'b1/job-spec.pdf', 'Role.pdf')
+    expect(board.jobSpecPath).toBe('b1/job-spec.pdf')
+    expect(board.jobSpecName).toBe('Role.pdf')
+
+    const removed = await store.removeJobSpec(board.id)
+
+    expect(removed).toBe(true)
+    expect(mocks.deleteBoardJobSpec).toHaveBeenCalledWith('b1/job-spec.pdf')
+    expect(mocks.updateBoardJobSpec).toHaveBeenLastCalledWith(board.id, null, null)
+    expect(board.jobSpecPath).toBeNull()
+  })
+
+  it('removes the job spec object when deleting a board', async () => {
+    mocks.fetchBoards.mockResolvedValue([makeBoard({ jobSpecPath: 'b1/job-spec.pdf' })])
+    const store = await initializedStore()
+    const board = store.boards[0]
+
+    expect(board).toBeDefined()
+    if (!board) return
+
+    mocks.deleteBoardJobSpec.mockResolvedValue(undefined)
+
+    const deleted = await store.deleteBoard(board.id)
+
+    expect(deleted).toBe(true)
+    expect(mocks.deleteBoardJobSpec).toHaveBeenCalledWith('b1/job-spec.pdf')
   })
 
   it('adds a new column at the end of the board', async () => {

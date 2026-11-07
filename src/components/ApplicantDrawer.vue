@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
+import { printPdfBlob } from '@/lib/pdf'
 import { initials as getInitials } from '@/lib/pipeline'
 import { isValidEmail, isValidPhone } from '@/lib/validation'
 import { useBoardsStore, type EditableCandidateField } from '@/stores/boards'
@@ -221,19 +222,7 @@ async function printCv(): Promise<void> {
     return
   }
 
-  const url = URL.createObjectURL(blob)
-  const frame = document.createElement('iframe')
-  frame.style.cssText = 'position: fixed; right: 0; bottom: 0; width: 0; height: 0; border: 0;'
-  frame.src = url
-  frame.onload = () => {
-    frame.contentWindow?.focus()
-    frame.contentWindow?.print()
-    window.setTimeout(() => {
-      frame.remove()
-      URL.revokeObjectURL(url)
-    }, 60_000)
-  }
-  document.body.appendChild(frame)
+  printPdfBlob(blob)
 }
 
 function setPageScrollLocked(locked: boolean): void {
@@ -434,7 +423,10 @@ onBeforeUnmount(() => setPageScrollLocked(false))
             </div>
 
             <template v-else>
-              <p class="applicant-cv-hint">Upload one PDF CV for this applicant.</p>
+              <p class="applicant-cv-hint">
+                Upload one PDF CV for this applicant. PDFs are compressed in your browser before
+                upload.
+              </p>
               <v-btn
                 color="primary"
                 variant="outlined"

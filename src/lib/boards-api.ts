@@ -1,3 +1,4 @@
+import { compressPdfForUpload, isPdfFile, PDF_MAX_BYTES } from '@/lib/pdf'
 import { supabase } from '@/lib/supabase'
 import type {
   Board,
@@ -14,6 +15,8 @@ interface BoardRow {
   department: string
   open_positions: number
   deadline: string
+  job_spec_path: string | null
+  job_spec_name: string | null
   board_columns: ColumnRow[] | null
   applicants: ApplicantRow[] | null
 }
@@ -59,7 +62,7 @@ export interface ApplicantPatch {
 }
 
 export const CV_BUCKET = 'cvs'
-const CV_MAX_BYTES = 10 * 1024 * 1024
+export const JOB_SPEC_BUCKET = 'job-specs'
 
 const BOARD_SELECT = `
   id,
@@ -67,6 +70,8 @@ const BOARD_SELECT = `
   department,
   open_positions,
   deadline,
+  job_spec_path,
+  job_spec_name,
   board_columns ( id, board_id, name, position ),
   applicants (
     id,
@@ -136,6 +141,8 @@ function mapBoard(row: BoardRow): Board {
     deadline: row.deadline,
     steps,
     candidates,
+    jobSpecPath: row.job_spec_path,
+    jobSpecName: row.job_spec_name,
   }
 }
 
@@ -310,6 +317,24 @@ export async function deleteApplicant(id: string): Promise<void> {
   fail(error)
 }
 
+async function preparePdf(file: File, label: string): Promise<File> {
+  if (!isPdfFile(file)) {
+    throw new Error(`${label} must be a PDF file.`)
+  }
+
+  if (file.size > PDF_MAX_BYTES) {
+    throw new Error(`${label} must be smaller than 10 MB.`)
+  }
+
+  const compressed = await compressPdfForUpload(file)
+
+  if (compressed.size > PDF_MAX_BYTES) {
+    throw new Error(`${label} must be smaller than 10 MB after compression.`)
+  }
+
+  return compressed
+}
+
 export function applicantCvPath(id: string): string {
   return `${id}/cv.pdf`
 }
@@ -318,16 +343,9 @@ export async function uploadApplicantCv(
   id: string,
   file: File,
 ): Promise<{ path: string; name: string }> {
-  if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
-    throw new Error('The CV must be a PDF file.')
-  }
-
-  if (file.size > CV_MAX_BYTES) {
-    throw new Error('The CV must be smaller than 10 MB.')
-  }
-
+  const prepared = await preparePdf(file, 'The CV')
   const path = applicantCvPath(id)
-  const { error } = await supabase.storage.from(CV_BUCKET).upload(path, file, {
+  const { error } = await supabase.storage.from(CV_BUCKET).upload(path, prepared, {
     contentType: 'application/pdf',
     upsert: true,
   })
@@ -359,6 +377,69 @@ export async function downloadApplicantCv(path: string): Promise<Blob> {
 
   if (!data) {
     throw new Error('The CV could not be downloaded.')
+  }
+
+  return data
+}
+
+export function boardJobSpecPath(id: string): string {
+  return `${id}/job-spec.pdf`
+}
+
+export async function uploadBoardJobSpec(
+  boardId: string,
+  file: File,
+): Promise<{ path: string; name: string }> {
+  const prepared = await preparePdf(file, 'The job spec')
+  const path = boardJobSpecPath(boardId)
+  const { error } = await supabase.storage.from(JOB_SPEC_BUCKET).upload(path, prepared, {
+    contentType: 'application/pdf',
+    upsert: true,
+  })
+
+  fail(error)
+
+  return { path, name: file.name }
+}
+
+export async function updateBoardJobSpec(
+  id: string,
+  path: string | null,
+  name: string | null,
+): Promise<void> {
+  const { error } = await supabase
+    .from('boards')
+    .update({ job_spec_path: path, job_spec_name: name })
+    .eq('id', id)
+
+  fail(error)
+}
+
+export async function deleteBoardJobSpec(path: string): Promise<void> {
+  const { error } = await supabase.storage.from(JOB_SPEC_BUCKET).remove([path])
+  fail(error)
+}
+
+export async function createBoardJobSpecUrl(path: string, expiresIn = 3600): Promise<string> {
+  const { data, error } = await supabase.storage
+    .from(JOB_SPEC_BUCKET)
+    .createSignedUrl(path, expiresIn)
+
+  fail(error)
+
+  if (!data?.signedUrl) {
+    throw new Error('The job spec link could not be created.')
+  }
+
+  return data.signedUrl
+}
+
+export async function downloadBoardJobSpec(path: string): Promise<Blob> {
+  const { data, error } = await supabase.storage.from(JOB_SPEC_BUCKET).download(path)
+  fail(error)
+
+  if (!data) {
+    throw new Error('The job spec could not be downloaded.')
   }
 
   return data

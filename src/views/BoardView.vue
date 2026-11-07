@@ -8,6 +8,7 @@ import BoardColumn from '@/components/BoardColumn.vue'
 import BoardFormDialog from '@/components/BoardFormDialog.vue'
 import BoardSwitcher from '@/components/BoardSwitcher.vue'
 import ColumnDialog from '@/components/ColumnDialog.vue'
+import JobSpecDialog from '@/components/JobSpecDialog.vue'
 import {
   candidatesInStep,
   closedCandidates,
@@ -30,6 +31,7 @@ const profileCandidateId = ref<string | null>(null)
 const profileOpen = ref(false)
 const editOpen = ref(false)
 const columnsOpen = ref(false)
+const jobSpecOpen = ref(false)
 const applicantOpen = ref(false)
 let settleTimer: ReturnType<typeof setTimeout> | undefined
 
@@ -179,6 +181,14 @@ onBeforeUnmount(() => {
             />
             <v-btn
               class="board-icon-btn"
+              icon="mdi-file-document-outline"
+              variant="outlined"
+              aria-label="Job spec"
+              title="Job spec"
+              @click="jobSpecOpen = true"
+            />
+            <v-btn
+              class="board-icon-btn"
               color="primary"
               icon="mdi-account-plus-outline"
               aria-label="Add applicant"
@@ -262,6 +272,7 @@ onBeforeUnmount(() => {
 
     <BoardFormDialog v-model="editOpen" :board="board" @deleted="onBoardDeleted" />
     <ColumnDialog v-model="columnsOpen" :board="board" />
+    <JobSpecDialog v-model="jobSpecOpen" :board="board" />
     <ApplicantFormDialog v-model="applicantOpen" :board="board" />
     <ApplicantDrawer v-model="profileOpen" :candidate-id="profileCandidateId" />
   </AppShell>

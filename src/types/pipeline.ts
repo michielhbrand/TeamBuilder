@@ -44,6 +44,8 @@ export interface Board {
   deadline: string
   steps: PipelineStep[]
   candidates: Candidate[]
+  jobSpecPath?: string | null
+  jobSpecName?: string | null
 }
 
 export interface StepCount {

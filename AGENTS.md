@@ -85,7 +85,10 @@ npm run build
 - `src/components/CandidateCard.vue` — candidate summary and pipeline actions.
 - `src/components/ApplicantDrawer.vue` — right-side editable applicant profile with favourite,
   education, and work-experience notes.
+- `src/components/JobSpecDialog.vue` — upload, preview, print, open, and remove a board's PDF
+  job spec.
 - `src/components/ConfirmDialog.vue` — shared destructive-action confirmation dialog.
+- `src/lib/pdf.ts` — shared PDF validation, client-side compression, and print helpers.
 - `src/components/PipelineBar.vue` — per-step candidate progress bar.
 - `src/views/LoginView.vue` — login form and validation.
 - `src/views/SetPasswordView.vue` — invite and password update form.
@@ -164,8 +167,13 @@ See `docs/ARCHITECTURE.md` for the auth lifecycle and deployment pipeline.
 - Keep the cloud Site URL aligned with the Pages origin so invite links return to the app.
   Local invitations use `supabase/config.toml` and Mailpit at `http://localhost:54324`.
 - Applicant CVs use the private Supabase Storage bucket `cvs` (one PDF per applicant,
-  `<applicant-id>/cv.pdf`). Keep storage policies limited to `authenticated`, validate PDF
-  uploads client-side, and remove the object when its applicant or board is deleted.
+  `<applicant-id>/cv.pdf`). Board job specs use the private `job-specs` bucket at
+  `<board-id>/job-spec.pdf`. Keep storage policies limited to `authenticated`, validate PDF
+  uploads client-side, and remove the object when its applicant, board, or job spec is
+  deleted.
+- PDF uploads pass through the browser compressor in `src/lib/pdf.ts` before reaching
+  Supabase. The compressor re-encodes embedded images only, so text stays selectable and
+  files never grow. Keep the same helper for new PDF upload paths.
 - Board data uses `public.boards`, `public.board_columns`, and `public.applicants`. Board
   names are unique within a department; applicant email and phone are optional and unique
   per board only when filled. New applicants default to the `Applied` column. If you

@@ -110,7 +110,7 @@ without them. It also rejects a `sb_secret_` key defensively.
 The schema lives in `supabase/migrations/`:
 
 - `public.boards` — free-text department, name unique per department, open positions,
-  deadline, timestamps.
+  deadline, job spec path and filename, timestamps.
 - `public.board_columns` — board, unique name per board, ordered `position`.
 - `public.applicants` — board, assigned column, contact details, current role, free-text
   education and work experience, favourite flag, status, CV path and filename, `applied_at`,
@@ -130,9 +130,17 @@ applicant is permanent.
 
 Applicant CVs use the private Supabase Storage bucket `cvs`. One PDF per applicant is stored
 at `<applicant-id>/cv.pdf`; the `applicants.cv_path` and `applicants.cv_name` columns hold the
-object reference and original filename. Storage policies allow the `authenticated` role only.
-The store removes the stored object when the CV is deleted, the applicant is deleted, or the
-board is deleted.
+object reference and original filename. Board job specs use the private `job-specs` bucket at
+`<board-id>/job-spec.pdf`; the `boards.job_spec_path` and `boards.job_spec_name` columns hold
+the reference and original filename. Storage policies allow the `authenticated` role only.
+The store removes stored objects when a CV, job spec, applicant, or board is deleted.
+
+Every PDF upload passes through the browser compressor in `src/lib/pdf.ts` before it reaches
+Supabase. The compressor re-encodes embedded raster images with the browser canvas JPEG
+encoder and rewrites the PDF with compact object streams. Text, fonts, and vector drawing are
+untouched, tiny files are skipped, and the original file is kept when compression does not
+make it smaller. This reduces storage for scanned CVs and job specs without adding a server
+or Edge Function.
 
 RLS is enabled on all three tables. Table privileges are explicitly granted to
 `authenticated` and revoked from `anon`; RLS policies then grant `select`, `insert`,
