@@ -299,14 +299,18 @@ export const useBoardsStore = defineStore('boards', () => {
     }
   }
 
-  async function createApplicant(boardId: string, input: ApplicantInput): Promise<boolean> {
+  async function createApplicant(
+    boardId: string,
+    input: ApplicantInput,
+    cvFile?: File | null,
+  ): Promise<Candidate | null> {
     error.value = null
     const board = boardById(boardId)
     const defaultStep = board ? defaultApplicantStep(board) : undefined
 
     if (!board || !defaultStep) {
       error.value = 'Add a column to this board before creating an applicant.'
-      return false
+      return null
     }
 
     const stepId =
@@ -324,10 +328,15 @@ export const useBoardsStore = defineStore('boards', () => {
         experience: input.experience ?? '',
       })
       board.candidates = [...board.candidates, candidate]
-      return true
+
+      if (cvFile) {
+        await uploadCv(candidate.id, cvFile)
+      }
+
+      return candidate
     } catch (caught) {
       error.value = errorMessage(caught)
-      return false
+      return null
     }
   }
 

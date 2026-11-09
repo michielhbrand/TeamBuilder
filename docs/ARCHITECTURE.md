@@ -142,6 +142,31 @@ untouched, tiny files are skipped, and the original file is kept when compressio
 make it smaller. This reduces storage for scanned CVs and job specs without adding a server
 or Edge Function.
 
+### Applicant CV import
+
+`src/lib/resume-import.ts` fills the add-applicant form locally; no CV data is sent to a
+third party. It extracts each PDF page's text layer with `pdfjs-dist`, then applies
+heuristics for name, email, phone, current role, education, and work experience. Names are
+title-cased and emails are lowercased. Education and experience are grouped into entries
+with a title, date range, and details, separated by blank lines, plus a short summary of the
+highest qualification or total industry experience. Section headings such as achievements,
+certifications, and skills stop education and experience extraction. Extracted values
+populate the form immediately but remain editable and are marked as auto-filled.
+
+Pages with little or no text are treated as scanned. When key fields are still missing, the
+importer lazy-loads Tesseract.js (`eng`) and OCRs at most the first three scanned pages,
+starting with page one. OCR runs in a Web Worker with one page rendered at a time, reports
+progress, and can be cancelled from the dialog. Page text is cached in IndexedDB by file
+hash so re-importing the same CV is instant. OCR assets are self-hosted under `public/ocr/`;
+`scripts/copy-ocr-assets.mjs` copies the pinned worker, LSTM WASM cores, and English
+traineddata from `node_modules` during `predev` and `prebuild`. Generated assets are ignored
+by git.
+
+The CV selected during creation is uploaded after the applicant row exists. If the upload
+fails, the applicant is still created and the board shows the store error; the CV can be
+retried from the applicant drawer. LinkedIn URL scraping is intentionally not supported:
+LinkedIn blocks automated access, prohibits scraping, and has no free reliable profile API.
+
 RLS is enabled on all three tables. Table privileges are explicitly granted to
 `authenticated` and revoked from `anon`; RLS policies then grant `select`, `insert`,
 `update`, and `delete` to `authenticated`. RLS alone is not sufficient because PostgREST

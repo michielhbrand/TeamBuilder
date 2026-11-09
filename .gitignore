@@ -46,3 +46,6 @@ __screenshots__/
 
 # Vite
 *.timestamp-*-*.mjs
+
+# Generated OCR assets
+public/ocr/

@@ -328,7 +328,7 @@ describe('boards store', () => {
       stepId: 's2',
     })
 
-    expect(added).toBe(true)
+    expect(added).toEqual(created)
     expect(mocks.createApplicant).toHaveBeenCalledWith(
       board.id,
       's2',
@@ -341,6 +341,37 @@ describe('boards store', () => {
     expect(removed).toBe(true)
     expect(mocks.deleteApplicant).toHaveBeenCalledWith('c2')
     expect(store.candidateById('c2')).toBeUndefined()
+  })
+
+  it('uploads a CV when one is supplied at creation', async () => {
+    const store = await initializedStore()
+    const board = store.boards[0]
+
+    expect(board).toBeDefined()
+    if (!board) return
+
+    const created = makeCandidate({ id: 'c3', name: 'Noor Haddad' })
+    const cv = new File([new Uint8Array([1, 2, 3])], 'noor-cv.pdf', {
+      type: 'application/pdf',
+    })
+
+    mocks.createApplicant.mockResolvedValue(created)
+    mocks.uploadApplicantCv.mockResolvedValue({ path: 'c3/cv.pdf', name: 'noor-cv.pdf' })
+
+    const added = await store.createApplicant(
+      board.id,
+      {
+        name: 'Noor Haddad',
+        email: '',
+        phone: '',
+      },
+      cv,
+    )
+
+    expect(added).toEqual(created)
+    expect(mocks.uploadApplicantCv).toHaveBeenCalledWith('c3', cv)
+    expect(store.candidateById('c3')?.cvPath).toBe('c3/cv.pdf')
+    expect(store.candidateById('c3')?.cvName).toBe('noor-cv.pdf')
   })
 
   it('defaults new applicants to the Applied column', async () => {

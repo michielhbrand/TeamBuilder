@@ -289,6 +289,18 @@ class. Keep the rules attached to the field.
   remove actions; remove opens `ConfirmDialog`. The preview reuses the CV toolbar and iframe
   classes.
 
+### Add applicant and CV import
+
+- `ApplicantFormDialog` uses the shared `.orbital-dialog` shell and `.orbital-field`
+  treatment. Above the fields, keep the `.applicant-import` quick-fill panel with an upload
+  action, selected filename, progress line, and cancel action.
+- Auto-filled fields receive `.orbital-field--autofilled`. The treatment uses the accent and
+  accent-soft tokens. A manual edit removes the marker; do not use an icon, separate color,
+  or badge.
+- OCR progress must never block manual entry. Keep the form editable while recognition runs
+  and allow submit; submitting cancels OCR and uses the current values.
+- Keep copy direct: the CV fills what it can, and every field remains editable.
+
 ### Applicant drawer
 
 - Use `ApplicantDrawer.vue` from `BoardView`; it is a temporary `v-navigation-drawer` on the

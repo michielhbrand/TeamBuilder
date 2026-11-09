@@ -79,7 +79,8 @@ npm run build
 - `src/components/BoardList.vue` — searchable boards grouped by department.
 - `src/components/BoardFormDialog.vue` — create and edit board fields.
 - `src/components/ColumnDialog.vue` — add, rename, reorder, and delete pipeline columns.
-- `src/components/ApplicantFormDialog.vue` — create an applicant on a board.
+- `src/components/ApplicantFormDialog.vue` — create an applicant on a board, with optional
+  PDF CV autofill and CV attachment.
 - `src/components/BoardSwitcher.vue` — compact header menu for switching between role boards.
 - `src/components/BoardColumn.vue` — one pipeline step column.
 - `src/components/CandidateCard.vue` — candidate summary and pipeline actions.
@@ -89,6 +90,8 @@ npm run build
   job spec.
 - `src/components/ConfirmDialog.vue` — shared destructive-action confirmation dialog.
 - `src/lib/pdf.ts` — shared PDF validation, client-side compression, and print helpers.
+- `src/lib/resume-import.ts` — local PDF text extraction, applicant heuristics, and lazy
+  Tesseract OCR for scanned pages.
 - `src/components/PipelineBar.vue` — per-step candidate progress bar.
 - `src/views/LoginView.vue` — login form and validation.
 - `src/views/SetPasswordView.vue` — invite and password update form.
@@ -174,6 +177,17 @@ See `docs/ARCHITECTURE.md` for the auth lifecycle and deployment pipeline.
 - PDF uploads pass through the browser compressor in `src/lib/pdf.ts` before reaching
   Supabase. The compressor re-encodes embedded images only, so text stays selectable and
   files never grow. Keep the same helper for new PDF upload paths.
+- Applicant CV autofill is entirely local. `src/lib/resume-import.ts` extracts the PDF text
+  layer first, then lazy-loads Tesseract OCR for scanned pages. OCR runs in a Web Worker,
+  processes at most three pages, is cancellable, and caches page text in IndexedDB. Parsed
+  names are title-cased, emails are lowercased, and education/experience entries are
+  formatted as title, date range, and details with blank lines and a summary. Stop those
+  sections at achievements, certifications, skills, and other headings. OCR assets are
+  generated into `public/ocr/` by `scripts/copy-ocr-assets.mjs` from `predev`/`prebuild`; do
+  not commit them.
+- Do not add LinkedIn or other third-party profile scraping. LinkedIn blocks automated
+  requests and prohibits scraping, and no free API is reliable. Profile data may only enter
+  through user-provided text or files.
 - Board data uses `public.boards`, `public.board_columns`, and `public.applicants`. Board
   names are unique within a department; applicant email and phone are optional and unique
   per board only when filled. New applicants default to the `Applied` column. If you
