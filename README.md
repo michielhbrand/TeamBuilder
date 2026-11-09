@@ -33,6 +33,8 @@ through Pinia.
 - Board creation and editing, including ordered pipeline columns
 - Applicant creation per board with a right-side editable profile, favourite toggle, and
   career / work-experience notes
+- An applicant Events tab with a timestamped audit trail for creation, profile edits, moves,
+  and hire/reject/reopen actions
 - Persisted candidate actions: advance, move, reject, hire, reopen, and delete
 - An account page with non-sensitive session details, full-name editing, and password reset
 - A blocking full-name prompt after sign-in when the profile has no name yet
@@ -87,9 +89,9 @@ directions.
    npm run supabase:push
    ```
 
-   The migrations create the `boards`, `board_columns`, and `applicants` tables, enable
-   Row Level Security, add authenticated-user policies, and explicitly grant table
-   privileges to `authenticated` while revoking them from `anon`.
+   The migrations create the `boards`, `board_columns`, `applicants`, and
+   `applicant_events` tables, enable Row Level Security, add authenticated-user policies,
+   and explicitly grant table privileges to `authenticated` while revoking them from `anon`.
 
 6. In **Authentication → Users**, either add a demo user with auto-confirm enabled or use
    **Invite user** so the recipient chooses their own password.
@@ -290,8 +292,9 @@ src/
   lib/supabase.ts           Supabase client and environment validation
   lib/auth-link.ts          Detects invite/recovery links before Supabase consumes them
   lib/pipeline.ts           Pure pipeline helpers and summaries
+  lib/applicant-events.ts   Event message builders and timestamp formatting
   lib/validation.ts         Email and phone validation helpers
-  lib/boards-api.ts         Supabase reads/writes for boards, columns, and applicants
+  lib/boards-api.ts         Supabase reads/writes for boards, columns, applicants, and events
   stores/auth.ts            Session state, sign-in, sign-out, full name, password setup
   stores/boards.ts          Persisted boards, columns, applicants, and actions
   types/pipeline.ts         Board, step, candidate, and summary types
@@ -305,7 +308,7 @@ src/
   components/ApplicantFormDialog.vue Create an applicant on a board
   components/BoardColumn.vue One pipeline step column
   components/CandidateCard.vue Candidate summary and actions
-  components/ApplicantDrawer.vue Editable applicant profile and notes
+  components/ApplicantDrawer.vue Editable applicant profile, events, and notes
   components/FullNameDialog.vue Blocking full-name capture for signed-in users
   components/ConfirmDialog.vue Shared destructive-action confirmation
   components/PipelineBar.vue Per-step progress bar
@@ -334,12 +337,14 @@ docs/                       Architecture, design system, and decision records
   by this project.
 - Sessions are stored in browser storage by `@supabase/supabase-js`. Treat the app as
   vulnerable to XSS and keep dependencies and content secure.
-- Board data lives in `public.boards`, `public.board_columns`, and `public.applicants`.
-  Row Level Security restricts all access to authenticated users; every signed-in user shares
-  the same workspace. The anonymous role has no access.
-- Delete operations are permanent. Deleting a board cascades to its columns and applicants;
-  deleting an applicant removes the row; deleting a column reassigns its applicants to the
-  first column. The first column cannot be deleted or moved.
+- Board data lives in `public.boards`, `public.board_columns`, `public.applicants`, and
+  `public.applicant_events`. Row Level Security restricts all access to authenticated users;
+  every signed-in user shares the same workspace. The anonymous role has no access.
+- Applicant events are append-only audit records scoped to a board and applicant. Clients can
+  read and insert them, but cannot update or delete them directly.
+- Delete operations are permanent. Deleting a board cascades to its columns, applicants, and
+  their events; deleting an applicant removes the row and its events; deleting a column
+  reassigns its applicants to the first column. The first column cannot be deleted or moved.
 - Sign-ups are disabled. Administrators create accounts or send invitations from the
   Supabase dashboard or local Studio.
 

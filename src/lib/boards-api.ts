@@ -1,6 +1,8 @@
 import { compressPdfForUpload, isPdfFile, PDF_MAX_BYTES } from '@/lib/pdf'
 import { supabase } from '@/lib/supabase'
 import type {
+  ApplicantEvent,
+  ApplicantEventAction,
   Board,
   BoardInput,
   Candidate,
@@ -46,6 +48,16 @@ interface ApplicantRow {
   cv_name: string | null
 }
 
+interface ApplicantEventRow {
+  id: string
+  board_id: string
+  applicant_id: string
+  actor_name: string
+  action: string
+  message: string
+  created_at: string
+}
+
 export interface ApplicantPatch {
   name?: string
   email?: string
@@ -63,6 +75,16 @@ export interface ApplicantPatch {
 
 export const CV_BUCKET = 'cvs'
 export const JOB_SPEC_BUCKET = 'job-specs'
+
+const APPLICANT_EVENT_SELECT = `
+  id,
+  board_id,
+  applicant_id,
+  actor_name,
+  action,
+  message,
+  created_at
+`
 
 const BOARD_SELECT = `
   id,
@@ -123,6 +145,18 @@ function mapApplicant(row: ApplicantRow): Candidate {
     experience: row.experience,
     cvPath: row.cv_path,
     cvName: row.cv_name,
+  }
+}
+
+function mapApplicantEvent(row: ApplicantEventRow): ApplicantEvent {
+  return {
+    id: row.id,
+    boardId: row.board_id,
+    applicantId: row.applicant_id,
+    actorName: row.actor_name,
+    action: row.action as ApplicantEventAction,
+    message: row.message,
+    createdAt: row.created_at,
   }
 }
 
@@ -315,6 +349,50 @@ export async function updateApplicant(id: string, input: ApplicantPatch): Promis
 export async function deleteApplicant(id: string): Promise<void> {
   const { error } = await supabase.from('applicants').delete().eq('id', id)
   fail(error)
+}
+
+export async function fetchApplicantEvents(
+  boardId: string,
+  applicantId: string,
+): Promise<ApplicantEvent[]> {
+  const { data, error } = await supabase
+    .from('applicant_events')
+    .select(APPLICANT_EVENT_SELECT)
+    .eq('board_id', boardId)
+    .eq('applicant_id', applicantId)
+    .order('created_at', { ascending: false })
+
+  fail(error)
+
+  return ((data ?? []) as unknown as ApplicantEventRow[]).map(mapApplicantEvent)
+}
+
+export async function createApplicantEvent(input: {
+  boardId: string
+  applicantId: string
+  action: ApplicantEventAction
+  actorName: string
+  message: string
+}): Promise<ApplicantEvent> {
+  const { data, error } = await supabase
+    .from('applicant_events')
+    .insert({
+      board_id: input.boardId,
+      applicant_id: input.applicantId,
+      action: input.action,
+      actor_name: input.actorName,
+      message: input.message,
+    })
+    .select(APPLICANT_EVENT_SELECT)
+    .single()
+
+  fail(error)
+
+  if (!data) {
+    throw new Error('The event could not be recorded.')
+  }
+
+  return mapApplicantEvent(data as unknown as ApplicantEventRow)
 }
 
 async function preparePdf(file: File, label: string): Promise<File> {

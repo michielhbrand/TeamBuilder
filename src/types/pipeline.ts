@@ -92,3 +92,16 @@ export interface ApplicantInput {
   experience?: string
   stepId?: string
 }
+
+export type ApplicantEventAction =
+  'created' | 'moved' | 'edited' | 'hired' | 'rejected' | 'reopened'
+
+export interface ApplicantEvent {
+  id: string
+  boardId: string
+  applicantId: string
+  actorName: string
+  action: ApplicantEventAction
+  message: string
+  createdAt: string
+}

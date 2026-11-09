@@ -9,9 +9,10 @@ deployment, or UI behavior.
 TeamBuilder is a Vue 3 + Supabase hiring pipeline workspace. It is hosted on GitHub Pages
 and exists to demonstrate a login screen, admin invitations that let users choose a
 password, in-memory sessions, a protected hiring portal, and sign-out. The portal has an
-overview, role boards grouped by department, a step-column pipeline for each role, and an
-account page. Boards, pipeline columns, and applicants are stored in Supabase Postgres and
-loaded through Pinia. Keep it focused; do not add unrelated product features.
+overview, role boards grouped by department, a step-column pipeline for each role, an
+applicant audit trail, and an account page. Boards, pipeline columns, applicants, and their
+events are stored in Supabase Postgres and loaded through Pinia. Keep it focused; do not add
+unrelated product features.
 
 ## Commands
 
@@ -65,8 +66,10 @@ npm run build
   the URL.
 - `src/stores/auth.ts` — owns session state, initialization, sign-in, full-name capture,
   password setup, and sign-out.
-- `src/types/pipeline.ts` — board, step, candidate, and summary types.
-- `src/lib/boards-api.ts` — Supabase reads and writes for boards, columns, and applicants.
+- `src/types/pipeline.ts` — board, step, candidate, applicant event, and summary types.
+- `src/lib/boards-api.ts` — Supabase reads and writes for boards, columns, applicants, and
+  applicant events.
+- `src/lib/applicant-events.ts` — event message builders and timestamp formatting.
 - `src/lib/pipeline.ts` — pure pipeline helpers for steps, deadlines, summaries, and
   department grouping.
 - `src/lib/validation.ts` — shared email and phone validation helpers.
@@ -86,8 +89,8 @@ npm run build
 - `src/components/BoardSwitcher.vue` — compact header menu for switching between role boards.
 - `src/components/BoardColumn.vue` — one pipeline step column.
 - `src/components/CandidateCard.vue` — candidate summary and pipeline actions.
-- `src/components/ApplicantDrawer.vue` — right-side editable applicant profile with favourite,
-  education, and work-experience notes.
+- `src/components/ApplicantDrawer.vue` — right-side editable applicant profile with Details
+  and Events tabs, favourite, education, and work-experience notes.
 - `src/components/JobSpecDialog.vue` — upload, preview, print, open, and remove a board's PDF
   job spec.
 - `src/components/ConfirmDialog.vue` — shared destructive-action confirmation dialog.
@@ -127,9 +130,9 @@ See `docs/ARCHITECTURE.md` for the auth lifecycle and deployment pipeline.
   persisted in the tables created by `supabase/migrations/`.
 - Every signed-in user shares the same workspace. RLS policies allow the `authenticated`
   role only; do not grant board access to `anon`.
-- Deleting a board cascades to its columns and applicants. Deleting an applicant is
-  permanent. Deleting a column reassigns its applicants to the first column, which cannot be
-  deleted or moved.
+- Deleting a board cascades to its columns, applicants, and applicant events. Deleting an
+  applicant is permanent and also deletes its events. Deleting a column reassigns its
+  applicants to the first column, which cannot be deleted or moved.
 - Keep the Supabase client singleton in `src/lib/supabase.ts`.
 - Invite and recovery links arrive with a `type` in the URL hash or query. Preserve the
   detection in `src/lib/auth-link.ts`; do not let the login redirect bypass
@@ -199,6 +202,13 @@ See `docs/ARCHITECTURE.md` for the auth lifecycle and deployment pipeline.
   policies for the intended roles, explicitly grant table privileges to `authenticated`, and
   revoke them from `anon`. RLS does not replace table grants. Do not expose board data to
   `anon`.
+- Audit events use `public.applicant_events`, scoped by `(board_id, applicant_id)`. The
+  composite foreign key cascades from the applicant and board, so deleting either removes its
+  events permanently. Events are immutable: clients may select and insert, but there are no
+  update or delete policies. Insert `actor_name` from the signed-in user's full name and let
+  the `actor_id` default to `auth.uid()`. Record applicant creation, moves,
+  hire/reject/reopen status changes, and one edit event per profile drawer session when any
+  profile field changed.
 - Use the publishable key for client access. Never introduce a service-role client into the
   browser bundle.
 - Keep `supabase/config.toml` redirect URLs aligned with local and Pages origins.

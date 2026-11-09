@@ -2,6 +2,13 @@ import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import * as api from '@/lib/boards-api'
 import {
+  createdApplicantMessage,
+  DEFAULT_ACTOR_NAME,
+  editedProfileMessage,
+  movedCandidateMessage,
+  statusChangeMessage,
+} from '@/lib/applicant-events'
+import {
   defaultApplicantStep,
   flattenBoards,
   groupBoards,
@@ -10,6 +17,8 @@ import {
   summariseBoards,
 } from '@/lib/pipeline'
 import type {
+  ApplicantEvent,
+  ApplicantEventAction,
   ApplicantInput,
   Board,
   BoardInput,
@@ -26,6 +35,19 @@ interface CandidateContext {
 
 export type EditableCandidateField =
   'name' | 'email' | 'phone' | 'currentRole' | 'education' | 'experience'
+
+type ProfileSnapshot = Pick<
+  Candidate,
+  | 'name'
+  | 'email'
+  | 'phone'
+  | 'currentRole'
+  | 'education'
+  | 'experience'
+  | 'favorite'
+  | 'cvPath'
+  | 'cvName'
+>
 
 const SAVE_DELAY_MS = 500
 
@@ -72,7 +94,10 @@ export const useBoardsStore = defineStore('boards', () => {
   const loading = ref(false)
   const initialized = ref(false)
   const error = ref<string | null>(null)
+  const applicantEvents = ref<Record<string, ApplicantEvent[]>>({})
+  const applicantEventsLoading = ref<Record<string, boolean>>({})
   const saveTimers = new Map<string, ReturnType<typeof setTimeout>>()
+  const editSnapshots = new Map<string, ProfileSnapshot>()
 
   const groups = computed(() => groupBoards(boards.value))
   const orderedBoards = computed(() => flattenBoards(groups.value))
@@ -106,6 +131,110 @@ export const useBoardsStore = defineStore('boards', () => {
     }
 
     return undefined
+  }
+
+  function profileSnapshot(candidate: Candidate): ProfileSnapshot {
+    return {
+      name: candidate.name,
+      email: candidate.email,
+      phone: candidate.phone,
+      currentRole: candidate.currentRole,
+      education: candidate.education,
+      experience: candidate.experience,
+      favorite: candidate.favorite,
+      cvPath: candidate.cvPath ?? null,
+      cvName: candidate.cvName ?? null,
+    }
+  }
+
+  function profileChanged(snapshot: ProfileSnapshot, candidate: Candidate): boolean {
+    const current = profileSnapshot(candidate)
+    return (Object.keys(current) as Array<keyof ProfileSnapshot>).some(
+      (key) => current[key] !== snapshot[key],
+    )
+  }
+
+  function actorLabel(actorName: string): string {
+    return actorName.trim() || DEFAULT_ACTOR_NAME
+  }
+
+  function eventsFor(candidateId: string): ApplicantEvent[] {
+    return applicantEvents.value[candidateId] ?? []
+  }
+
+  function eventsLoadingFor(candidateId: string): boolean {
+    return Boolean(applicantEventsLoading.value[candidateId])
+  }
+
+  function setEventsLoading(candidateId: string, value: boolean): void {
+    applicantEventsLoading.value = { ...applicantEventsLoading.value, [candidateId]: value }
+  }
+
+  function forgetCandidateEvents(candidateId: string): void {
+    if (applicantEvents.value[candidateId]) {
+      const next = { ...applicantEvents.value }
+      delete next[candidateId]
+      applicantEvents.value = next
+    }
+
+    if (applicantEventsLoading.value[candidateId]) {
+      const next = { ...applicantEventsLoading.value }
+      delete next[candidateId]
+      applicantEventsLoading.value = next
+    }
+  }
+
+  async function recordApplicantEvent(
+    context: CandidateContext,
+    action: ApplicantEventAction,
+    message: string,
+    actorName: string,
+  ): Promise<void> {
+    try {
+      const event = await api.createApplicantEvent({
+        boardId: context.board.id,
+        applicantId: context.candidate.id,
+        action,
+        actorName: actorLabel(actorName),
+        message,
+      })
+
+      applicantEvents.value = {
+        ...applicantEvents.value,
+        [context.candidate.id]: [event, ...eventsFor(context.candidate.id)],
+      }
+    } catch (caught) {
+      error.value = errorMessage(caught)
+    }
+  }
+
+  function beginCandidateEdit(candidateId: string): void {
+    const context = candidateContext(candidateId)
+
+    if (context) {
+      editSnapshots.set(candidateId, profileSnapshot(context.candidate))
+    } else {
+      editSnapshots.delete(candidateId)
+    }
+  }
+
+  async function loadApplicantEvents(candidateId: string): Promise<void> {
+    const context = candidateContext(candidateId)
+
+    if (!context) {
+      return
+    }
+
+    setEventsLoading(candidateId, true)
+
+    try {
+      const events = await api.fetchApplicantEvents(context.board.id, candidateId)
+      applicantEvents.value = { ...applicantEvents.value, [candidateId]: events }
+    } catch (caught) {
+      error.value = errorMessage(caught)
+    } finally {
+      setEventsLoading(candidateId, false)
+    }
   }
 
   async function initialize(): Promise<void> {
@@ -168,10 +297,15 @@ export const useBoardsStore = defineStore('boards', () => {
         .map((candidate) => candidate.cvPath)
         .filter((path): path is string => Boolean(path)) ?? []
     const jobSpecPath = board?.jobSpecPath ?? null
+    const candidateIds = board?.candidates.map((candidate) => candidate.id) ?? []
 
     try {
       await api.deleteBoard(id)
       boards.value = boards.value.filter((item) => item.id !== id)
+      candidateIds.forEach((candidateId) => {
+        editSnapshots.delete(candidateId)
+        forgetCandidateEvents(candidateId)
+      })
       await removeCvObjects(cvPaths)
 
       if (jobSpecPath) {
@@ -303,6 +437,7 @@ export const useBoardsStore = defineStore('boards', () => {
     boardId: string,
     input: ApplicantInput,
     cvFile?: File | null,
+    actorName: string = DEFAULT_ACTOR_NAME,
   ): Promise<Candidate | null> {
     error.value = null
     const board = boardById(boardId)
@@ -328,6 +463,14 @@ export const useBoardsStore = defineStore('boards', () => {
         experience: input.experience ?? '',
       })
       board.candidates = [...board.candidates, candidate]
+
+      const actor = actorLabel(actorName)
+      await recordApplicantEvent(
+        { board, candidate },
+        'created',
+        createdApplicantMessage(actor, candidate.name),
+        actor,
+      )
 
       if (cvFile) {
         await uploadCv(candidate.id, cvFile)
@@ -356,6 +499,8 @@ export const useBoardsStore = defineStore('boards', () => {
       context.board.candidates = context.board.candidates.filter(
         (candidate) => candidate.id !== candidateId,
       )
+      editSnapshots.delete(candidateId)
+      forgetCandidateEvents(candidateId)
 
       if (cvPath) {
         await removeCvObjects([cvPath])
@@ -525,30 +670,52 @@ export const useBoardsStore = defineStore('boards', () => {
     }
   }
 
-  function moveCandidate(candidateId: string, stepId: string): void {
+  async function moveCandidate(
+    candidateId: string,
+    stepId: string,
+    actorName: string = DEFAULT_ACTOR_NAME,
+  ): Promise<void> {
     const context = candidateContext(candidateId)
 
-    if (!context || !context.board.steps.some((step) => step.id === stepId)) {
+    if (
+      !context ||
+      !context.board.steps.some((step) => step.id === stepId) ||
+      context.candidate.stepId === stepId
+    ) {
       return
     }
 
+    const step = context.board.steps.find((item) => item.id === stepId)
+    const actor = actorLabel(actorName)
     const now = new Date().toISOString()
     context.candidate.stepId = stepId
     context.candidate.status = 'active'
     context.candidate.stepEnteredAt = now
 
-    void api
-      .updateApplicant(candidateId, {
+    try {
+      await api.updateApplicant(candidateId, {
         columnId: stepId,
         status: 'active',
         stepEnteredAt: now,
       })
-      .catch((caught) => {
-        error.value = errorMessage(caught)
-      })
+
+      if (step) {
+        await recordApplicantEvent(
+          context,
+          'moved',
+          movedCandidateMessage(actor, context.candidate.name, step.name),
+          actor,
+        )
+      }
+    } catch (caught) {
+      error.value = errorMessage(caught)
+    }
   }
 
-  function advanceCandidate(candidateId: string): void {
+  async function advanceCandidate(
+    candidateId: string,
+    actorName: string = DEFAULT_ACTOR_NAME,
+  ): Promise<void> {
     const context = candidateContext(candidateId)
 
     if (!context) {
@@ -558,34 +725,58 @@ export const useBoardsStore = defineStore('boards', () => {
     const next = nextStep(context.board, context.candidate)
 
     if (next) {
-      moveCandidate(candidateId, next.id)
+      await moveCandidate(candidateId, next.id, actorName)
     }
   }
 
-  function setCandidateStatus(candidateId: string, status: CandidateStatus): void {
+  async function setCandidateStatus(
+    candidateId: string,
+    status: CandidateStatus,
+    actorName: string = DEFAULT_ACTOR_NAME,
+  ): Promise<void> {
     const context = candidateContext(candidateId)
 
-    if (!context) {
+    if (!context || context.candidate.status === status) {
       return
     }
 
+    const action: 'hired' | 'rejected' | 'reopened' =
+      status === 'hired' ? 'hired' : status === 'rejected' ? 'rejected' : 'reopened'
+    const actor = actorLabel(actorName)
     context.candidate.status = status
 
-    void api.updateApplicant(candidateId, { status }).catch((caught) => {
+    try {
+      await api.updateApplicant(candidateId, { status })
+      await recordApplicantEvent(
+        context,
+        action,
+        statusChangeMessage(actor, context.candidate.name, action),
+        actor,
+      )
+    } catch (caught) {
       error.value = errorMessage(caught)
-    })
+    }
   }
 
-  function hireCandidate(candidateId: string): void {
-    setCandidateStatus(candidateId, 'hired')
+  async function hireCandidate(
+    candidateId: string,
+    actorName: string = DEFAULT_ACTOR_NAME,
+  ): Promise<void> {
+    await setCandidateStatus(candidateId, 'hired', actorName)
   }
 
-  function rejectCandidate(candidateId: string): void {
-    setCandidateStatus(candidateId, 'rejected')
+  async function rejectCandidate(
+    candidateId: string,
+    actorName: string = DEFAULT_ACTOR_NAME,
+  ): Promise<void> {
+    await setCandidateStatus(candidateId, 'rejected', actorName)
   }
 
-  function reopenCandidate(candidateId: string): void {
-    setCandidateStatus(candidateId, 'active')
+  async function reopenCandidate(
+    candidateId: string,
+    actorName: string = DEFAULT_ACTOR_NAME,
+  ): Promise<void> {
+    await setCandidateStatus(candidateId, 'active', actorName)
   }
 
   function clearSaveTimer(candidateId: string): void {
@@ -608,11 +799,11 @@ export const useBoardsStore = defineStore('boards', () => {
     )
   }
 
-  async function persistCandidate(candidateId: string): Promise<void> {
+  async function persistCandidate(candidateId: string): Promise<boolean> {
     const candidate = candidateById(candidateId)
 
     if (!candidate) {
-      return
+      return false
     }
 
     try {
@@ -627,14 +818,34 @@ export const useBoardsStore = defineStore('boards', () => {
         status: candidate.status,
         columnId: candidate.stepId,
       })
+      return true
     } catch (caught) {
       error.value = errorMessage(caught)
+      return false
     }
   }
 
-  async function flushCandidate(candidateId: string): Promise<void> {
+  async function flushCandidate(
+    candidateId: string,
+    actorName: string = DEFAULT_ACTOR_NAME,
+  ): Promise<void> {
     clearSaveTimer(candidateId)
-    await persistCandidate(candidateId)
+    const context = candidateContext(candidateId)
+    const snapshot = editSnapshots.get(candidateId)
+    const saved = await persistCandidate(candidateId)
+    editSnapshots.delete(candidateId)
+
+    if (!saved || !context || !snapshot || !profileChanged(snapshot, context.candidate)) {
+      return
+    }
+
+    const actor = actorLabel(actorName)
+    await recordApplicantEvent(
+      context,
+      'edited',
+      editedProfileMessage(actor, context.candidate.name),
+      actor,
+    )
   }
 
   function reset(): void {
@@ -643,6 +854,9 @@ export const useBoardsStore = defineStore('boards', () => {
     }
 
     saveTimers.clear()
+    editSnapshots.clear()
+    applicantEvents.value = {}
+    applicantEventsLoading.value = {}
     boards.value = []
     initialized.value = false
     loading.value = false
@@ -688,6 +902,10 @@ export const useBoardsStore = defineStore('boards', () => {
     rejectCandidate,
     reopenCandidate,
     flushCandidate,
+    beginCandidateEdit,
+    loadApplicantEvents,
+    eventsFor,
+    eventsLoadingFor,
     reset,
   }
 })

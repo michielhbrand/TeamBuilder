@@ -9,9 +9,9 @@ invite them by email; invited users choose their own password.
 
 The protected hiring portal is a board-based workspace. A board represents one open role,
 boards are grouped by department, and each board has its own ordered columns and applicants.
-Boards, columns, and applicants are stored in Supabase Postgres and loaded through Pinia.
-Every signed-in user shares the same workspace; Row Level Security allows the `authenticated`
-role only.
+Boards, columns, applicants, and their audit events are stored in Supabase Postgres and
+loaded through Pinia. Every signed-in user shares the same workspace; Row Level Security
+allows the `authenticated` role only.
 
 ```text
 Browser
@@ -20,7 +20,7 @@ Browser
   v
 Supabase Auth  <---- session JWT issued to the browser
   |
-  +--> PostgREST / Postgres (RLS: authenticated only)  <---- boards, columns, applicants
+  +--> PostgREST / Postgres (RLS: authenticated only)  <---- boards, columns, applicants, events
 
 Build time:
 GitHub Actions secrets -> Vite env -> bundled publishable key + URL -> GitHub Pages
@@ -127,6 +127,11 @@ The schema lives in `supabase/migrations/`:
   education and work experience, favourite flag, status, CV path and filename, `applied_at`,
   and `step_entered_at`. Email and phone are optional; when present they are unique per
   board.
+- `public.applicant_events` — board and applicant scope, actor id and name, action, rendered
+  message, and timestamp. The `(board_id, applicant_id)` foreign key targets the applicant's
+  composite unique key and cascades on delete, so deleting an applicant or board permanently
+  removes its events. Events are append-only: clients can select and insert, but there are no
+  update or delete policies.
 
 The composite applicant foreign key `(board_id, column_id)` guarantees that an applicant is
 assigned to a column on the same board. New applicants default to the column named
@@ -178,11 +183,12 @@ fails, the applicant is still created and the board shows the store error; the C
 retried from the applicant drawer. LinkedIn URL scraping is intentionally not supported:
 LinkedIn blocks automated access, prohibits scraping, and has no free reliable profile API.
 
-RLS is enabled on all three tables. Table privileges are explicitly granted to
-`authenticated` and revoked from `anon`; RLS policies then grant `select`, `insert`,
-`update`, and `delete` to `authenticated`. RLS alone is not sufficient because PostgREST
-also requires the underlying table grants. RPC execution is revoked from `public` and `anon`
-and granted to `authenticated`.
+RLS is enabled on all four tables. Table privileges are explicitly granted to
+`authenticated` and revoked from `anon`; RLS policies then grant the operations each table
+needs. Board tables allow `select`, `insert`, `update`, and `delete`; applicant events are
+append-only and allow `select` and `insert` only. RLS alone is not sufficient because
+PostgREST also requires the underlying table grants. RPC execution is revoked from `public`
+and `anon` and granted to `authenticated`.
 
 `src/lib/boards-api.ts` owns Supabase queries, row/domain mapping, and error-throwing
 boundaries. `src/stores/boards.ts` is the single source of truth for the hiring portal:
@@ -195,14 +201,22 @@ boundaries. `src/stores/boards.ts` is the single source of truth for the hiring 
 - `createApplicant`, `deleteApplicant`, `updateCandidateField`, and `toggleFavorite`.
 - `advanceCandidate`, `moveCandidate`, `hireCandidate`, `rejectCandidate`,
   `reopenCandidate`, `flushCandidate`, and `reset`.
+- `beginCandidateEdit`, `loadApplicantEvents`, `eventsFor`, and `eventsLoadingFor` for the
+  applicant audit trail.
 
 The router guard awaits `boards.initialize()` before entering a protected route. Text-field
 edits update Pinia immediately and are debounced before the applicant row is written;
-`flushCandidate` writes any pending edit when the drawer closes. Drag-and-drop moves, status
-changes, deletes, and creations call the API directly. `src/types/pipeline.ts` defines the
-domain types, and `src/lib/pipeline.ts` contains pure helpers for column lookup, deadlines,
-elapsed days, next-step navigation, department grouping, and summaries. Components read from
-the store and call its actions; they do not call Supabase directly.
+`flushCandidate` writes any pending edit when the drawer closes. The drawer snapshots the
+profile when it opens; on close, `flushCandidate` compares the snapshot and records one
+`edited` event only when a name, contact, role, education, experience, favourite, or CV value
+changed. This avoids one event per keystroke. Drag-and-drop moves, status changes, deletes,
+and creations call the API directly. Applicant creation, moves, and hire/reject/reopen
+changes record one event after the applicant update succeeds. `src/types/pipeline.ts` defines
+the domain types,
+`src/lib/applicant-events.ts` builds event messages and formats timestamps, and
+`src/lib/pipeline.ts` contains pure helpers for column lookup, deadlines, elapsed days,
+next-step navigation, department grouping, and summaries. Components read from the store and
+call its actions; they do not call Supabase directly.
 
 ## Routing and GitHub Pages
 

@@ -317,6 +317,11 @@ class. Keep the rules attached to the field.
   than structured timeline items.
 - Email is optional and must be valid when present. Phone is optional and accepts digits
   only. Invalid values show a field error and are not persisted.
+- The drawer has two tabs below the header: **Details** for the editable profile and
+  **Events** for the applicant audit trail. Tabs use the display font, sentence case, an
+  accent underline, and the standard hairline divider. Events render newest first as a
+  vertical timeline with an accent dot, the event message, and an uppercase mono timestamp.
+  Show a quiet loading line or empty state when there are no events.
 - The drawer is backed by Postgres. The note at the end tells the user that changes save
   automatically, and a destructive text button opens `ConfirmDialog` before deleting the
   applicant.

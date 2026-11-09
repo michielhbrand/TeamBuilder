@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
+import { DEFAULT_ACTOR_NAME, formatEventTime } from '@/lib/applicant-events'
 import { printPdfBlob } from '@/lib/pdf'
 import { initials as getInitials } from '@/lib/pipeline'
 import { isValidEmail, isValidPhone } from '@/lib/validation'
+import { useAuthStore } from '@/stores/auth'
 import { useBoardsStore, type EditableCandidateField } from '@/stores/boards'
 
 const props = defineProps<{
@@ -16,10 +18,17 @@ const emit = defineEmits<{
 }>()
 
 const store = useBoardsStore()
+const auth = useAuthStore()
+const actorName = computed(() => auth.fullName || auth.user?.email || DEFAULT_ACTOR_NAME)
 const candidate = computed(() =>
   props.candidateId ? store.candidateById(props.candidateId) : undefined,
 )
 const initials = computed(() => (candidate.value ? getInitials(candidate.value.name) : ''))
+const events = computed(() => (props.candidateId ? store.eventsFor(props.candidateId) : []))
+const eventsLoading = computed(() =>
+  props.candidateId ? store.eventsLoadingFor(props.candidateId) : false,
+)
+const activeTab = ref<'details' | 'events'>('details')
 const open = computed({
   get: () => props.modelValue,
   set: (value: boolean) => emit('update:modelValue', value),
@@ -245,11 +254,14 @@ function setPageScrollLocked(locked: boolean): void {
   }
 }
 
-watch([() => props.modelValue, () => props.candidateId], ([value]) => {
-  if (value) {
+watch([() => props.modelValue, () => props.candidateId], ([value, candidateId]) => {
+  if (value && candidateId) {
     syncForm()
     closeCvPreview()
     cvError.value = ''
+    activeTab.value = 'details'
+    store.beginCandidateEdit(candidateId)
+    void store.loadApplicantEvents(candidateId)
   }
 })
 
@@ -262,7 +274,7 @@ watch(
       closeCvPreview()
 
       if (props.candidateId) {
-        void store.flushCandidate(props.candidateId)
+        void store.flushCandidate(props.candidateId, actorName.value)
       }
     }
   },
@@ -311,6 +323,11 @@ onBeforeUnmount(() => setPageScrollLocked(false))
           </div>
         </header>
 
+        <v-tabs v-if="!cvPreviewOpen" v-model="activeTab" class="applicant-tabs" grow>
+          <v-tab value="details">Details</v-tab>
+          <v-tab value="events">Events</v-tab>
+        </v-tabs>
+
         <div v-if="cvPreviewOpen" class="applicant-cv-preview">
           <div class="applicant-cv-toolbar">
             <v-btn variant="text" prepend-icon="mdi-arrow-left" @click="closeCvPreview">Back</v-btn>
@@ -341,7 +358,7 @@ onBeforeUnmount(() => setPageScrollLocked(false))
           <iframe v-else-if="cvUrl" :src="cvUrl" class="applicant-cv-frame" title="CV preview" />
         </div>
 
-        <div v-else class="applicant-drawer__body">
+        <div v-else-if="activeTab === 'details'" class="applicant-drawer__body">
           <v-alert v-if="store.error" class="orbital-alert" type="error" density="compact">
             {{ store.error }}
           </v-alert>
@@ -462,6 +479,28 @@ onBeforeUnmount(() => setPageScrollLocked(false))
           >
             Delete applicant
           </v-btn>
+        </div>
+
+        <div v-else class="applicant-events">
+          <v-alert v-if="store.error" class="orbital-alert" type="error" density="compact">
+            {{ store.error }}
+          </v-alert>
+
+          <div v-if="eventsLoading" class="applicant-events__status">Loading events...</div>
+          <p v-else-if="!events.length" class="applicant-events__empty">
+            No events recorded for this applicant yet.
+          </p>
+          <ol v-else class="applicant-event-list">
+            <li v-for="event in events" :key="event.id" class="applicant-event">
+              <span class="applicant-event__dot" aria-hidden="true" />
+              <div class="applicant-event__copy">
+                <p class="applicant-event__message">{{ event.message }}</p>
+                <time class="applicant-event__time" :datetime="event.createdAt">
+                  {{ formatEventTime(event.createdAt) }}
+                </time>
+              </div>
+            </li>
+          </ol>
         </div>
       </div>
     </v-navigation-drawer>

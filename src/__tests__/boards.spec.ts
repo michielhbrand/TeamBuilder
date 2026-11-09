@@ -14,6 +14,8 @@ const mocks = vi.hoisted(() => ({
   createApplicant: vi.fn<(...args: unknown[]) => unknown>(),
   updateApplicant: vi.fn<(...args: unknown[]) => unknown>(),
   deleteApplicant: vi.fn<(...args: unknown[]) => unknown>(),
+  fetchApplicantEvents: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
+  createApplicantEvent: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
   uploadApplicantCv: vi.fn<(...args: unknown[]) => unknown>(),
   deleteApplicantCv: vi.fn<(...args: unknown[]) => unknown>(),
   createApplicantCvUrl: vi.fn<(...args: unknown[]) => unknown>(),
@@ -77,6 +79,26 @@ describe('boards store', () => {
     mocks.fetchBoards.mockResolvedValue([makeBoard()])
     mocks.updateApplicant.mockResolvedValue(undefined)
     mocks.deleteApplicant.mockResolvedValue(undefined)
+    mocks.fetchApplicantEvents.mockResolvedValue([])
+    mocks.createApplicantEvent.mockImplementation(async (input) => {
+      const event = input as {
+        boardId: string
+        applicantId: string
+        action: string
+        actorName: string
+        message: string
+      }
+
+      return {
+        id: 'e1',
+        boardId: event.boardId,
+        applicantId: event.applicantId,
+        actorName: event.actorName,
+        action: event.action,
+        message: event.message,
+        createdAt: '2026-11-09T10:00:00Z',
+      }
+    })
     mocks.deleteBoard.mockResolvedValue(undefined)
     mocks.deleteBoardColumn.mockResolvedValue(undefined)
     mocks.reorderBoardColumns.mockResolvedValue(undefined)
@@ -153,6 +175,130 @@ describe('boards store', () => {
         favorite: true,
       }),
     )
+  })
+
+  it('records one edit event per profile session', async () => {
+    const store = await initializedStore()
+    const candidate = store.boards[0]?.candidates[0]
+
+    expect(candidate).toBeDefined()
+    if (!candidate) return
+
+    store.beginCandidateEdit(candidate.id)
+    store.updateCandidateField(candidate.id, 'email', 'new.address@example.com')
+    store.updateCandidateField(candidate.id, 'currentRole', 'Staff Engineer')
+    store.toggleFavorite(candidate.id)
+
+    await store.flushCandidate(candidate.id, 'Emma Brand')
+
+    expect(mocks.createApplicantEvent).toHaveBeenCalledExactlyOnceWith({
+      boardId: 'b1',
+      applicantId: candidate.id,
+      action: 'edited',
+      actorName: 'Emma Brand',
+      message: "Emma Brand has edited Amara Okafor's profile details",
+    })
+  })
+
+  it('does not record an edit event when the profile is unchanged', async () => {
+    const store = await initializedStore()
+    const candidate = store.boards[0]?.candidates[0]
+
+    expect(candidate).toBeDefined()
+    if (!candidate) return
+
+    store.beginCandidateEdit(candidate.id)
+    await store.flushCandidate(candidate.id, 'Emma Brand')
+
+    expect(mocks.createApplicantEvent).not.toHaveBeenCalled()
+  })
+
+  it('records a move event with the destination step', async () => {
+    const store = await initializedStore()
+    const candidate = store.boards[0]?.candidates[0]
+
+    expect(candidate).toBeDefined()
+    if (!candidate) return
+
+    await store.moveCandidate(candidate.id, 's2', 'Emma Brand')
+
+    expect(mocks.createApplicantEvent).toHaveBeenCalledExactlyOnceWith({
+      boardId: 'b1',
+      applicantId: candidate.id,
+      action: 'moved',
+      actorName: 'Emma Brand',
+      message: 'Emma Brand has moved Amara Okafor to Interview step',
+    })
+  })
+
+  it('does not record a move event when the step does not change', async () => {
+    const store = await initializedStore()
+    const candidate = store.boards[0]?.candidates[0]
+
+    expect(candidate).toBeDefined()
+    if (!candidate) return
+
+    await store.moveCandidate(candidate.id, 's1', 'Emma Brand')
+
+    expect(mocks.createApplicantEvent).not.toHaveBeenCalled()
+  })
+
+  it('records hire, reject, and reopen events', async () => {
+    const store = await initializedStore()
+    const candidate = store.boards[0]?.candidates[0]
+
+    expect(candidate).toBeDefined()
+    if (!candidate) return
+
+    await store.hireCandidate(candidate.id, 'Emma Brand')
+    await store.rejectCandidate(candidate.id, 'Emma Brand')
+    await store.reopenCandidate(candidate.id, 'Emma Brand')
+
+    expect(mocks.createApplicantEvent).toHaveBeenNthCalledWith(1, {
+      boardId: 'b1',
+      applicantId: candidate.id,
+      action: 'hired',
+      actorName: 'Emma Brand',
+      message: 'Emma Brand has hired Amara Okafor',
+    })
+    expect(mocks.createApplicantEvent).toHaveBeenNthCalledWith(2, {
+      boardId: 'b1',
+      applicantId: candidate.id,
+      action: 'rejected',
+      actorName: 'Emma Brand',
+      message: 'Emma Brand has rejected Amara Okafor',
+    })
+    expect(mocks.createApplicantEvent).toHaveBeenNthCalledWith(3, {
+      boardId: 'b1',
+      applicantId: candidate.id,
+      action: 'reopened',
+      actorName: 'Emma Brand',
+      message: 'Emma Brand has reopened Amara Okafor',
+    })
+  })
+
+  it('loads applicant events from the backend', async () => {
+    const store = await initializedStore()
+    const candidate = store.boards[0]?.candidates[0]
+
+    expect(candidate).toBeDefined()
+    if (!candidate) return
+
+    const event = {
+      id: 'e1',
+      boardId: 'b1',
+      applicantId: candidate.id,
+      actorName: 'Emma Brand',
+      action: 'edited',
+      message: 'Emma Brand has edited Amara Okafor details',
+      createdAt: '2026-11-09T10:00:00Z',
+    }
+    mocks.fetchApplicantEvents.mockResolvedValue([event])
+
+    await store.loadApplicantEvents(candidate.id)
+
+    expect(mocks.fetchApplicantEvents).toHaveBeenCalledWith('b1', candidate.id)
+    expect(store.eventsFor(candidate.id)).toEqual([event])
   })
 
   it('moves applicants to the first column when a later column is deleted', async () => {
@@ -341,6 +487,37 @@ describe('boards store', () => {
     expect(removed).toBe(true)
     expect(mocks.deleteApplicant).toHaveBeenCalledWith('c2')
     expect(store.candidateById('c2')).toBeUndefined()
+  })
+
+  it('records a created event when an applicant is added', async () => {
+    const store = await initializedStore()
+    const board = store.boards[0]
+
+    expect(board).toBeDefined()
+    if (!board) return
+
+    const created = makeCandidate({ id: 'c4', name: 'Liam Price' })
+    mocks.createApplicant.mockResolvedValue(created)
+
+    const added = await store.createApplicant(
+      board.id,
+      {
+        name: 'Liam Price',
+        email: '',
+        phone: '',
+      },
+      null,
+      'Emma Brand',
+    )
+
+    expect(added).toEqual(created)
+    expect(mocks.createApplicantEvent).toHaveBeenCalledExactlyOnceWith({
+      boardId: 'b1',
+      applicantId: 'c4',
+      action: 'created',
+      actorName: 'Emma Brand',
+      message: 'Emma Brand has added Liam Price as an applicant',
+    })
   })
 
   it('uploads a CV when one is supplied at creation', async () => {
