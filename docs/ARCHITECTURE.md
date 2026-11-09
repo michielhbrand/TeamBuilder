@@ -46,6 +46,8 @@ rule set; the selected reference is `design/ui-directions.html#orbital`.
 - `src/components/BoardList.vue`, `BoardColumn.vue`, `CandidateCard.vue`,
   `ApplicantDrawer.vue`, and `PipelineBar.vue` implement the board UI.
   `ApplicantDrawer.vue` is the right-side editable candidate profile opened from a card.
+  `DepartmentLoadChart.vue`, `OutcomeDonut.vue`, `RolePerformanceTable.vue`, and
+  `ApplicantWatchList.vue` implement the dashboard visuals and lists.
   `design/hiring-pipeline-step-columns.html` is the structural concept reference; its
   palette and fonts are not used.
 - Fonts are self-hosted with `@fontsource-variable/manrope` and `@fontsource/ibm-plex-mono`.
@@ -69,10 +71,12 @@ rule set; the selected reference is `design/ui-directions.html#orbital`.
    `supabase.auth.signInWithPassword()`.
 7. On success the store stores the session, and the view navigates to the requested redirect
    or `/overview`.
-8. `OverviewView.vue` is the post-login landing page. `BoardsView.vue` lists boards grouped
-   by department, `BoardView.vue` renders one board's step columns, and `AccountView.vue`
-   shows non-sensitive session details, full-name editing, and password reset. Sign-out calls
-   `auth.signOut()`, clears the session, and returns to `/`.
+8. `OverviewView.vue` is the post-login hiring dashboard. It summarizes open demand, active
+   candidates, outcomes, deadlines, role performance, and applicant watch lists, with a
+   department filter and drill-downs into boards and applicant profiles. `BoardsView.vue`
+   lists boards grouped by department, `BoardView.vue` renders one board's step columns, and
+   `AccountView.vue` shows non-sensitive session details, full-name editing, and password
+   reset. Sign-out calls `auth.signOut()`, clears the session, and returns to `/`.
 9. Signed-in users whose `user_metadata.full_name` is empty see the persistent
    `FullNameDialog` from `AppShell` until they save a name. `auth.updateFullName()` writes the
    value through `supabase.auth.updateUser({ data: { full_name } })`, so it is available on

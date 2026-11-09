@@ -40,6 +40,10 @@ scale, Orbital can read as a generic SaaS theme. Use the motif and the tokens de
 | Job spec dialog     | `src/components/JobSpecDialog.vue`         |
 | Confirmation dialog | `src/components/ConfirmDialog.vue`         |
 | Progress bar        | `src/components/PipelineBar.vue`           |
+| Workload chart      | `src/components/DepartmentLoadChart.vue`   |
+| Outcome chart       | `src/components/OutcomeDonut.vue`          |
+| Role table          | `src/components/RolePerformanceTable.vue`  |
+| Applicant lists     | `src/components/ApplicantWatchList.vue`    |
 | Theme toggle        | `src/components/ThemeToggle.vue`           |
 | Visual exploration  | `design/ui-directions.html`                |
 | Board concept       | `design/hiring-pipeline-step-columns.html` |
@@ -171,8 +175,12 @@ Use `AppShell` for `/overview`, `/boards`, `/boards/:boardId`, and `/account`.
 - `app-topbar` with `BrandMark context="Recruitment platform"`, the Overview / Boards /
   Account navigation, `ThemeToggle`, and the avatar account menu.
 - Eyebrow plus display title, one paragraph, and the page-level action.
-- The Overview page has a four-card stat row, an attention panel, and a department-load
-  panel. Both panels become one column at `1024px`.
+- The Overview page is a hiring dashboard. It has a department filter row, a four-card stat
+  row, a department workload chart, an outcome donut, a sortable role performance table, a
+  deadline watch list, and newest / longest-in-step applicant lists. Chart bars and table
+  rows drill into a department, board, or applicant. Dashboard grids become one column at
+  `1024px`; filter chips and applicant lists stack at `720px`; tables scroll horizontally on
+  small screens.
 - The Account page keeps the existing three-card stat row and two-column identity/status
   body. A second grid adds full-name editing and password reset panels using the same
   `.data-panel` shell and `.account-form` spacing.
@@ -217,6 +225,16 @@ that prototype's palette, gradients, or Bricolage/Hanken fonts.
   preview and the job spec preview support open in a new tab, print, and remove controls.
 
 ## Components
+
+### Data visualization
+
+- Build dashboard charts with small, local SVG/CSS components. Do not add a chart library
+  without a product decision.
+- Use the Orbital tokens for chart fills. Accent is active work, signal is a positive outcome,
+  muted is closed or inactive, and danger is reserved for overdue deadlines and errors.
+- Show visible labels and values; color must never be the only cue. Give charts an
+  `aria-label`, text summaries, and readable legends.
+- Keep charts static. No gradients, looping animation, dense grids, or decorative telemetry.
 
 ### Buttons
 

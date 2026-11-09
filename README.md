@@ -2,7 +2,7 @@
 
 A Vue 3 + Supabase hiring pipeline workspace: email/password sign-in, invited users who
 choose their own password, in-memory sessions, a protected hiring portal, and sign-out. The
-portal has a pipeline overview, role boards grouped by department, a step-column board for
+portal has a hiring dashboard, role boards grouped by department, a step-column board for
 each role, and an account page. The frontend is deployed to GitHub Pages with GitHub
 Actions. Boards, pipeline columns, and applicants are stored in Supabase Postgres and loaded
 through Pinia.
@@ -27,7 +27,8 @@ through Pinia.
 - Admin invitations that let users choose their own password
 - In-memory session handling in Pinia with automatic token refresh
 - A router guard that protects the hiring portal
-- A pipeline overview at `/overview` with workload and attention summaries
+- A hiring dashboard at `/overview` with workload, outcomes, role performance, deadlines, and
+  applicant watch lists
 - Role boards grouped by department at `/boards`
 - A step-column pipeline for each role with candidate cards and deadline indicators
 - Board creation and editing, including ordered pipeline columns

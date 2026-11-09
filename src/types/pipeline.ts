@@ -63,6 +63,14 @@ export interface BoardSummary {
   pipelineCounts: number[]
 }
 
+export interface CandidateEntry {
+  board: Board
+  candidate: Candidate
+  step?: PipelineStep
+  daysInStep: number
+  daysSinceApplied: number
+}
+
 export interface BoardGroup {
   department: string
   boards: Board[]

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  candidateEntries,
   daysInStep,
   daysSince,
   daysSinceApplied,
@@ -8,6 +9,8 @@ import {
   formatDeadline,
   groupBoards,
   isOverdue,
+  longestInStepEntries,
+  newestCandidateEntries,
   nextStep,
   parseDeadlineInput,
   previousStep,
@@ -131,6 +134,67 @@ describe('pipeline helpers', () => {
     expect(nextStep(item, candidate({ stepId: 's2' }))).toBeUndefined()
     expect(previousStep(item, candidate({ stepId: 's2' }))?.id).toBe('s1')
     expect(previousStep(item, candidate())).toBeUndefined()
+  })
+
+  it('flattens candidates with board, step, and elapsed-time context', () => {
+    const now = new Date('2026-11-07T12:00:00Z')
+    const item = board({
+      candidates: [
+        candidate({ id: 'a' }),
+        candidate({
+          id: 'b',
+          status: 'hired',
+          stepId: 's2',
+          appliedAt: '2026-11-02T12:00:00Z',
+          stepEnteredAt: '2026-11-06T12:00:00Z',
+        }),
+      ],
+    })
+
+    const active = candidateEntries([item], 'active', now)
+
+    expect(active).toHaveLength(1)
+    expect(active[0]?.board.id).toBe(item.id)
+    expect(active[0]?.step?.name).toBe('Applied')
+    expect(active[0]?.daysInStep).toBe(4)
+    expect(active[0]?.daysSinceApplied).toBe(6)
+
+    const all = candidateEntries([item], undefined, now)
+    expect(all).toHaveLength(2)
+    expect(all[1]?.step?.name).toBe('Interview')
+  })
+
+  it('orders newest applicants and longest step dwellers', () => {
+    const now = new Date('2026-11-07T12:00:00Z')
+    const item = board({
+      candidates: [
+        candidate({
+          id: 'old',
+          appliedAt: '2026-10-01T12:00:00Z',
+          stepEnteredAt: '2026-11-07T12:00:00Z',
+        }),
+        candidate({
+          id: 'new',
+          appliedAt: '2026-11-06T12:00:00Z',
+          stepEnteredAt: '2026-11-06T12:00:00Z',
+        }),
+        candidate({
+          id: 'waiting',
+          appliedAt: '2026-10-20T12:00:00Z',
+          stepEnteredAt: '2026-10-21T12:00:00Z',
+        }),
+      ],
+    })
+    const entries = candidateEntries([item], undefined, now)
+
+    expect(newestCandidateEntries(entries, 2).map((entry) => entry.candidate.id)).toEqual([
+      'new',
+      'waiting',
+    ])
+    expect(longestInStepEntries(entries, 2).map((entry) => entry.candidate.id)).toEqual([
+      'waiting',
+      'new',
+    ])
   })
 
   it('groups boards in department order, sorts by name, and sums totals', () => {

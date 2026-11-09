@@ -3,6 +3,8 @@ import type {
   BoardGroup,
   BoardSummary,
   Candidate,
+  CandidateEntry,
+  CandidateStatus,
   PipelineStep,
   PipelineTotals,
 } from '@/types/pipeline'
@@ -51,6 +53,34 @@ export function daysInStep(candidate: Candidate, now: Date = new Date()): number
 
 export function daysSinceApplied(candidate: Candidate, now: Date = new Date()): number {
   return daysSince(candidate.appliedAt, now)
+}
+
+export function candidateEntries(
+  boards: Board[],
+  status?: CandidateStatus,
+  now: Date = new Date(),
+): CandidateEntry[] {
+  return boards.flatMap((board) =>
+    board.candidates
+      .filter((candidate) => status === undefined || candidate.status === status)
+      .map((candidate) => ({
+        board,
+        candidate,
+        step: stepById(board, candidate.stepId),
+        daysInStep: daysInStep(candidate, now),
+        daysSinceApplied: daysSinceApplied(candidate, now),
+      })),
+  )
+}
+
+export function newestCandidateEntries(entries: CandidateEntry[], limit = 5): CandidateEntry[] {
+  return [...entries]
+    .sort((a, b) => b.candidate.appliedAt.localeCompare(a.candidate.appliedAt))
+    .slice(0, limit)
+}
+
+export function longestInStepEntries(entries: CandidateEntry[], limit = 5): CandidateEntry[] {
+  return [...entries].sort((a, b) => b.daysInStep - a.daysInStep).slice(0, limit)
 }
 
 export function isOverdue(board: Board, now: Date = new Date()): boolean {

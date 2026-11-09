@@ -8,11 +8,11 @@ deployment, or UI behavior.
 
 TeamBuilder is a Vue 3 + Supabase hiring pipeline workspace. It is hosted on GitHub Pages
 and exists to demonstrate a login screen, admin invitations that let users choose a
-password, in-memory sessions, a protected hiring portal, and sign-out. The portal has an
-overview, role boards grouped by department, a step-column pipeline for each role, an
-applicant audit trail, and an account page. Boards, pipeline columns, applicants, and their
-events are stored in Supabase Postgres and loaded through Pinia. Keep it focused; do not add
-unrelated product features.
+password, in-memory sessions, a protected hiring portal, and sign-out. The portal has a
+dashboard overview, role boards grouped by department, a step-column pipeline for each role,
+an applicant audit trail, and an account page. Boards, pipeline columns, applicants, and
+their events are stored in Supabase Postgres and loaded through Pinia. Keep it focused; do
+not add unrelated product features.
 
 ## Commands
 
@@ -70,8 +70,8 @@ npm run build
 - `src/lib/boards-api.ts` — Supabase reads and writes for boards, columns, applicants,
   applicant events, and applicant notes.
 - `src/lib/applicant-events.ts` — event message builders and timestamp formatting.
-- `src/lib/pipeline.ts` — pure pipeline helpers for steps, deadlines, summaries, and
-  department grouping.
+- `src/lib/pipeline.ts` — pure pipeline helpers for steps, deadlines, summaries, department
+  grouping, and dashboard candidate watch entries.
 - `src/lib/validation.ts` — shared email and phone validation helpers.
 - `src/stores/boards.ts` — persisted board, column, and applicant state and actions.
 - `supabase/migrations/` — Postgres tables, RLS policies, indexes, and board RPC functions.
@@ -98,9 +98,15 @@ npm run build
 - `src/lib/resume-import.ts` — local PDF text extraction, applicant heuristics, and lazy
   Tesseract OCR for scanned pages.
 - `src/components/PipelineBar.vue` — per-step candidate progress bar.
+- `src/components/DepartmentLoadChart.vue` — interactive department workload bars.
+- `src/components/OutcomeDonut.vue` — active, hired, and rejected outcome chart.
+- `src/components/RolePerformanceTable.vue` — sortable role board table with pipeline bars.
+- `src/components/ApplicantWatchList.vue` — compact newest and longest-in-step applicant lists.
 - `src/views/LoginView.vue` — login form and validation.
 - `src/views/SetPasswordView.vue` — invite and password update form.
-- `src/views/OverviewView.vue` — post-login hiring overview.
+- `src/views/OverviewView.vue` — post-login hiring dashboard with KPI cards, department
+  workload chart, outcome donut, sortable role table, deadline watch, applicant lists, and
+  department filtering.
 - `src/views/BoardsView.vue` — all role boards grouped by department.
 - `src/views/BoardView.vue` — step-column pipeline for one role.
 - `src/views/AccountView.vue` — protected session, identity, full-name editing, and password
