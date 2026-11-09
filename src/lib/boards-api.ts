@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase'
 import type {
   ApplicantEvent,
   ApplicantEventAction,
+  ApplicantNote,
   Board,
   BoardInput,
   Candidate,
@@ -58,6 +59,15 @@ interface ApplicantEventRow {
   created_at: string
 }
 
+interface ApplicantNoteRow {
+  id: string
+  board_id: string
+  applicant_id: string
+  author_name: string
+  body: string
+  created_at: string
+}
+
 export interface ApplicantPatch {
   name?: string
   email?: string
@@ -83,6 +93,15 @@ const APPLICANT_EVENT_SELECT = `
   actor_name,
   action,
   message,
+  created_at
+`
+
+const APPLICANT_NOTE_SELECT = `
+  id,
+  board_id,
+  applicant_id,
+  author_name,
+  body,
   created_at
 `
 
@@ -156,6 +175,17 @@ function mapApplicantEvent(row: ApplicantEventRow): ApplicantEvent {
     actorName: row.actor_name,
     action: row.action as ApplicantEventAction,
     message: row.message,
+    createdAt: row.created_at,
+  }
+}
+
+function mapApplicantNote(row: ApplicantNoteRow): ApplicantNote {
+  return {
+    id: row.id,
+    boardId: row.board_id,
+    applicantId: row.applicant_id,
+    authorName: row.author_name,
+    body: row.body,
     createdAt: row.created_at,
   }
 }
@@ -393,6 +423,48 @@ export async function createApplicantEvent(input: {
   }
 
   return mapApplicantEvent(data as unknown as ApplicantEventRow)
+}
+
+export async function fetchApplicantNotes(
+  boardId: string,
+  applicantId: string,
+): Promise<ApplicantNote[]> {
+  const { data, error } = await supabase
+    .from('applicant_notes')
+    .select(APPLICANT_NOTE_SELECT)
+    .eq('board_id', boardId)
+    .eq('applicant_id', applicantId)
+    .order('created_at', { ascending: false })
+
+  fail(error)
+
+  return ((data ?? []) as unknown as ApplicantNoteRow[]).map(mapApplicantNote)
+}
+
+export async function createApplicantNote(input: {
+  boardId: string
+  applicantId: string
+  authorName: string
+  body: string
+}): Promise<ApplicantNote> {
+  const { data, error } = await supabase
+    .from('applicant_notes')
+    .insert({
+      board_id: input.boardId,
+      applicant_id: input.applicantId,
+      author_name: input.authorName,
+      body: input.body,
+    })
+    .select(APPLICANT_NOTE_SELECT)
+    .single()
+
+  fail(error)
+
+  if (!data) {
+    throw new Error('The note could not be saved.')
+  }
+
+  return mapApplicantNote(data as unknown as ApplicantNoteRow)
 }
 
 async function preparePdf(file: File, label: string): Promise<File> {

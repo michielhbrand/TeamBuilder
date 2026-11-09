@@ -20,6 +20,7 @@ import type {
   ApplicantEvent,
   ApplicantEventAction,
   ApplicantInput,
+  ApplicantNote,
   Board,
   BoardInput,
   BoardSummary,
@@ -96,6 +97,8 @@ export const useBoardsStore = defineStore('boards', () => {
   const error = ref<string | null>(null)
   const applicantEvents = ref<Record<string, ApplicantEvent[]>>({})
   const applicantEventsLoading = ref<Record<string, boolean>>({})
+  const applicantNotes = ref<Record<string, ApplicantNote[]>>({})
+  const applicantNotesLoading = ref<Record<string, boolean>>({})
   const saveTimers = new Map<string, ReturnType<typeof setTimeout>>()
   const editSnapshots = new Map<string, ProfileSnapshot>()
 
@@ -170,6 +173,32 @@ export const useBoardsStore = defineStore('boards', () => {
     applicantEventsLoading.value = { ...applicantEventsLoading.value, [candidateId]: value }
   }
 
+  function notesFor(candidateId: string): ApplicantNote[] {
+    return applicantNotes.value[candidateId] ?? []
+  }
+
+  function notesLoadingFor(candidateId: string): boolean {
+    return Boolean(applicantNotesLoading.value[candidateId])
+  }
+
+  function setNotesLoading(candidateId: string, value: boolean): void {
+    applicantNotesLoading.value = { ...applicantNotesLoading.value, [candidateId]: value }
+  }
+
+  function forgetCandidateNotes(candidateId: string): void {
+    if (applicantNotes.value[candidateId]) {
+      const next = { ...applicantNotes.value }
+      delete next[candidateId]
+      applicantNotes.value = next
+    }
+
+    if (applicantNotesLoading.value[candidateId]) {
+      const next = { ...applicantNotesLoading.value }
+      delete next[candidateId]
+      applicantNotesLoading.value = next
+    }
+  }
+
   function forgetCandidateEvents(candidateId: string): void {
     if (applicantEvents.value[candidateId]) {
       const next = { ...applicantEvents.value }
@@ -234,6 +263,57 @@ export const useBoardsStore = defineStore('boards', () => {
       error.value = errorMessage(caught)
     } finally {
       setEventsLoading(candidateId, false)
+    }
+  }
+
+  async function loadApplicantNotes(candidateId: string): Promise<void> {
+    const context = candidateContext(candidateId)
+
+    if (!context) {
+      return
+    }
+
+    setNotesLoading(candidateId, true)
+
+    try {
+      const notes = await api.fetchApplicantNotes(context.board.id, candidateId)
+      applicantNotes.value = { ...applicantNotes.value, [candidateId]: notes }
+    } catch (caught) {
+      error.value = errorMessage(caught)
+    } finally {
+      setNotesLoading(candidateId, false)
+    }
+  }
+
+  async function addApplicantNote(
+    candidateId: string,
+    body: string,
+    actorName: string = DEFAULT_ACTOR_NAME,
+  ): Promise<boolean> {
+    error.value = null
+    const context = candidateContext(candidateId)
+    const trimmed = body.trim()
+
+    if (!context || !trimmed) {
+      return false
+    }
+
+    try {
+      const note = await api.createApplicantNote({
+        boardId: context.board.id,
+        applicantId: candidateId,
+        authorName: actorLabel(actorName),
+        body: trimmed,
+      })
+
+      applicantNotes.value = {
+        ...applicantNotes.value,
+        [candidateId]: [note, ...notesFor(candidateId)],
+      }
+      return true
+    } catch (caught) {
+      error.value = errorMessage(caught)
+      return false
     }
   }
 
@@ -305,6 +385,7 @@ export const useBoardsStore = defineStore('boards', () => {
       candidateIds.forEach((candidateId) => {
         editSnapshots.delete(candidateId)
         forgetCandidateEvents(candidateId)
+        forgetCandidateNotes(candidateId)
       })
       await removeCvObjects(cvPaths)
 
@@ -501,6 +582,7 @@ export const useBoardsStore = defineStore('boards', () => {
       )
       editSnapshots.delete(candidateId)
       forgetCandidateEvents(candidateId)
+      forgetCandidateNotes(candidateId)
 
       if (cvPath) {
         await removeCvObjects([cvPath])
@@ -857,6 +939,8 @@ export const useBoardsStore = defineStore('boards', () => {
     editSnapshots.clear()
     applicantEvents.value = {}
     applicantEventsLoading.value = {}
+    applicantNotes.value = {}
+    applicantNotesLoading.value = {}
     boards.value = []
     initialized.value = false
     loading.value = false
@@ -906,6 +990,10 @@ export const useBoardsStore = defineStore('boards', () => {
     loadApplicantEvents,
     eventsFor,
     eventsLoadingFor,
+    loadApplicantNotes,
+    addApplicantNote,
+    notesFor,
+    notesLoadingFor,
     reset,
   }
 })

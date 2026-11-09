@@ -67,8 +67,8 @@ npm run build
 - `src/stores/auth.ts` — owns session state, initialization, sign-in, full-name capture,
   password setup, and sign-out.
 - `src/types/pipeline.ts` — board, step, candidate, applicant event, and summary types.
-- `src/lib/boards-api.ts` — Supabase reads and writes for boards, columns, applicants, and
-  applicant events.
+- `src/lib/boards-api.ts` — Supabase reads and writes for boards, columns, applicants,
+  applicant events, and applicant notes.
 - `src/lib/applicant-events.ts` — event message builders and timestamp formatting.
 - `src/lib/pipeline.ts` — pure pipeline helpers for steps, deadlines, summaries, and
   department grouping.
@@ -90,7 +90,7 @@ npm run build
 - `src/components/BoardColumn.vue` — one pipeline step column.
 - `src/components/CandidateCard.vue` — candidate summary and pipeline actions.
 - `src/components/ApplicantDrawer.vue` — right-side editable applicant profile with Details
-  and Events tabs, favourite, education, and work-experience notes.
+  and Events tabs, favourite, education, work-experience notes, and free-text applicant notes.
 - `src/components/JobSpecDialog.vue` — upload, preview, print, open, and remove a board's PDF
   job spec.
 - `src/components/ConfirmDialog.vue` — shared destructive-action confirmation dialog.
@@ -209,6 +209,10 @@ See `docs/ARCHITECTURE.md` for the auth lifecycle and deployment pipeline.
   the `actor_id` default to `auth.uid()`. Record applicant creation, moves,
   hire/reject/reopen status changes, and one edit event per profile drawer session when any
   profile field changed.
+- Applicant notes use `public.applicant_notes`, also scoped by `(board_id, applicant_id)` with
+  a cascading composite foreign key. Notes are append-only free text: clients may select and
+  insert, but there are no update or delete policies. Insert `author_name` from the signed-in
+  user's full name and let `author_id` default to `auth.uid()`.
 - Use the publishable key for client access. Never introduce a service-role client into the
   browser bundle.
 - Keep `supabase/config.toml` redirect URLs aligned with local and Pages origins.

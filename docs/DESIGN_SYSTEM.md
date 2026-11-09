@@ -322,6 +322,10 @@ class. Keep the rules attached to the field.
   accent underline, and the standard hairline divider. Events render newest first as a
   vertical timeline with an accent dot, the event message, and an uppercase mono timestamp.
   Show a quiet loading line or empty state when there are no events.
+- The Details tab ends with a **Notes** section. A free-text field and **Add note** button
+  append a note for the current user; notes render newest first with the author name and a
+  mono timestamp. Keep notes inside the standard drawer section rhythm and show a quiet
+  loading line or empty state when none exist.
 - The drawer is backed by Postgres. The note at the end tells the user that changes save
   automatically, and a destructive text button opens `ConfirmDialog` before deleting the
   applicant.

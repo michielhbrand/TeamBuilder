@@ -132,6 +132,10 @@ The schema lives in `supabase/migrations/`:
   composite unique key and cascades on delete, so deleting an applicant or board permanently
   removes its events. Events are append-only: clients can select and insert, but there are no
   update or delete policies.
+- `public.applicant_notes` — board and applicant scope, author id and name, free-text body,
+  and timestamp. The composite applicant foreign key cascades from the applicant and board.
+  Notes are append-only: clients can select and insert, but there are no update or delete
+  policies.
 
 The composite applicant foreign key `(board_id, column_id)` guarantees that an applicant is
 assigned to a column on the same board. New applicants default to the column named
@@ -183,12 +187,12 @@ fails, the applicant is still created and the board shows the store error; the C
 retried from the applicant drawer. LinkedIn URL scraping is intentionally not supported:
 LinkedIn blocks automated access, prohibits scraping, and has no free reliable profile API.
 
-RLS is enabled on all four tables. Table privileges are explicitly granted to
+RLS is enabled on all five tables. Table privileges are explicitly granted to
 `authenticated` and revoked from `anon`; RLS policies then grant the operations each table
-needs. Board tables allow `select`, `insert`, `update`, and `delete`; applicant events are
-append-only and allow `select` and `insert` only. RLS alone is not sufficient because
-PostgREST also requires the underlying table grants. RPC execution is revoked from `public`
-and `anon` and granted to `authenticated`.
+needs. Board tables allow `select`, `insert`, `update`, and `delete`; applicant events and
+notes are append-only and allow `select` and `insert` only. RLS alone is not sufficient
+because PostgREST also requires the underlying table grants. RPC execution is revoked from
+`public` and `anon` and granted to `authenticated`.
 
 `src/lib/boards-api.ts` owns Supabase queries, row/domain mapping, and error-throwing
 boundaries. `src/stores/boards.ts` is the single source of truth for the hiring portal:
@@ -203,6 +207,8 @@ boundaries. `src/stores/boards.ts` is the single source of truth for the hiring 
   `reopenCandidate`, `flushCandidate`, and `reset`.
 - `beginCandidateEdit`, `loadApplicantEvents`, `eventsFor`, and `eventsLoadingFor` for the
   applicant audit trail.
+- `loadApplicantNotes`, `addApplicantNote`, `notesFor`, and `notesLoadingFor` for applicant
+  notes.
 
 The router guard awaits `boards.initialize()` before entering a protected route. Text-field
 edits update Pinia immediately and are debounced before the applicant row is written;

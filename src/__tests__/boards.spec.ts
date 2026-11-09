@@ -16,6 +16,8 @@ const mocks = vi.hoisted(() => ({
   deleteApplicant: vi.fn<(...args: unknown[]) => unknown>(),
   fetchApplicantEvents: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
   createApplicantEvent: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
+  fetchApplicantNotes: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
+  createApplicantNote: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
   uploadApplicantCv: vi.fn<(...args: unknown[]) => unknown>(),
   deleteApplicantCv: vi.fn<(...args: unknown[]) => unknown>(),
   createApplicantCvUrl: vi.fn<(...args: unknown[]) => unknown>(),
@@ -80,6 +82,24 @@ describe('boards store', () => {
     mocks.updateApplicant.mockResolvedValue(undefined)
     mocks.deleteApplicant.mockResolvedValue(undefined)
     mocks.fetchApplicantEvents.mockResolvedValue([])
+    mocks.fetchApplicantNotes.mockResolvedValue([])
+    mocks.createApplicantNote.mockImplementation(async (input) => {
+      const note = input as {
+        boardId: string
+        applicantId: string
+        authorName: string
+        body: string
+      }
+
+      return {
+        id: 'n1',
+        boardId: note.boardId,
+        applicantId: note.applicantId,
+        authorName: note.authorName,
+        body: note.body,
+        createdAt: '2026-11-09T10:00:00Z',
+      }
+    })
     mocks.createApplicantEvent.mockImplementation(async (input) => {
       const event = input as {
         boardId: string
@@ -299,6 +319,95 @@ describe('boards store', () => {
 
     expect(mocks.fetchApplicantEvents).toHaveBeenCalledWith('b1', candidate.id)
     expect(store.eventsFor(candidate.id)).toEqual([event])
+  })
+
+  it('loads applicant notes from the backend', async () => {
+    const store = await initializedStore()
+    const candidate = store.boards[0]?.candidates[0]
+
+    expect(candidate).toBeDefined()
+    if (!candidate) return
+
+    const note = {
+      id: 'n1',
+      boardId: 'b1',
+      applicantId: candidate.id,
+      authorName: 'Emma Brand',
+      body: 'Strong portfolio.',
+      createdAt: '2026-11-09T10:00:00Z',
+    }
+    mocks.fetchApplicantNotes.mockResolvedValue([note])
+
+    await store.loadApplicantNotes(candidate.id)
+
+    expect(mocks.fetchApplicantNotes).toHaveBeenCalledWith('b1', candidate.id)
+    expect(store.notesFor(candidate.id)).toEqual([note])
+  })
+
+  it('adds applicant notes to the front of the list', async () => {
+    const store = await initializedStore()
+    const candidate = store.boards[0]?.candidates[0]
+
+    expect(candidate).toBeDefined()
+    if (!candidate) return
+
+    const added = await store.addApplicantNote(candidate.id, '  Follow up Friday.  ', 'Emma Brand')
+
+    expect(added).toBe(true)
+    expect(mocks.createApplicantNote).toHaveBeenCalledExactlyOnceWith({
+      boardId: 'b1',
+      applicantId: candidate.id,
+      authorName: 'Emma Brand',
+      body: 'Follow up Friday.',
+    })
+    expect(store.notesFor(candidate.id)[0]).toEqual({
+      id: 'n1',
+      boardId: 'b1',
+      applicantId: candidate.id,
+      authorName: 'Emma Brand',
+      body: 'Follow up Friday.',
+      createdAt: '2026-11-09T10:00:00Z',
+    })
+  })
+
+  it('does not save empty applicant notes', async () => {
+    const store = await initializedStore()
+    const candidate = store.boards[0]?.candidates[0]
+
+    expect(candidate).toBeDefined()
+    if (!candidate) return
+
+    const added = await store.addApplicantNote(candidate.id, '   ', 'Emma Brand')
+
+    expect(added).toBe(false)
+    expect(mocks.createApplicantNote).not.toHaveBeenCalled()
+  })
+
+  it('forgets applicant notes when the applicant is deleted', async () => {
+    const store = await initializedStore()
+    const candidate = store.boards[0]?.candidates[0]
+
+    expect(candidate).toBeDefined()
+    if (!candidate) return
+
+    mocks.fetchApplicantNotes.mockResolvedValue([
+      {
+        id: 'n1',
+        boardId: 'b1',
+        applicantId: candidate.id,
+        authorName: 'Emma Brand',
+        body: 'Strong portfolio.',
+        createdAt: '2026-11-09T10:00:00Z',
+      },
+    ])
+    await store.loadApplicantNotes(candidate.id)
+
+    expect(store.notesFor(candidate.id)).toHaveLength(1)
+
+    const removed = await store.deleteApplicant(candidate.id)
+
+    expect(removed).toBe(true)
+    expect(store.notesFor(candidate.id)).toEqual([])
   })
 
   it('moves applicants to the first column when a later column is deleted', async () => {

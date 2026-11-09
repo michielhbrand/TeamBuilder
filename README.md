@@ -89,8 +89,8 @@ directions.
    npm run supabase:push
    ```
 
-   The migrations create the `boards`, `board_columns`, `applicants`, and
-   `applicant_events` tables, enable Row Level Security, add authenticated-user policies,
+   The migrations create the `boards`, `board_columns`, `applicants`, `applicant_events`,
+   and `applicant_notes` tables, enable Row Level Security, add authenticated-user policies,
    and explicitly grant table privileges to `authenticated` while revoking them from `anon`.
 
 6. In **Authentication → Users**, either add a demo user with auto-confirm enabled or use
@@ -337,11 +337,12 @@ docs/                       Architecture, design system, and decision records
   by this project.
 - Sessions are stored in browser storage by `@supabase/supabase-js`. Treat the app as
   vulnerable to XSS and keep dependencies and content secure.
-- Board data lives in `public.boards`, `public.board_columns`, `public.applicants`, and
-  `public.applicant_events`. Row Level Security restricts all access to authenticated users;
-  every signed-in user shares the same workspace. The anonymous role has no access.
-- Applicant events are append-only audit records scoped to a board and applicant. Clients can
-  read and insert them, but cannot update or delete them directly.
+- Board data lives in `public.boards`, `public.board_columns`, `public.applicants`,
+  `public.applicant_events`, and `public.applicant_notes`. Row Level Security restricts all
+  access to authenticated users; every signed-in user shares the same workspace. The
+  anonymous role has no access.
+- Applicant events and notes are append-only records scoped to a board and applicant. Clients
+  can read and insert them, but cannot update or delete them directly.
 - Delete operations are permanent. Deleting a board cascades to its columns, applicants, and
   their events; deleting an applicant removes the row and its events; deleting a column
   reassigns its applicants to the first column. The first column cannot be deleted or moved.

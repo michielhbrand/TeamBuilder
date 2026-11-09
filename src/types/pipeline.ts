@@ -105,3 +105,12 @@ export interface ApplicantEvent {
   message: string
   createdAt: string
 }
+
+export interface ApplicantNote {
+  id: string
+  boardId: string
+  applicantId: string
+  authorName: string
+  body: string
+  createdAt: string
+}

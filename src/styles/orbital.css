@@ -1767,6 +1767,53 @@ body.applicant-drawer-open {
   line-height: 1.6;
 }
 
+.applicant-note-compose {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.applicant-note-status {
+  margin: 0;
+  color: var(--orbital-muted);
+  font-size: 0.82rem;
+  line-height: 1.6;
+}
+
+.applicant-note-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.applicant-note {
+  border: 1px solid var(--orbital-line);
+  border-radius: var(--orbital-radius-sm);
+  padding: 14px;
+  background: var(--orbital-surface-2);
+}
+
+.applicant-note__body {
+  margin: 0;
+  color: var(--orbital-ink);
+  font-size: 0.88rem;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.applicant-note__meta {
+  margin: 8px 0 0;
+  color: var(--orbital-muted);
+  font-family: var(--orbital-font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.06em;
+  line-height: 1.5;
+  text-transform: uppercase;
+}
+
 .applicant-cv-card {
   display: flex;
   flex-wrap: wrap;

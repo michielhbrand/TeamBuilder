@@ -28,7 +28,13 @@ const events = computed(() => (props.candidateId ? store.eventsFor(props.candida
 const eventsLoading = computed(() =>
   props.candidateId ? store.eventsLoadingFor(props.candidateId) : false,
 )
+const notes = computed(() => (props.candidateId ? store.notesFor(props.candidateId) : []))
+const notesLoading = computed(() =>
+  props.candidateId ? store.notesLoadingFor(props.candidateId) : false,
+)
 const activeTab = ref<'details' | 'events'>('details')
+const noteDraft = ref('')
+const noteSaving = ref(false)
 const open = computed({
   get: () => props.modelValue,
   set: (value: boolean) => emit('update:modelValue', value),
@@ -107,6 +113,23 @@ function updateField(field: EditableCandidateField, value: unknown): void {
   }
 
   store.updateCandidateField(current.id, field, next)
+}
+
+async function addNote(): Promise<void> {
+  const current = candidate.value
+  const body = noteDraft.value.trim()
+
+  if (!current || !body) {
+    return
+  }
+
+  noteSaving.value = true
+  const added = await store.addApplicantNote(current.id, body, actorName.value)
+  noteSaving.value = false
+
+  if (added) {
+    noteDraft.value = ''
+  }
 }
 
 function requestDeleteApplicant(): void {
@@ -259,9 +282,11 @@ watch([() => props.modelValue, () => props.candidateId], ([value, candidateId]) 
     syncForm()
     closeCvPreview()
     cvError.value = ''
+    noteDraft.value = ''
     activeTab.value = 'details'
     store.beginCandidateEdit(candidateId)
     void store.loadApplicantEvents(candidateId)
+    void store.loadApplicantNotes(candidateId)
   }
 })
 
@@ -467,6 +492,46 @@ onBeforeUnmount(() => setPageScrollLocked(false))
             <v-alert v-if="cvError" class="orbital-alert" type="error" density="compact">
               {{ cvError }}
             </v-alert>
+          </section>
+
+          <section class="applicant-section">
+            <p class="eyebrow">Notes</p>
+
+            <v-textarea
+              v-model="noteDraft"
+              class="applicant-notes-field"
+              label="Add a note"
+              auto-grow
+              hide-details
+              rows="3"
+            />
+            <div class="applicant-note-compose">
+              <v-btn
+                color="primary"
+                variant="outlined"
+                prepend-icon="mdi-note-plus-outline"
+                :disabled="!noteDraft.trim()"
+                :loading="noteSaving"
+                @click="addNote"
+              >
+                Add note
+              </v-btn>
+            </div>
+
+            <div v-if="notesLoading" class="applicant-note-status">Loading notes...</div>
+            <p v-else-if="!notes.length" class="applicant-note-status">
+              No notes for this applicant yet.
+            </p>
+            <ul v-else class="applicant-note-list">
+              <li v-for="note in notes" :key="note.id" class="applicant-note">
+                <p class="applicant-note__body">{{ note.body }}</p>
+                <p class="applicant-note__meta">
+                  {{ note.authorName }}
+                  <span aria-hidden="true">·</span>
+                  <time :datetime="note.createdAt">{{ formatEventTime(note.createdAt) }}</time>
+                </p>
+              </li>
+            </ul>
           </section>
 
           <p class="applicant-drawer__note">Changes save automatically to the shared workspace.</p>
