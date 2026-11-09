@@ -156,7 +156,7 @@ function onDragEnd(): void {
         <div class="candidate-actions">
           <v-btn
             class="candidate-action candidate-action--hire"
-            color="success"
+            color="primary"
             variant="outlined"
             @click="store.hireCandidate(candidate.id)"
           >

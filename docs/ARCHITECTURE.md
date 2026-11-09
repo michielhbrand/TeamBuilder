@@ -34,9 +34,11 @@ rule set; the selected reference is `design/ui-directions.html#orbital`.
 - `src/styles/orbital.css` defines light and dark tokens, typography, layout primitives,
   panels, fields, buttons, status badges, and the orbital motif.
 - `src/plugins/vuetify.ts` registers the matching `orbitalLight` and `orbitalDark` themes
-  and Vuetify component defaults. The app starts in `orbitalLight`.
-- `src/components/ThemeToggle.vue` switches between `orbitalLight` and `orbitalDark` with
-  `theme.change`. It renders in the shared auth shell and the app top bar.
+  and Vuetify component defaults. The app starts in the user's saved theme, or `orbitalLight`
+  if they have never toggled it.
+- `src/lib/theme.ts` owns the theme storage key and reads or persists the selected theme.
+- `src/components/ThemeToggle.vue` switches between `orbitalLight` and `orbitalDark` by
+  setting `theme.global.name`. It renders in the shared auth shell and the app top bar.
 - `src/App.vue` provides the default app shell.
 - `src/components/BrandMark.vue` owns the TeamBuilder lockup. `src/components/AuthShell.vue`
   owns the shared login and password-setup layout. `src/components/AppShell.vue` owns the
@@ -54,8 +56,9 @@ rule set; the selected reference is `design/ui-directions.html#orbital`.
 ## Runtime auth lifecycle
 
 1. `src/main.ts` creates the app, installs Pinia, and resolves the auth store.
-2. `auth.initialize()` calls `supabase.auth.getSession()`, which reads a persisted session
-   from browser storage if one exists.
+2. `auth.initialize()` calls `supabase.auth.getSession()`. The client uses
+   `persistSession: false`, so the JWT lives only in the Pinia store and is never written to
+   local or session storage; a full reload starts a fresh sign-in.
 3. The store subscribes to `onAuthStateChange`; token refreshes and sign-out events update
    `session` in place.
 4. Only after initialization does `main.ts` install the router and mount the app. This keeps
@@ -68,20 +71,25 @@ rule set; the selected reference is `design/ui-directions.html#orbital`.
    or `/overview`.
 8. `OverviewView.vue` is the post-login landing page. `BoardsView.vue` lists boards grouped
    by department, `BoardView.vue` renders one board's step columns, and `AccountView.vue`
-   shows non-sensitive session details. Sign-out calls `auth.signOut()`, clears the session,
-   and returns to `/`.
-9. Invitation and recovery links arrive with a `type` in the URL hash or query.
-   `src/lib/auth-link.ts` reads that type before `supabase-js` consumes and clears the URL.
-   The store sets `passwordSetupRequired` for `invite` and `recovery` links.
-10. If the user lands on `/` with a pending password setup, the router guard sends them to
+   shows non-sensitive session details, full-name editing, and password reset. Sign-out calls
+   `auth.signOut()`, clears the session, and returns to `/`.
+9. Signed-in users whose `user_metadata.full_name` is empty see the persistent
+   `FullNameDialog` from `AppShell` until they save a name. `auth.updateFullName()` writes the
+   value through `supabase.auth.updateUser({ data: { full_name } })`, so it is available on
+   every later sign-in. The Account page can change it later and can also reset the password
+   through `auth.setPassword()`.
+10. Invitation and recovery links arrive with a `type` in the URL hash or query.
+    `src/lib/auth-link.ts` reads that type before `supabase-js` consumes and clears the URL.
+    The store sets `passwordSetupRequired` for `invite` and `recovery` links.
+11. If the user lands on `/` with a pending password setup, the router guard sends them to
     `/set-password`. With the default `{{ .ConfirmationURL }}` template, Supabase Auth has
     already exchanged the link for a session.
-11. For invite templates that use `token_hash` instead of `ConfirmationURL`,
+12. For invite templates that use `token_hash` instead of `ConfirmationURL`,
     `auth-link.ts` also captures the hash. `/set-password` shows a **Continue** button and
     does not redeem the token until the recipient clicks it; `auth.verifyLink()` then calls
     `supabase.auth.verifyOtp({ token_hash, type })`. This avoids corporate email scanners
     consuming the one-time link before the recipient opens it.
-12. `SetPasswordView.vue` validates the new password and calls
+13. `SetPasswordView.vue` validates the new password and calls
     `supabase.auth.updateUser({ password })` through `auth.setPassword()`. On success the
     flag is cleared and the user continues to `/overview`. If the link is expired or
     missing, the page shows the error and points back to sign-in.
@@ -92,9 +100,10 @@ rule set; the selected reference is `design/ui-directions.html#orbital`.
 
 - `session` and derived `user`
 - `isAuthenticated`
+- `fullName` and `fullNameRequired` from `user_metadata.full_name`
 - `initialized` and `loading`
 - `error` (user-facing message)
-- `initialize`, `signIn`, `verifyLink`, `setPassword`, `signOut`
+- `initialize`, `signIn`, `verifyLink`, `setPassword`, `updateFullName`, `signOut`
 - `passwordSetupRequired`, `linkType`, `linkTokenHash`, and `linkError` for
   invitation/recovery links
 
@@ -103,7 +112,9 @@ updates consistent.
 
 The Supabase client is a singleton in `src/lib/supabase.ts`. It reads
 `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` at module load and refuses to start
-without them. It also rejects a `sb_secret_` key defensively.
+without them. It also rejects a `sb_secret_` key defensively. `persistSession` is disabled so
+Supabase never writes the JWT to browser storage; `autoRefreshToken` keeps the in-memory
+session current while the tab is open.
 
 ## Board data
 

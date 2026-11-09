@@ -235,13 +235,20 @@ onBeforeUnmount(() => {
             </h3>
             <p v-if="!hired.length" class="closed-empty">None yet.</p>
             <div v-for="candidate in hired" :key="candidate.id" class="closed-row">
-              <span class="candidate-avatar candidate-avatar--small" aria-hidden="true">
-                {{ initials(candidate.name) }}
-              </span>
-              <div class="closed-row__copy">
-                <p class="candidate-name">{{ candidate.name }}</p>
-                <p class="candidate-source">Last step: {{ lastStepName(candidate) }}</p>
-              </div>
+              <button
+                class="closed-row__open"
+                type="button"
+                :aria-label="`Open applicant profile for ${candidate.name}`"
+                @click="openProfile(candidate)"
+              >
+                <span class="candidate-avatar candidate-avatar--small" aria-hidden="true">
+                  {{ initials(candidate.name) }}
+                </span>
+                <span class="closed-row__copy">
+                  <span class="candidate-name">{{ candidate.name }}</span>
+                  <span class="candidate-source">Last step: {{ lastStepName(candidate) }}</span>
+                </span>
+              </button>
               <v-btn size="small" variant="text" @click="store.reopenCandidate(candidate.id)">
                 Reopen
               </v-btn>
@@ -254,13 +261,20 @@ onBeforeUnmount(() => {
             </h3>
             <p v-if="!rejected.length" class="closed-empty">None yet.</p>
             <div v-for="candidate in rejected" :key="candidate.id" class="closed-row">
-              <span class="candidate-avatar candidate-avatar--small" aria-hidden="true">
-                {{ initials(candidate.name) }}
-              </span>
-              <div class="closed-row__copy">
-                <p class="candidate-name">{{ candidate.name }}</p>
-                <p class="candidate-source">Last step: {{ lastStepName(candidate) }}</p>
-              </div>
+              <button
+                class="closed-row__open"
+                type="button"
+                :aria-label="`Open applicant profile for ${candidate.name}`"
+                @click="openProfile(candidate)"
+              >
+                <span class="candidate-avatar candidate-avatar--small" aria-hidden="true">
+                  {{ initials(candidate.name) }}
+                </span>
+                <span class="closed-row__copy">
+                  <span class="candidate-name">{{ candidate.name }}</span>
+                  <span class="candidate-source">Last step: {{ lastStepName(candidate) }}</span>
+                </span>
+              </button>
               <v-btn size="small" variant="text" @click="store.reopenCandidate(candidate.id)">
                 Reopen
               </v-btn>

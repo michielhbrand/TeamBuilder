@@ -174,7 +174,8 @@ Use `AppShell` for `/overview`, `/boards`, `/boards/:boardId`, and `/account`.
 - The Overview page has a four-card stat row, an attention panel, and a department-load
   panel. Both panels become one column at `1024px`.
 - The Account page keeps the existing three-card stat row and two-column identity/status
-  body.
+  body. A second grid adds full-name editing and password reset panels using the same
+  `.data-panel` shell and `.account-form` spacing.
 - At `920px` the top bar wraps: brand and actions on the first row, navigation on its own
   row. Do not collapse the navigation into a hidden menu without a product decision.
 - At `720px` stat grids stack and the account aside stacks.
@@ -231,9 +232,10 @@ that prototype's palette, gradients, or Bricolage/Hanken fonts.
 - Use `ThemeToggle.vue`.
 - Render an outlined primary circular `v-btn` with `mdi-weather-sunny` or
   `mdi-weather-night`.
-- Toggle with `theme.change` between `orbitalLight` and `orbitalDark`.
+- Toggle by setting `theme.global.name` between `orbitalLight` and `orbitalDark`.
 - The control matches the `38px` avatar circle and uses a dynamic accessible label.
-- The default is light; the button switches to dark mode.
+- The selected theme persists in `localStorage` under `orbital-theme`; only a user who has
+  never toggled the control starts in light mode.
 
 ### Fields
 
@@ -288,6 +290,9 @@ class. Keep the rules attached to the field.
   upload state. With a PDF it expands to a document preview with open-in-new-tab, print, and
   remove actions; remove opens `ConfirmDialog`. The preview reuses the CV toolbar and iframe
   classes.
+- `FullNameDialog` is a persistent one-field dialog shown from `AppShell` when a signed-in
+  user has no `full_name`. It has no close action; the user must save a name before using the
+  protected pages.
 
 ### Add applicant and CV import
 
@@ -338,14 +343,16 @@ class. Keep the rules attached to the field.
 
 Orbital is dual-mode by design.
 
-- `src/plugins/vuetify.ts` registers `orbitalLight` and `orbitalDark`; the default theme is
-  `orbitalLight`.
+- `src/plugins/vuetify.ts` registers `orbitalLight` and `orbitalDark`; the startup theme is
+  the saved selection, or `orbitalLight` when none exists.
+- `src/lib/theme.ts` owns the theme storage key and read/persist helpers.
 - `src/App.vue` provides the default app shell.
-- `src/components/ThemeToggle.vue` toggles between `orbitalLight` and `orbitalDark` with
-  `theme.change`.
+- `src/components/ThemeToggle.vue` toggles between `orbitalLight` and `orbitalDark` by
+  setting `theme.global.name` and saves the choice.
 - `src/styles/orbital.css` defines token overrides on `.v-theme--orbitalLight` and
   `.v-theme--orbitalDark`.
-- The UI starts in light mode. The manual toggle switches to dark mode and back to light.
+- The UI starts in the user's saved theme, or light mode if they have never toggled it. The
+  manual toggle switches between dark and light and persists the selection.
 - Do not hardcode light-only colors in new components. Add or use a token.
 - Do not add another theme source unless the product owner asks for one.
 

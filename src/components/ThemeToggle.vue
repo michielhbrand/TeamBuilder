@@ -1,25 +1,16 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed } from 'vue'
 import { useTheme } from 'vuetify'
+import { darkThemeName, lightThemeName, persistTheme } from '@/lib/theme'
 
-const STORAGE_KEY = 'orbital-theme'
 const theme = useTheme()
-const isDark = ref(false)
+const isDark = computed(() => theme.global.current.value.dark)
 
 function toggle(): void {
-  const nextTheme = isDark.value ? 'orbitalLight' : 'orbitalDark'
-  isDark.value = !isDark.value
+  const nextTheme = isDark.value ? lightThemeName : darkThemeName
   theme.global.name.value = nextTheme
-  localStorage.setItem(STORAGE_KEY, nextTheme)
+  persistTheme(nextTheme)
 }
-
-onMounted(() => {
-  const saved = localStorage.getItem(STORAGE_KEY)
-  if (saved === 'dark') {
-    isDark.value = true
-  }
-  theme.global.name.value = isDark.value ? 'orbitalDark' : 'orbitalLight'
-})
 </script>
 
 <template>

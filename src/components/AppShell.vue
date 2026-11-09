@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import BrandMark from '@/components/BrandMark.vue'
+import FullNameDialog from '@/components/FullNameDialog.vue'
 import ThemeToggle from '@/components/ThemeToggle.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useBoardsStore } from '@/stores/boards'
@@ -79,5 +80,7 @@ async function signOut(): Promise<void> {
       <span>TeamBuilder / Vue 3 + Supabase</span>
       <span>Orbital system / A</span>
     </footer>
+
+    <FullNameDialog />
   </div>
 </template>

@@ -35,8 +35,8 @@ defineProps<{
           </div>
           <div class="readout-cell">
             <span class="mono-label">Session</span>
-            <strong>Persisted</strong>
-            <span>Auto-refreshed</span>
+            <strong>In-memory</strong>
+            <span>Pinia, auto-refreshed</span>
           </div>
           <div class="readout-cell">
             <span class="mono-label">Access</span>

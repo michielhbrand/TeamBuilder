@@ -8,7 +8,7 @@ deployment, or UI behavior.
 
 TeamBuilder is a Vue 3 + Supabase hiring pipeline workspace. It is hosted on GitHub Pages
 and exists to demonstrate a login screen, admin invitations that let users choose a
-password, persisted sessions, a protected hiring portal, and sign-out. The portal has an
+password, in-memory sessions, a protected hiring portal, and sign-out. The portal has an
 overview, role boards grouped by department, a step-column pipeline for each role, and an
 account page. Boards, pipeline columns, and applicants are stored in Supabase Postgres and
 loaded through Pinia. Keep it focused; do not add unrelated product features.
@@ -63,8 +63,8 @@ npm run build
 - `src/lib/supabase.ts` — the only Supabase client instance.
 - `src/lib/auth-link.ts` — reads invite/recovery link parameters before Supabase consumes
   the URL.
-- `src/stores/auth.ts` — owns session state, initialization, sign-in, password setup, and
-  sign-out.
+- `src/stores/auth.ts` — owns session state, initialization, sign-in, full-name capture,
+  password setup, and sign-out.
 - `src/types/pipeline.ts` — board, step, candidate, and summary types.
 - `src/lib/boards-api.ts` — Supabase reads and writes for boards, columns, and applicants.
 - `src/lib/pipeline.ts` — pure pipeline helpers for steps, deadlines, summaries, and
@@ -75,6 +75,8 @@ npm run build
 - `src/router/index.ts` — routes and the auth guard.
 - `src/components/AppShell.vue` — top-bar navigation and shared layout for protected pages.
 - `src/components/AuthShell.vue` — shared Orbital layout for login and password setup.
+- `src/components/FullNameDialog.vue` — blocking full-name capture for signed-in users whose
+  profile has no name yet.
 - `src/components/BrandMark.vue` — the only application brand lockup.
 - `src/components/BoardList.vue` — searchable boards grouped by department.
 - `src/components/BoardFormDialog.vue` — create and edit board fields.
@@ -98,7 +100,8 @@ npm run build
 - `src/views/OverviewView.vue` — post-login hiring overview.
 - `src/views/BoardsView.vue` — all role boards grouped by department.
 - `src/views/BoardView.vue` — step-column pipeline for one role.
-- `src/views/AccountView.vue` — protected session and identity details.
+- `src/views/AccountView.vue` — protected session, identity, full-name editing, and password
+  reset.
 - `src/styles/orbital.css` — locked design tokens, layout primitives, board styling, and
   Vuetify styling.
 - `src/plugins/vuetify.ts` — Orbital light/dark Vuetify themes and component defaults.
@@ -136,8 +139,9 @@ See `docs/ARCHITECTURE.md` for the auth lifecycle and deployment pipeline.
   from the other design directions.
 - Use Vuetify 4 components and MDI icon names. Do not upgrade to a non-MIT UI major without
   reviewing its license.
-- Keep light and dark mode working. The app starts in light mode and switches with the
-  top-bar theme toggle; new UI must use Orbital tokens and be checked in both modes.
+- Keep light and dark mode working. The app starts in the user's saved theme, or light mode
+  if they have never toggled it, and switches with the top-bar theme toggle; new UI must use
+  Orbital tokens and be checked in both modes.
 - Use Conventional Commits for commit messages and PR titles. `semantic-release` uses them
   to choose patch/minor/major versions; non-conventional commits do not create releases.
 - Use the `@/` alias for imports from `src/`.

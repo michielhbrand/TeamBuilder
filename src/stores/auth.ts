@@ -66,6 +66,11 @@ export const useAuthStore = defineStore('auth', () => {
   const passwordSetupRequired = ref(initialAuthLinkType !== null)
   const user = computed<User | null>(() => session.value?.user ?? null)
   const isAuthenticated = computed(() => session.value !== null)
+  const fullName = computed(() => {
+    const value = user.value?.user_metadata?.full_name
+    return typeof value === 'string' ? value.trim() : ''
+  })
+  const fullNameRequired = computed(() => isAuthenticated.value && !fullName.value)
   let unsubscribe: (() => void) | undefined
 
   async function initialize(): Promise<void> {
@@ -181,6 +186,39 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  async function updateFullName(name: string): Promise<boolean> {
+    const trimmed = name.trim()
+
+    if (!trimmed) {
+      error.value = 'Enter your full name.'
+      return false
+    }
+
+    loading.value = true
+    error.value = null
+
+    try {
+      const { data, error: updateError } = await supabase.auth.updateUser({
+        data: { full_name: trimmed },
+      })
+
+      if (updateError) {
+        throw updateError
+      }
+
+      if (session.value && data.user) {
+        session.value = { ...session.value, user: data.user }
+      }
+
+      return true
+    } catch (caught) {
+      error.value = friendlyErrorMessage(errorMessage(caught))
+      return false
+    } finally {
+      loading.value = false
+    }
+  }
+
   async function signOut(): Promise<void> {
     loading.value = true
     error.value = null
@@ -211,10 +249,13 @@ export const useAuthStore = defineStore('auth', () => {
     passwordSetupRequired,
     user,
     isAuthenticated,
+    fullName,
+    fullNameRequired,
     initialize,
     signIn,
     verifyLink,
     setPassword,
+    updateFullName,
     signOut,
   }
 })

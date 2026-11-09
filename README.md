@@ -1,7 +1,7 @@
 # TeamBuilder
 
 A Vue 3 + Supabase hiring pipeline workspace: email/password sign-in, invited users who
-choose their own password, persisted sessions, a protected hiring portal, and sign-out. The
+choose their own password, in-memory sessions, a protected hiring portal, and sign-out. The
 portal has a pipeline overview, role boards grouped by department, a step-column board for
 each role, and an account page. The frontend is deployed to GitHub Pages with GitHub
 Actions. Boards, pipeline columns, and applicants are stored in Supabase Postgres and loaded
@@ -25,7 +25,7 @@ through Pinia.
 
 - A login screen backed by Supabase Auth
 - Admin invitations that let users choose their own password
-- Session persistence and automatic token refresh
+- In-memory session handling in Pinia with automatic token refresh
 - A router guard that protects the hiring portal
 - A pipeline overview at `/overview` with workload and attention summaries
 - Role boards grouped by department at `/boards`
@@ -34,7 +34,8 @@ through Pinia.
 - Applicant creation per board with a right-side editable profile, favourite toggle, and
   career / work-experience notes
 - Persisted candidate actions: advance, move, reject, hire, reopen, and delete
-- An account page with non-sensitive session and identity details
+- An account page with non-sensitive session details, full-name editing, and password reset
+- A blocking full-name prompt after sign-in when the profile has no name yet
 - Sign-out and redirect back to the login screen
 - Build-time environment injection from GitHub Actions secrets
 - A GitHub Pages SPA fallback so `/TeamBuilder/boards` survives a hard refresh
@@ -46,7 +47,8 @@ Supabase dashboard; invited users finish at `/set-password`.
 
 The locked visual system is Direction A / **Orbital**: a calm, precise interface with a cobalt
 signal, soft geometry, Manrope typography, and a restrained orbital motif. The app starts in
-light mode and offers a top-bar toggle for dark mode.
+the user's saved theme, or light mode if they have never toggled it, and offers a top-bar
+toggle for dark mode.
 
 - Canonical rules: [docs/DESIGN_SYSTEM.md](docs/DESIGN_SYSTEM.md)
 - Token and layout implementation: `src/styles/orbital.css`
@@ -290,7 +292,7 @@ src/
   lib/pipeline.ts           Pure pipeline helpers and summaries
   lib/validation.ts         Email and phone validation helpers
   lib/boards-api.ts         Supabase reads/writes for boards, columns, and applicants
-  stores/auth.ts            Session state, sign-in, sign-out, password setup
+  stores/auth.ts            Session state, sign-in, sign-out, full name, password setup
   stores/boards.ts          Persisted boards, columns, applicants, and actions
   types/pipeline.ts         Board, step, candidate, and summary types
   router/index.ts           Routes and authentication guard
@@ -304,6 +306,7 @@ src/
   components/BoardColumn.vue One pipeline step column
   components/CandidateCard.vue Candidate summary and actions
   components/ApplicantDrawer.vue Editable applicant profile and notes
+  components/FullNameDialog.vue Blocking full-name capture for signed-in users
   components/ConfirmDialog.vue Shared destructive-action confirmation
   components/PipelineBar.vue Per-step progress bar
   components/ThemeToggle.vue Light/dark mode toggle
@@ -312,7 +315,7 @@ src/
   views/OverviewView.vue    Post-login hiring overview
   views/BoardsView.vue      All boards grouped by department
   views/BoardView.vue       Step-column pipeline for one role
-  views/AccountView.vue     Protected session details
+  views/AccountView.vue     Session details, full name, and password reset
   styles/orbital.css        Orbital tokens and shared page styles
   plugins/vuetify.ts        Vuetify themes and component defaults
 scripts/

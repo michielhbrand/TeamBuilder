@@ -17,7 +17,8 @@ if (supabasePublishableKey.startsWith('sb_secret_')) {
 
 export const supabase = createClient(supabaseUrl, supabasePublishableKey, {
   auth: {
-    persistSession: true,
+    // Keep the JWT in the Pinia auth store only; never write it to browser storage.
+    persistSession: false,
     autoRefreshToken: true,
     detectSessionInUrl: true,
   },

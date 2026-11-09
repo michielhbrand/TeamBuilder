@@ -144,6 +144,41 @@ describe('auth store', () => {
     expect(auth.error).toBe('Password must be at least 8 characters.')
   })
 
+  it('requires a full name and persists it to user metadata', async () => {
+    const updatedUser = {
+      ...session.user,
+      user_metadata: { full_name: 'Ada Lovelace' },
+    }
+    mocks.getSession.mockResolvedValue({ data: { session }, error: null })
+    mocks.updateUser.mockResolvedValue({ data: { user: updatedUser }, error: null })
+    const auth = useAuthStore()
+    await auth.initialize()
+
+    expect(auth.fullName).toBe('')
+    expect(auth.fullNameRequired).toBe(true)
+
+    const saved = await auth.updateFullName('  Ada Lovelace  ')
+
+    expect(saved).toBe(true)
+    expect(auth.fullName).toBe('Ada Lovelace')
+    expect(auth.fullNameRequired).toBe(false)
+    expect(mocks.updateUser).toHaveBeenCalledWith({
+      data: { full_name: 'Ada Lovelace' },
+    })
+  })
+
+  it('rejects an empty full name', async () => {
+    mocks.getSession.mockResolvedValue({ data: { session }, error: null })
+    const auth = useAuthStore()
+    await auth.initialize()
+
+    const saved = await auth.updateFullName('   ')
+
+    expect(saved).toBe(false)
+    expect(auth.error).toBe('Enter your full name.')
+    expect(mocks.updateUser).not.toHaveBeenCalled()
+  })
+
   it('clears the session on sign out', async () => {
     mocks.getSession.mockResolvedValue({ data: { session }, error: null })
     mocks.signOut.mockResolvedValue({ error: null })

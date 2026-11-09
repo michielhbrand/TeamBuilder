@@ -1,6 +1,7 @@
 import 'vuetify/styles'
 import '@mdi/font/css/materialdesignicons.css'
 import { createVuetify, type ThemeDefinition } from 'vuetify'
+import { readStoredTheme } from '@/lib/theme'
 
 const orbitalLight: ThemeDefinition = {
   dark: false,
@@ -56,7 +57,7 @@ const orbitalDark: ThemeDefinition = {
 
 export default createVuetify({
   theme: {
-    defaultTheme: 'orbitalLight',
+    defaultTheme: readStoredTheme(),
     themes: {
       orbitalLight,
       orbitalDark,
