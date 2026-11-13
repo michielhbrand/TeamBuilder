@@ -271,7 +271,9 @@ Dates use ISO 8601. Status values are proposed, accepted, superseded, or depreca
   preserved. Use a composite `(board_id, column_id)` foreign key to keep applicants on their
   board's columns, and atomic SQL functions for board creation, column reordering, and column
   deletion. Access
-  data through `src/lib/boards-api.ts` and keep Pinia as the UI source of truth.
+  data through the split modules under `src/lib/` (`boards-api.ts`, `applicants-api.ts`,
+  `activity-api.ts`, `storage-api.ts`, and `fit-api.ts`) and keep Pinia as the UI source of
+  truth.
 - **Consequences:** Every signed-in user shares one workspace. Applicant email and phone are
   unique per board; board names and column names are case-insensitively unique within their
   scope. Deleting an applicant is permanent, deleting a column moves its applicants to the

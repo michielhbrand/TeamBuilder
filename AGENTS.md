@@ -77,8 +77,15 @@ npm run build
   password setup, and sign-out.
 - `src/types/pipeline.ts` — board, step, candidate, applicant event, and summary types.
 - `src/types/fit.ts` — applicant CV/job-spec analysis types.
-- `src/lib/boards-api.ts` — Supabase reads and writes for boards, columns, applicants,
-  applicant events, applicant notes, and fit analyses.
+- `src/lib/api-shared.ts` — shared row types, select fragments, and board/applicant/event/note
+  mappers.
+- `src/lib/boards-api.ts` — Supabase reads and writes for boards and columns.
+- `src/lib/applicants-api.ts` — Supabase create, update, and delete for applicants.
+- `src/lib/activity-api.ts` — Supabase reads and writes for applicant events and notes.
+- `src/lib/storage-api.ts` — Supabase Storage uploads, downloads, signed URLs, and object
+  removal for applicant CVs and board job specs.
+- `src/lib/fit-api.ts` — Supabase reads for stored fit analyses and Edge Function invocation.
+- `src/lib/store-errors.ts` — shared friendly constraint messages and store error formatting.
 - `src/lib/applicant-events.ts` — fallback actor label and timestamp formatting for the
   audit trail.
 - `src/lib/pdf-text.ts` — shared PDF text extraction, OCR fallback, IndexedDB cache, and PDF
@@ -88,7 +95,13 @@ npm run build
 - `src/lib/pipeline.ts` — pure pipeline helpers for steps, deadlines, summaries, department
   grouping, and dashboard candidate watch entries.
 - `src/lib/validation.ts` — shared email and phone validation helpers.
-- `src/stores/boards.ts` — persisted board, column, and applicant state and actions.
+- `src/stores/boards.ts` — persisted board and column state, derived groups/summaries/totals,
+  and board actions.
+- `src/stores/applicants.ts` — candidate lookup, applicant CRUD, moves, status changes,
+  debounced autosave, and edit snapshots.
+- `src/stores/applicant-activity.ts` — applicant events and notes with per-applicant loading
+  state.
+- `src/stores/storage.ts` — CV and job-spec uploads, removals, signed URLs, and blobs.
 - `src/stores/fit.ts` — persisted applicant CV-analysis state and actions.
 - `supabase/migrations/` — Postgres tables, RLS policies, indexes, and board RPC functions.
 - `supabase/functions/fit-analysis/` — authenticated Edge Function that redacts CV fields,
@@ -153,11 +166,15 @@ See `docs/ARCHITECTURE.md` for the auth lifecycle and deployment pipeline.
 
 - Use Vue single-file components with `<script setup lang="ts">`.
 - Keep auth state in the Pinia store. Components should not call `supabase.auth` directly.
-- Keep board state in `src/stores/boards.ts` and fit state in `src/stores/fit.ts`. Components
-  read from the stores and call their actions instead of calling Supabase or the Edge
-  Function directly.
-- Keep Supabase queries and row/domain mapping in `src/lib/boards-api.ts`. Board data is
-  persisted in the tables created by `supabase/migrations/`.
+- Keep board, applicant, activity, storage, and fit state in their dedicated Pinia stores
+  (`src/stores/boards.ts`, `applicants.ts`, `applicant-activity.ts`, `storage.ts`, and
+  `fit.ts`). Components read from the stores and call their actions instead of calling
+  Supabase or the Edge Function directly. Each store owns its own `error` state so a failure
+  in one area does not overwrite another.
+- Keep Supabase queries and row/domain mapping in the split API modules under `src/lib/`
+  (`boards-api.ts`, `applicants-api.ts`, `activity-api.ts`, `storage-api.ts`, and
+  `fit-api.ts`), sharing row mappers through `api-shared.ts`. Board data is persisted in the
+  tables created by `supabase/migrations/`.
 - Every signed-in user shares the same workspace. RLS policies allow the `authenticated`
   role only; do not grant board access to `anon`.
 - Deleting a board cascades to its columns, applicants, events, notes, and fit analyses.

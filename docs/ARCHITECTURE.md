@@ -115,6 +115,20 @@ rule set; the selected reference is `design/ui-directions.html#orbital`.
 Components must not call `supabase.auth` directly. This keeps error handling and session
 updates consistent.
 
+The hiring workspace is split by domain, and each store owns its own `error` state:
+
+- `src/stores/boards.ts` owns boards, columns, and the derived groups, summaries, and totals.
+- `src/stores/applicants.ts` owns candidate lookup, applicant CRUD, moves, status changes,
+  debounced autosave, and edit snapshots.
+- `src/stores/applicant-activity.ts` owns applicant events and notes plus their per-applicant
+  loading state.
+- `src/stores/storage.ts` owns CV and job-spec uploads, removals, signed URLs, and blobs.
+- `src/stores/fit.ts` owns persisted CV-analysis state.
+
+Components call the store for the area they are changing instead of calling Supabase
+directly. Because the errors are separate, a failed CV upload does not overwrite a board or
+applicant error.
+
 The Supabase client is a singleton in `src/lib/supabase.ts`. It reads
 `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` at module load and refuses to start
 without them. It also rejects a `sb_secret_` key defensively. `persistSession` is disabled so
@@ -167,7 +181,7 @@ at `<applicant-id>/cv.pdf`; the `applicants.cv_path` and `applicants.cv_name` co
 object reference and original filename. Board job specs use the private `job-specs` bucket at
 `<board-id>/job-spec.pdf`; the `boards.job_spec_path` and `boards.job_spec_name` columns hold
 the reference and original filename. Storage policies allow the `authenticated` role only.
-The store removes stored objects when a CV, job spec, applicant, or board is deleted.
+The storage store removes stored objects when a CV, job spec, applicant, or board is deleted.
 
 Every PDF upload passes through the browser compressor in `src/lib/pdf.ts` before it reaches
 Supabase. The compressor re-encodes embedded raster images with the browser canvas JPEG
@@ -219,11 +233,12 @@ Analize tab, CV upload, or refresh
   -> drawer reloads the stored result through the fit Pinia store
 ```
 
-`src/stores/fit.ts` owns fit state. It downloads the CV and job spec through the boards store,
-hashes the CV bytes and cleaned job-spec text, and sends only the applicant id, job-spec text,
-and fingerprints; the Edge Function loads the role and department server-side. The UI requires
-consent before invoking the function. The Edge Function performs the actual model call and
-writes the row; the browser never validates model output or receives the Kilo key.
+`src/stores/fit.ts` owns fit state. It downloads the CV and job spec through the storage
+store, hashes the CV bytes and cleaned job-spec text, and sends only the applicant id,
+job-spec text, and fingerprints; the Edge Function loads the role and department server-side.
+The UI requires consent before invoking the function. The Edge Function performs the actual
+model call and writes the row; the browser never validates model output or receives the Kilo
+key.
 
 The Edge Function sends only the job spec and redacted education/work experience to Kilo. It
 removes names, email, phone, URLs, address, date of birth, nationality, gender, age, marital
@@ -241,21 +256,39 @@ the service role. RLS alone is not sufficient
 because PostgREST also requires the underlying table grants. RPC execution is revoked from
 `public` and `anon` and granted to `authenticated`.
 
-`src/lib/boards-api.ts` owns Supabase queries, row/domain mapping, and error-throwing
-boundaries. `src/stores/boards.ts` is the single source of truth for the hiring portal:
+`src/lib/boards-api.ts`, `applicants-api.ts`, `activity-api.ts`, `storage-api.ts`, and
+`fit-api.ts` own Supabase queries, Edge Function invocation, and error-throwing boundaries,
+sharing row types, select fragments, and domain mappers through `src/lib/api-shared.ts`.
+`src/lib/store-errors.ts` holds the shared friendly constraint messages.
+
+`src/stores/boards.ts` is the source of truth for boards and columns:
 
 - `boards`, `loading`, `initialized`, and `error`.
 - derived `groups`, `orderedBoards`, `summaries`, `totals`, and `needsAttention` (boards past
   their deadline).
 - `initialize`, `createBoard`, `updateBoard`, `deleteBoard`, `addColumn`, `renameColumn`,
-  `reorderColumns`, `deleteColumn`.
+  `reorderColumns`, `deleteColumn`, and `reset`.
+
+`src/stores/applicants.ts` owns candidate behavior:
+
+- `candidateById` and its own `error`.
 - `createApplicant`, `deleteApplicant`, `updateCandidateField`, and `toggleFavorite`.
 - `advanceCandidate`, `moveCandidate`, `hireCandidate`, `rejectCandidate`,
   `reopenCandidate`, `flushCandidate`, and `reset`.
-- `beginCandidateEdit`, `loadApplicantEvents`, `eventsFor`, and `eventsLoadingFor` for the
-  applicant audit trail.
-- `loadApplicantNotes`, `addApplicantNote`, `notesFor`, and `notesLoadingFor` for applicant
-  notes.
+- `beginCandidateEdit`, `forgetCandidate`, and `forgetCandidates` for autosave timers and
+  edit snapshots.
+
+`src/stores/applicant-activity.ts` owns the audit trail and notes:
+
+- its own `error`, `eventsFor`, `eventsLoadingFor`, `notesFor`, and `notesLoadingFor`.
+- `loadEvents`, `loadNotes`, `addNote`, `recordEdit`, `forgetCandidate`, and
+  `forgetCandidates`.
+
+`src/stores/storage.ts` owns file storage for both buckets:
+
+- its own `error` and CV actions `uploadCv`, `removeCv`, `cvSignedUrl`, and `cvBlob`.
+- job-spec actions `uploadJobSpec`, `removeJobSpec`, `jobSpecSignedUrl`, and `jobSpecBlob`.
+- quiet cleanup helpers used when an applicant or board is deleted.
 
 `src/stores/fit.ts` holds fit analyses by applicant, loading/analyzing/error/progress state,
 and stale flags. Its `load` reads the stored row, `analyze` extracts the job spec, hashes the
@@ -273,8 +306,8 @@ creation, moves, and hire/reject/reopen events in the same transaction as the ap
 change. `src/types/pipeline.ts` defines the domain types,
 `src/lib/applicant-events.ts` provides the fallback actor label and formats timestamps, and
 `src/lib/pipeline.ts` contains pure helpers for column lookup, deadlines, elapsed days,
-next-step navigation, department grouping, and summaries. Components read from the store and
-call its actions; they do not call Supabase directly.
+next-step navigation, department grouping, and summaries. Components read from the stores and
+call their actions; they do not call Supabase directly.
 
 ## Routing and GitHub Pages
 
@@ -385,9 +418,11 @@ Function secrets are separate from the Vite build:
 
 ## Extension guidance
 
-- To change the board schema, add a migration in `supabase/migrations`, update
-  `src/lib/boards-api.ts` mapping, and update both the domain types and the store. Enable RLS
-  and add policies for the intended roles; keep the secret key server-side.
+- To change the board schema, add a migration in `supabase/migrations`, update the matching
+  module under `src/lib/` (`boards-api.ts`, `applicants-api.ts`, `activity-api.ts`,
+  `storage-api.ts`, or `fit-api.ts`) and `api-shared.ts` mapping, and update both the domain
+  types and the owning store. Enable RLS and add policies for the intended roles; keep the
+  secret key server-side.
 - Keep the pure helpers in `src/lib/pipeline.ts` free of Supabase calls so pipeline behavior
   stays unit-testable.
 - To change fit analysis, update the prompt/validation/redaction in

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useBoardsStore } from '@/stores/boards'
+import { useApplicantsStore } from '@/stores/applicants'
 import {
   daysInStep as getDaysInStep,
   daysSinceApplied as getDaysSinceApplied,
@@ -24,7 +24,7 @@ const emit = defineEmits<{
   'open-profile': [candidate: Candidate]
 }>()
 
-const store = useBoardsStore()
+const store = useApplicantsStore()
 
 const step = computed(() => stepById(props.board, props.candidate.stepId))
 const next = computed(() => nextStep(props.board, props.candidate))

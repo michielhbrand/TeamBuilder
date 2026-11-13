@@ -2,7 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import { isPdfFile, printPdfBlob } from '@/lib/pdf'
-import { useBoardsStore } from '@/stores/boards'
+import { useStorageStore } from '@/stores/storage'
 import { useFitStore } from '@/stores/fit'
 import type { Board } from '@/types/pipeline'
 
@@ -15,7 +15,7 @@ const emit = defineEmits<{
   'update:modelValue': [value: boolean]
 }>()
 
-const store = useBoardsStore()
+const store = useStorageStore()
 const fit = useFitStore()
 const busy = ref(false)
 const error = ref('')

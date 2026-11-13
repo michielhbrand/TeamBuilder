@@ -1,9 +1,12 @@
 import { ref } from 'vue'
 import { defineStore } from 'pinia'
-import * as api from '@/lib/boards-api'
+import * as api from '@/lib/fit-api'
 import { profileFingerprint, sha256Bytes, sha256Text } from '@/lib/fit-hash'
 import { extractJobSpecText } from '@/lib/job-spec'
+import { useApplicantActivityStore } from '@/stores/applicant-activity'
+import { useApplicantsStore } from '@/stores/applicants'
 import { useBoardsStore } from '@/stores/boards'
+import { useStorageStore } from '@/stores/storage'
 import type { FitAnalysis } from '@/types/fit'
 
 function friendlyError(message: string): string {
@@ -38,6 +41,9 @@ function friendlyError(message: string): string {
 
 export const useFitStore = defineStore('fit', () => {
   const boards = useBoardsStore()
+  const applicants = useApplicantsStore()
+  const activity = useApplicantActivityStore()
+  const storage = useStorageStore()
   const analyses = ref<Record<string, FitAnalysis>>({})
   const loaded = ref<Record<string, boolean>>({})
   const loading = ref<Record<string, boolean>>({})
@@ -112,7 +118,7 @@ export const useFitStore = defineStore('fit', () => {
   }
 
   async function updateProfileStale(applicantId: string): Promise<void> {
-    const candidate = boards.candidateById(applicantId)
+    const candidate = applicants.candidateById(applicantId)
     const analysis = analyses.value[applicantId]
 
     if (!candidate || !analysis) {
@@ -132,7 +138,7 @@ export const useFitStore = defineStore('fit', () => {
       return analyses.value[applicantId]
     }
 
-    const candidate = boards.candidateById(applicantId)
+    const candidate = applicants.candidateById(applicantId)
 
     if (!candidate) {
       return undefined
@@ -172,7 +178,7 @@ export const useFitStore = defineStore('fit', () => {
       return null
     }
 
-    const candidate = boards.candidateById(applicantId)
+    const candidate = applicants.candidateById(applicantId)
     const board = candidate ? boards.boardById(candidate.boardId) : undefined
 
     if (!candidate || !board) {
@@ -210,7 +216,7 @@ export const useFitStore = defineStore('fit', () => {
     setProgress(applicantId, 'Reading the job spec…')
 
     try {
-      const jobSpecBlob = await boards.jobSpecBlob(board.jobSpecPath)
+      const jobSpecBlob = await storage.jobSpecBlob(board.jobSpecPath)
 
       if (!jobSpecBlob) {
         throw new Error('The job spec could not be downloaded.')
@@ -224,7 +230,7 @@ export const useFitStore = defineStore('fit', () => {
         throw new Error('The job spec does not contain readable text.')
       }
 
-      const cvBlob = await boards.cvBlob(candidate.cvPath)
+      const cvBlob = await storage.cvBlob(candidate.cvPath)
 
       if (!cvBlob) {
         throw new Error('The CV could not be downloaded.')
@@ -247,7 +253,7 @@ export const useFitStore = defineStore('fit', () => {
         ocrUsed: jobSpec.ocrUsed,
       })
 
-      await boards.loadApplicantEvents(applicantId)
+      await activity.loadEvents(applicantId)
       analyses.value = { ...analyses.value, [applicantId]: analysis }
       loaded.value = { ...loaded.value, [applicantId]: true }
       profileStale.value = {

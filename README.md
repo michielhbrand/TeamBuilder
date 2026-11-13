@@ -356,9 +356,18 @@ src/
   lib/job-spec.ts           Job-spec PDF text extraction and cleanup
   lib/fit-hash.ts           CV, job-spec, and profile fingerprints
   lib/validation.ts         Email and phone validation helpers
-  lib/boards-api.ts         Supabase reads/writes for boards, applicants, events, and fit analyses
+  lib/boards-api.ts         Supabase reads/writes for boards and columns
+  lib/applicants-api.ts     Supabase create, update, and delete for applicants
+  lib/activity-api.ts       Supabase reads/writes for applicant events and notes
+  lib/storage-api.ts        Supabase Storage for CVs and job specs
+  lib/fit-api.ts            Stored fit analyses and Edge Function invocation
+  lib/api-shared.ts         Shared row types, selects, and domain mappers
+  lib/store-errors.ts       Shared friendly store error messages
   stores/auth.ts            Session state, sign-in, sign-out, full name, password setup
-  stores/boards.ts          Persisted boards, columns, applicants, and actions
+  stores/boards.ts          Boards, columns, and derived summaries
+  stores/applicants.ts      Applicant CRUD, moves, autosave, and edit snapshots
+  stores/applicant-activity.ts Applicant events and notes with loading state
+  stores/storage.ts         CV and job-spec upload, removal, and preview actions
   stores/fit.ts             Persisted CV analysis state and actions
   types/pipeline.ts         Board, step, candidate, and summary types
   types/fit.ts              CV analysis result and row types

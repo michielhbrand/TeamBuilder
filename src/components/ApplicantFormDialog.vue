@@ -9,7 +9,8 @@ import {
   type ApplicantDraftField,
 } from '@/lib/resume-import'
 import { isValidEmail, isValidPhone } from '@/lib/validation'
-import { useBoardsStore } from '@/stores/boards'
+import { useApplicantsStore } from '@/stores/applicants'
+import { useStorageStore } from '@/stores/storage'
 import type { Board, Candidate } from '@/types/pipeline'
 
 const props = defineProps<{
@@ -22,7 +23,8 @@ const emit = defineEmits<{
   created: [candidate: Candidate]
 }>()
 
-const store = useBoardsStore()
+const store = useApplicantsStore()
+const storage = useStorageStore()
 const submitting = ref(false)
 const localError = ref('')
 const stepId = ref('')
@@ -294,12 +296,12 @@ onBeforeUnmount(() => resetImport(true))
 
         <div class="orbital-dialog__body">
           <v-alert
-            v-if="localError || store.error"
+            v-if="localError || store.error || storage.error"
             class="orbital-alert"
             type="error"
             density="compact"
           >
-            {{ localError || store.error }}
+            {{ localError || store.error || storage.error }}
           </v-alert>
 
           <section

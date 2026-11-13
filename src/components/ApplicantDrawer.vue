@@ -7,8 +7,11 @@ import { printPdfBlob } from '@/lib/pdf'
 import { initials as getInitials } from '@/lib/pipeline'
 import { isValidEmail, isValidPhone } from '@/lib/validation'
 import { useAuthStore } from '@/stores/auth'
-import { useBoardsStore, type EditableCandidateField } from '@/stores/boards'
+import { useApplicantActivityStore } from '@/stores/applicant-activity'
+import { useApplicantsStore, type EditableCandidateField } from '@/stores/applicants'
+import { useBoardsStore } from '@/stores/boards'
 import { useFitStore } from '@/stores/fit'
+import { useStorageStore } from '@/stores/storage'
 
 const props = defineProps<{
   modelValue: boolean
@@ -20,24 +23,29 @@ const emit = defineEmits<{
   'update:modelValue': [value: boolean]
 }>()
 
-const store = useBoardsStore()
+const store = useApplicantsStore()
+const boards = useBoardsStore()
+const activity = useApplicantActivityStore()
+const storage = useStorageStore()
 const auth = useAuthStore()
 const fit = useFitStore()
+const detailsError = computed(() => store.error || activity.error || storage.error)
+const eventsError = computed(() => activity.error)
 const actorName = computed(() => auth.fullName || auth.user?.email || DEFAULT_ACTOR_NAME)
 const candidate = computed(() =>
   props.candidateId ? store.candidateById(props.candidateId) : undefined,
 )
 const board = computed(() =>
-  candidate.value ? store.boardById(candidate.value.boardId) : undefined,
+  candidate.value ? boards.boardById(candidate.value.boardId) : undefined,
 )
 const initials = computed(() => (candidate.value ? getInitials(candidate.value.name) : ''))
-const events = computed(() => (props.candidateId ? store.eventsFor(props.candidateId) : []))
+const events = computed(() => (props.candidateId ? activity.eventsFor(props.candidateId) : []))
 const eventsLoading = computed(() =>
-  props.candidateId ? store.eventsLoadingFor(props.candidateId) : false,
+  props.candidateId ? activity.eventsLoadingFor(props.candidateId) : false,
 )
-const notes = computed(() => (props.candidateId ? store.notesFor(props.candidateId) : []))
+const notes = computed(() => (props.candidateId ? activity.notesFor(props.candidateId) : []))
 const notesLoading = computed(() =>
-  props.candidateId ? store.notesLoadingFor(props.candidateId) : false,
+  props.candidateId ? activity.notesLoadingFor(props.candidateId) : false,
 )
 const activeTab = ref<'details' | 'events' | 'fit'>('details')
 const fitConsentOpen = ref(false)
@@ -169,7 +177,7 @@ async function addNote(): Promise<void> {
   }
 
   noteSaving.value = true
-  const added = await store.addApplicantNote(current.id, body, actorName.value)
+  const added = await activity.addNote(current.id, body, actorName.value)
   noteSaving.value = false
 
   if (added) {
@@ -267,11 +275,11 @@ async function onCvSelected(event: Event): Promise<void> {
   }
 
   cvBusy.value = true
-  const uploaded = await store.uploadCv(current.id, file)
+  const uploaded = await storage.uploadCv(current.id, file)
   cvBusy.value = false
 
   if (!uploaded) {
-    cvError.value = store.error ?? 'The CV could not be uploaded.'
+    cvError.value = storage.error ?? 'The CV could not be uploaded.'
     return
   }
 
@@ -286,7 +294,7 @@ async function removeCv(): Promise<void> {
   }
 
   cvBusy.value = true
-  const removed = await store.removeCv(current.id)
+  const removed = await storage.removeCv(current.id)
   cvBusy.value = false
 
   if (removed) {
@@ -295,7 +303,7 @@ async function removeCv(): Promise<void> {
     return
   }
 
-  cvError.value = store.error ?? 'The CV could not be removed.'
+  cvError.value = storage.error ?? 'The CV could not be removed.'
 }
 
 async function openCvPreview(): Promise<void> {
@@ -310,11 +318,11 @@ async function openCvPreview(): Promise<void> {
   cvError.value = ''
   cvUrl.value = ''
 
-  const url = await store.cvSignedUrl(path)
+  const url = await storage.cvSignedUrl(path)
   cvLoading.value = false
 
   if (!url) {
-    cvError.value = store.error ?? 'The CV could not be opened.'
+    cvError.value = storage.error ?? 'The CV could not be opened.'
     return
   }
 
@@ -342,10 +350,10 @@ async function printCv(): Promise<void> {
   }
 
   cvError.value = ''
-  const blob = await store.cvBlob(path)
+  const blob = await storage.cvBlob(path)
 
   if (!blob) {
-    cvError.value = store.error ?? 'The CV could not be printed.'
+    cvError.value = storage.error ?? 'The CV could not be printed.'
     return
   }
 
@@ -381,8 +389,8 @@ watch([() => props.modelValue, () => props.candidateId], ([value, candidateId]) 
     fitConsentOpen.value = false
     activeTab.value = 'details'
     store.beginCandidateEdit(candidateId)
-    void store.loadApplicantEvents(candidateId)
-    void store.loadApplicantNotes(candidateId)
+    void activity.loadEvents(candidateId)
+    void activity.loadNotes(candidateId)
     void fit.load(candidateId)
     maybeAutoFit()
   }
@@ -484,8 +492,8 @@ onBeforeUnmount(() => setPageScrollLocked(false))
         </div>
 
         <div v-else-if="activeTab === 'details'" class="applicant-drawer__body">
-          <v-alert v-if="store.error" class="orbital-alert" type="error" density="compact">
-            {{ store.error }}
+          <v-alert v-if="detailsError" class="orbital-alert" type="error" density="compact">
+            {{ detailsError }}
           </v-alert>
 
           <section class="applicant-section">
@@ -647,8 +655,8 @@ onBeforeUnmount(() => setPageScrollLocked(false))
         </div>
 
         <div v-else-if="activeTab === 'events'" class="applicant-events">
-          <v-alert v-if="store.error" class="orbital-alert" type="error" density="compact">
-            {{ store.error }}
+          <v-alert v-if="eventsError" class="orbital-alert" type="error" density="compact">
+            {{ eventsError }}
           </v-alert>
 
           <div v-if="eventsLoading" class="applicant-events__status">Loading events...</div>
