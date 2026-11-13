@@ -6,9 +6,11 @@ import FullNameDialog from '@/components/FullNameDialog.vue'
 import ThemeToggle from '@/components/ThemeToggle.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useBoardsStore } from '@/stores/boards'
+import { useFitStore } from '@/stores/fit'
 
 const auth = useAuthStore()
 const boards = useBoardsStore()
+const fit = useFitStore()
 const router = useRouter()
 
 const email = computed(() => auth.user?.email ?? 'Signed in')
@@ -25,6 +27,7 @@ const initials = computed(() => {
 async function signOut(): Promise<void> {
   await auth.signOut()
   boards.reset()
+  fit.reset()
   await router.replace('/')
 }
 </script>

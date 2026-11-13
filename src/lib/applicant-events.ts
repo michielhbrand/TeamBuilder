@@ -18,6 +18,10 @@ export function editedProfileMessage(actorName: string, candidateName: string): 
   return `${actorName} has edited ${candidateName}'s profile details`
 }
 
+export function analyzedCvMessage(actorName: string, candidateName: string): string {
+  return `${actorName} has analyzed ${candidateName}'s CV against the job spec`
+}
+
 export function movedCandidateMessage(
   actorName: string,
   candidateName: string,

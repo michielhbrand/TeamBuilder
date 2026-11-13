@@ -297,6 +297,24 @@ describe('boards store', () => {
     })
   })
 
+  it('records a CV analysis event', async () => {
+    const store = await initializedStore()
+    const candidate = store.boards[0]?.candidates[0]
+
+    expect(candidate).toBeDefined()
+    if (!candidate) return
+
+    await store.recordCvAnalysis(candidate.id, 'Emma Brand')
+
+    expect(mocks.createApplicantEvent).toHaveBeenCalledExactlyOnceWith({
+      boardId: 'b1',
+      applicantId: candidate.id,
+      action: 'analyzed',
+      actorName: 'Emma Brand',
+      message: "Emma Brand has analyzed Amara Okafor's CV against the job spec",
+    })
+  })
+
   it('loads applicant events from the backend', async () => {
     const store = await initializedStore()
     const candidate = store.boards[0]?.candidates[0]

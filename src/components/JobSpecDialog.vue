@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import { isPdfFile, printPdfBlob } from '@/lib/pdf'
 import { useBoardsStore } from '@/stores/boards'
+import { useFitStore } from '@/stores/fit'
 import type { Board } from '@/types/pipeline'
 
 const props = defineProps<{
@@ -15,6 +16,7 @@ const emit = defineEmits<{
 }>()
 
 const store = useBoardsStore()
+const fit = useFitStore()
 const busy = ref(false)
 const error = ref('')
 const previewLoading = ref(false)
@@ -89,7 +91,10 @@ async function onFileSelected(event: Event): Promise<void> {
 
   if (!uploaded) {
     error.value = store.error ?? 'The job spec could not be uploaded.'
+    return
   }
+
+  fit.markBoardStale(board.id)
 }
 
 function requestRemove(): void {
@@ -110,7 +115,10 @@ async function removeSpec(): Promise<void> {
 
   if (!removed) {
     error.value = store.error ?? 'The job spec could not be removed.'
+    return
   }
+
+  fit.markBoardStale(board.id)
 }
 
 function openFullscreen(): void {

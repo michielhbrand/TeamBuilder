@@ -6,6 +6,7 @@
   "scripts": {
     "predev": "node scripts/copy-ocr-assets.mjs",
     "dev": "vite",
+    "dev:local": "node scripts/dev-local.mjs",
     "build": "run-p type-check \"build-only {@}\" --",
     "prebuild-only": "node scripts/copy-ocr-assets.mjs",
     "preview": "vite preview",
@@ -27,7 +28,9 @@
     "supabase:start": "supabase start",
     "supabase:stop": "supabase stop",
     "supabase:status": "supabase status",
-    "supabase:reset": "supabase db reset",
+    "supabase:functions": "supabase functions serve fit-analysis --env-file supabase/functions/.env",
+    "supabase:seed:user": "node scripts/seed-local-user.mjs",
+    "supabase:reset": "supabase db reset && node scripts/seed-local-user.mjs",
     "supabase:push": "supabase db push --remote"
   },
   "dependencies": {

@@ -3,9 +3,9 @@
 A Vue 3 + Supabase hiring pipeline workspace: email/password sign-in, invited users who
 choose their own password, in-memory sessions, a protected hiring portal, and sign-out. The
 portal has a hiring dashboard, role boards grouped by department, a step-column board for
-each role, and an account page. The frontend is deployed to GitHub Pages with GitHub
-Actions. Boards, pipeline columns, and applicants are stored in Supabase Postgres and loaded
-through Pinia.
+each role, a consent-gated CV analysis that lists similarities and gaps, and an account page. The frontend is deployed
+to GitHub Pages with GitHub Actions. Boards, pipeline columns, applicants, events, notes, and
+fit analyses are stored in Supabase Postgres and loaded through Pinia.
 
 - **Live demo:** https://michielhbrand.github.io/TeamBuilder/
 - **Repository:** https://github.com/michielhbrand/TeamBuilder
@@ -17,7 +17,8 @@ through Pinia.
 - Vue Router and Pinia
 - Vuetify 4 (MIT) with MDI icons
 - Manrope + IBM Plex Mono, self-hosted with Fontsource
-- Supabase Auth (`@supabase/supabase-js`)
+- Supabase Auth, Postgres, Storage, and Edge Functions (`@supabase/supabase-js`)
+- Kilo free hosted model for CV analysis
 - Vitest, ESLint, Oxlint, Prettier
 - GitHub Actions and GitHub Pages
 
@@ -34,8 +35,10 @@ through Pinia.
 - Board creation and editing, including ordered pipeline columns
 - Applicant creation per board with a right-side editable profile, favourite toggle, and
   career / work-experience notes
+- A consent-gated **Analize** tab that compares redacted education and work experience with
+  the board's job spec using a free Kilo model and lists similarities and gaps
 - An applicant Events tab with a timestamped audit trail for creation, profile edits, moves,
-  and hire/reject/reopen actions
+  CV analyses, and hire/reject/reopen actions
 - Persisted candidate actions: advance, move, reject, hire, reopen, and delete
 - An account page with non-sensitive session details, full-name editing, and password reset
 - A blocking full-name prompt after sign-in when the profile has no name yet
@@ -91,12 +94,20 @@ directions.
    ```
 
    The migrations create the `boards`, `board_columns`, `applicants`, `applicant_events`,
-   and `applicant_notes` tables, enable Row Level Security, add authenticated-user policies,
-   and explicitly grant table privileges to `authenticated` while revoking them from `anon`.
+   `applicant_notes`, and `applicant_fit_analyses` tables, enable Row Level Security, add
+   authenticated-user policies, and explicitly grant table privileges to `authenticated`
+   while revoking them from `anon`.
 
-6. In **Authentication → Users**, either add a demo user with auto-confirm enabled or use
+6. Set the function secrets and deploy `fit-analysis`:
+
+   ```bash
+   npx supabase secrets set KILO_API_KEY=... KILO_MODEL=kilo-auto/free --project-ref <project-ref>
+   npx supabase functions deploy fit-analysis --project-ref <project-ref>
+   ```
+
+7. In **Authentication → Users**, either add a demo user with auto-confirm enabled or use
    **Invite user** so the recipient chooses their own password.
-7. Create a local environment file:
+8. Create a local environment file:
 
    ```bash
    cp .env.example .env.local
@@ -104,7 +115,7 @@ directions.
 
    Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` to the cloud values.
 
-8. Install and run:
+9. Install and run:
 
    ```bash
    nvm use
@@ -112,8 +123,8 @@ directions.
    npm run dev
    ```
 
-9. Sign in with the demo user. The login route is `/`; the protected landing page is
-   `/overview`. Create the first board from **Boards → New board**.
+10. Sign in with the demo user. The login route is `/`; the protected landing page is
+    `/overview`. Create the first board from **Boards → New board**.
 
 > The publishable key is designed to be public. Never put a Supabase secret key
 > (`sb_secret_...`) or a legacy `service_role` key in a `VITE_*` variable.
@@ -183,10 +194,31 @@ VITE_SUPABASE_URL=http://127.0.0.1:54321
 VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
 ```
 
-Open Supabase Studio at http://localhost:54323, go to **Authentication → Users**, and add a
-demo user with auto-confirm enabled or invite one. Local invitation emails are captured by
-Mailpit at http://localhost:54324. The local project has sign-ups disabled in
-`supabase/config.toml`.
+`npm run supabase:reset` applies the migrations and recreates a local-only user from
+`LOCAL_USER_EMAIL`, `LOCAL_USER_PASSWORD`, and `LOCAL_USER_NAME` in `.env.local`. The
+defaults are `dev@example.com`, `LocalDev123!`, and `Local Dev`. Those values are never sent
+to the cloud and are wiped with the rest of the local database on reset, but the account is
+recreated automatically by the npm script. Use `npm run supabase:reset` rather than raw
+`supabase db reset` so the user is recreated.
+
+Keep cloud values in `.env.production.local` if you want a local production build to target
+the cloud project. Vite loads that file for `npm run build`, while `.env.local` supplies the
+local stack for `npm run dev`.
+
+For CV analysis, copy `supabase/functions/.env.example` to
+`supabase/functions/.env`, set `KILO_API_KEY` and `KILO_MODEL`, then serve the function in a
+second terminal:
+
+```bash
+npm run supabase:functions
+```
+
+The app calls the function through `VITE_SUPABASE_URL`, so `npm run dev` now uses the local
+stack. `npm run dev:local` remains available to force local values from `supabase status`.
+
+Local invitation emails are captured by Mailpit at http://localhost:54324. The local project
+has sign-ups disabled in `supabase/config.toml`. Studio remains available at
+http://localhost:54323 for inspecting users, boards, storage, and logs.
 
 Stop the stack when you are done:
 
@@ -199,45 +231,69 @@ session or run commands through `sg docker -c '...'`.
 
 ## Environment variables
 
-| Variable                        | Where it is used                          | Notes                                                    |
-| ------------------------------- | ----------------------------------------- | -------------------------------------------------------- |
-| `VITE_SUPABASE_URL`             | Local `.env.local`, GitHub Actions secret | Project URL, or local API URL                            |
-| `VITE_SUPABASE_PUBLISHABLE_KEY` | Local `.env.local`, GitHub Actions secret | Publishable key (`sb_publishable_...`), not a secret key |
+| Variable                        | Where it is used                     | Notes                                                    |
+| ------------------------------- | ------------------------------------ | -------------------------------------------------------- |
+| `VITE_SUPABASE_URL`             | Local dev, cloud build, or CI secret | Project URL, or local API URL                            |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` | Local dev, cloud build, or CI secret | Publishable key (`sb_publishable_...`), not a secret key |
+| `LOCAL_USER_EMAIL`              | Local `.env.local`                   | Local-only seeded account email                          |
+| `LOCAL_USER_PASSWORD`           | Local `.env.local`                   | Local-only seeded account password                       |
+| `LOCAL_USER_NAME`               | Local `.env.local`                   | Full name stored in the seeded profile                   |
 
 Vite embeds `VITE_*` values into the browser bundle at build time. That is expected for the
 Supabase URL and publishable key.
 
+Fit analysis uses server-side Supabase Edge Function secrets. They must never be `VITE_*`
+variables:
+
+| Secret                  | Where it is used              | Notes                                      |
+| ----------------------- | ----------------------------- | ------------------------------------------ |
+| `KILO_API_KEY`          | Supabase Edge Function secret | Server-only; never ship to the browser     |
+| `KILO_MODEL`            | Supabase Edge Function secret | Must be `kilo-auto/free` or end in `:free` |
+| `SUPABASE_ACCESS_TOKEN` | GitHub Actions secret         | Deploys the function                       |
+| `SUPABASE_PROJECT_ID`   | GitHub Actions secret         | Supabase project ref                       |
+
+For local function development, copy `supabase/functions/.env.example` to
+`supabase/functions/.env` and fill in the required values. That file is gitignored.
+
 ## Scripts
 
-| Command                   | Purpose                                 |
-| ------------------------- | --------------------------------------- |
-| `npm run dev`             | Start the Vite dev server               |
-| `npm run build`           | Typecheck and build to `dist/`          |
-| `npm run preview`         | Preview the production build            |
-| `npm run typecheck`       | Run `vue-tsc`                           |
-| `npm run lint`            | Run Oxlint and ESLint in check mode     |
-| `npm run lint:fix`        | Apply safe lint fixes                   |
-| `npm run format`          | Format the repository with Prettier     |
-| `npm run format:check`    | Verify formatting without writing       |
-| `npm test`                | Run unit tests once                     |
-| `npm run test:unit`       | Run Vitest in watch mode                |
-| `npm run validate:env`    | Validate the Supabase build environment |
-| `npm run supabase:start`  | Start the local Supabase stack          |
-| `npm run supabase:status` | Show local URL and keys                 |
-| `npm run supabase:stop`   | Stop the local Supabase stack           |
-| `npm run supabase:reset`  | Reset local DB and apply migrations     |
-| `npm run supabase:push`   | Push migrations to the linked project   |
+| Command                      | Purpose                                    |
+| ---------------------------- | ------------------------------------------ |
+| `npm run dev`                | Start the Vite dev server                  |
+| `npm run dev:local`          | Start Vite against the local Supabase      |
+| `npm run build`              | Typecheck and build to `dist/`             |
+| `npm run preview`            | Preview the production build               |
+| `npm run typecheck`          | Run `vue-tsc`                              |
+| `npm run lint`               | Run Oxlint and ESLint in check mode        |
+| `npm run lint:fix`           | Apply safe lint fixes                      |
+| `npm run format`             | Format the repository with Prettier        |
+| `npm run format:check`       | Verify formatting without writing          |
+| `npm test`                   | Run unit tests once                        |
+| `npm run test:unit`          | Run Vitest in watch mode                   |
+| `npm run validate:env`       | Validate the Supabase build environment    |
+| `npm run supabase:start`     | Start the local Supabase stack             |
+| `npm run supabase:status`    | Show local URL and keys                    |
+| `npm run supabase:functions` | Serve `fit-analysis` with function secrets |
+| `npm run supabase:stop`      | Stop the local Supabase stack              |
+| `npm run supabase:reset`     | Reset local DB, migrate, and seed the user |
+| `npm run supabase:seed:user` | Recreate the local-only user               |
+| `npm run supabase:push`      | Push migrations to the linked project      |
 
 ## GitHub Actions secrets
 
-The deploy workflow reads two repository secrets:
+The deploy workflow reads six repository secrets:
 
 ```bash
 gh secret set VITE_SUPABASE_URL --repo michielhbrand/TeamBuilder
 gh secret set VITE_SUPABASE_PUBLISHABLE_KEY --repo michielhbrand/TeamBuilder
+gh secret set KILO_API_KEY --repo michielhbrand/TeamBuilder
+gh secret set KILO_MODEL --repo michielhbrand/TeamBuilder
+gh secret set SUPABASE_ACCESS_TOKEN --repo michielhbrand/TeamBuilder
+gh secret set SUPABASE_PROJECT_ID --repo michielhbrand/TeamBuilder
 ```
 
-Paste the values at the prompts; avoid putting them in shell history. Verify with:
+`KILO_MODEL` must be a free model. The deploy workflow refuses paid models. Paste values at
+the prompts; avoid putting them in shell history. Verify with:
 
 ```bash
 gh secret list --repo michielhbrand/TeamBuilder
@@ -248,7 +304,9 @@ gh secret list --repo michielhbrand/TeamBuilder
 - `ci.yml` runs lint, formatting, typecheck, tests, and a placeholder build on pull requests
   and pushes to `main`.
 - `deploy.yml` builds with the real secrets and deploys the `dist/` artifact to GitHub Pages
-  on every push to `main` or manual dispatch.
+  on every push to `main` or manual dispatch. It also sets the Kilo function secrets and
+  deploys `supabase/functions/fit-analysis` before publishing the site. The Kilo key is never
+  passed to the Vite build.
 - The build `base` is `/TeamBuilder/` in production. If the repository is renamed again,
   update the base in `vite.config.ts`, the Pages URL in the Supabase redirect settings, and
   this README.
@@ -294,11 +352,16 @@ src/
   lib/auth-link.ts          Detects invite/recovery links before Supabase consumes them
   lib/pipeline.ts           Pure pipeline helpers and summaries
   lib/applicant-events.ts   Event message builders and timestamp formatting
+  lib/pdf-text.ts           Shared PDF text extraction, OCR cache, and fingerprints
+  lib/job-spec.ts           Job-spec PDF text extraction and cleanup
+  lib/fit-hash.ts           CV, job-spec, and profile fingerprints
   lib/validation.ts         Email and phone validation helpers
-  lib/boards-api.ts         Supabase reads/writes for boards, columns, applicants, and events
+  lib/boards-api.ts         Supabase reads/writes for boards, applicants, events, and fit analyses
   stores/auth.ts            Session state, sign-in, sign-out, full name, password setup
   stores/boards.ts          Persisted boards, columns, applicants, and actions
+  stores/fit.ts             Persisted CV analysis state and actions
   types/pipeline.ts         Board, step, candidate, and summary types
+  types/fit.ts              CV analysis result and row types
   router/index.ts           Routes and authentication guard
   components/AppShell.vue   Top-bar navigation for protected pages
   components/AuthShell.vue  Shared Orbital auth layout
@@ -309,7 +372,8 @@ src/
   components/ApplicantFormDialog.vue Create an applicant on a board
   components/BoardColumn.vue One pipeline step column
   components/CandidateCard.vue Candidate summary and actions
-  components/ApplicantDrawer.vue Editable applicant profile, events, and notes
+  components/ApplicantDrawer.vue Editable applicant profile, Analize, events, and notes
+  components/FitConsentDialog.vue Per-analysis consent for Kilo
   components/FullNameDialog.vue Blocking full-name capture for signed-in users
   components/ConfirmDialog.vue Shared destructive-action confirmation
   components/PipelineBar.vue Per-step progress bar
@@ -327,6 +391,8 @@ scripts/
   validate-env.mjs          Deploy-time environment validation
 supabase/config.toml        Local Supabase configuration
 supabase/migrations/        Postgres schema, RLS policies, and board RPC functions
+supabase/functions/fit-analysis/  Kilo proxy, redaction, validation, and CV analysis
+supabase/functions/.env.example   Function secret placeholders
 design/ui-directions.html   UI direction exploration
 design/hiring-pipeline-step-columns.html  Board concept reference
 docs/                       Architecture, design system, and decision records
@@ -334,19 +400,25 @@ docs/                       Architecture, design system, and decision records
 
 ## Security notes
 
-- Only the Supabase publishable key is shipped to the browser. The secret key is never used
-  by this project.
+- Only the Supabase publishable key and other `VITE_*` values are shipped to the browser.
+  Service-role access is limited to the `fit-analysis` Edge Function; its key and the Kilo key
+  never enter the bundle.
 - Sessions are stored in browser storage by `@supabase/supabase-js`. Treat the app as
   vulnerable to XSS and keep dependencies and content secure.
 - Board data lives in `public.boards`, `public.board_columns`, `public.applicants`,
-  `public.applicant_events`, and `public.applicant_notes`. Row Level Security restricts all
-  access to authenticated users; every signed-in user shares the same workspace. The
-  anonymous role has no access.
+  `public.applicant_events`, `public.applicant_notes`, and `public.applicant_fit_analyses`.
+  Row Level Security restricts all access to authenticated users; every signed-in user shares
+  the same workspace. The anonymous role has no access.
 - Applicant events and notes are append-only records scoped to a board and applicant. Clients
   can read and insert them, but cannot update or delete them directly.
-- Delete operations are permanent. Deleting a board cascades to its columns, applicants, and
-  their events; deleting an applicant removes the row and its events; deleting a column
-  reassigns its applicants to the first column. The first column cannot be deleted or moved.
+- Fit analyses are written only by the `fit-analysis` Edge Function with the service role;
+  clients have select-only access. The function redacts identity and sensitive fields before
+  calling Kilo. Kilo's free tier may log or train on requests, so every analysis requires
+  consent and the UI discloses this. There is no fallback engine.
+- Delete operations are permanent. Deleting a board cascades to its columns, applicants,
+  events, notes, and fit analyses; deleting an applicant removes the row and its events, notes,
+  and fit analysis; deleting a column reassigns its applicants to the first column. The first
+  column cannot be deleted or moved.
 - Sign-ups are disabled. Administrators create accounts or send invitations from the
   Supabase dashboard or local Studio.
 

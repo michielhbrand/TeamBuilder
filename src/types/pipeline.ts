@@ -102,7 +102,7 @@ export interface ApplicantInput {
 }
 
 export type ApplicantEventAction =
-  'created' | 'moved' | 'edited' | 'hired' | 'rejected' | 'reopened'
+  'created' | 'moved' | 'edited' | 'hired' | 'rejected' | 'reopened' | 'analyzed'
 
 export interface ApplicantEvent {
   id: string

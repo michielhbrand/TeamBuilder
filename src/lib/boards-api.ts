@@ -11,6 +11,7 @@ import type {
   Department,
   PipelineStep,
 } from '@/types/pipeline'
+import type { FitAnalysis, FitAnalysisResult, FitAnalysisRow, FitAnalyzeInput } from '@/types/fit'
 
 interface BoardRow {
   id: string
@@ -105,6 +106,21 @@ const APPLICANT_NOTE_SELECT = `
   created_at
 `
 
+const FIT_ANALYSIS_SELECT = `
+  id,
+  board_id,
+  applicant_id,
+  cv_fingerprint,
+  job_spec_fingerprint,
+  profile_fingerprint,
+  provider,
+  model,
+  prompt_version,
+  result,
+  created_at,
+  updated_at
+`
+
 const BOARD_SELECT = `
   id,
   name,
@@ -187,6 +203,43 @@ function mapApplicantNote(row: ApplicantNoteRow): ApplicantNote {
     authorName: row.author_name,
     body: row.body,
     createdAt: row.created_at,
+  }
+}
+
+function normalizeFitResult(value: FitAnalysisResult): FitAnalysisResult {
+  const result = value as unknown as {
+    schemaVersion?: unknown
+    similarities?: unknown
+    strengths?: unknown
+    gaps?: unknown
+  }
+  const strings = (input: unknown): string[] =>
+    Array.isArray(input)
+      ? input.filter((item): item is string => typeof item === 'string' && Boolean(item.trim()))
+      : []
+  const similarities = strings(result.similarities ?? result.strengths)
+
+  return {
+    schemaVersion: typeof result.schemaVersion === 'number' ? result.schemaVersion : 1,
+    similarities,
+    gaps: strings(result.gaps),
+  }
+}
+
+function mapFitAnalysis(row: FitAnalysisRow): FitAnalysis {
+  return {
+    id: row.id,
+    boardId: row.board_id,
+    applicantId: row.applicant_id,
+    cvFingerprint: row.cv_fingerprint,
+    jobSpecFingerprint: row.job_spec_fingerprint,
+    profileFingerprint: row.profile_fingerprint,
+    provider: row.provider,
+    model: row.model,
+    promptVersion: row.prompt_version,
+    result: normalizeFitResult(row.result),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
   }
 }
 
@@ -465,6 +518,53 @@ export async function createApplicantNote(input: {
   }
 
   return mapApplicantNote(data as unknown as ApplicantNoteRow)
+}
+
+export async function fetchApplicantFitAnalysis(
+  boardId: string,
+  applicantId: string,
+): Promise<FitAnalysis | undefined> {
+  const { data, error } = await supabase
+    .from('applicant_fit_analyses')
+    .select(FIT_ANALYSIS_SELECT)
+    .eq('board_id', boardId)
+    .eq('applicant_id', applicantId)
+    .maybeSingle()
+
+  fail(error)
+
+  return data ? mapFitAnalysis(data as unknown as FitAnalysisRow) : undefined
+}
+
+export async function analyzeApplicantFit(input: FitAnalyzeInput): Promise<FitAnalysis> {
+  const { data, error } = await supabase.functions.invoke('fit-analysis', {
+    body: input,
+  })
+
+  if (error) {
+    const context = (error as { context?: Response }).context
+    let message = error.message
+
+    if (context && typeof context.json === 'function') {
+      try {
+        const body = (await context.json()) as { error?: unknown }
+
+        if (typeof body.error === 'string' && body.error.trim()) {
+          message = body.error
+        }
+      } catch {
+        // Keep the original function invocation error.
+      }
+    }
+
+    throw new Error(message)
+  }
+
+  if (!data) {
+    throw new Error('The fit analysis did not return a result.')
+  }
+
+  return mapFitAnalysis(data as FitAnalysisRow)
 }
 
 async function preparePdf(file: File, label: string): Promise<File> {

@@ -277,3 +277,23 @@ Dates use ISO 8601. Status values are proposed, accepted, superseded, or depreca
   scope. Deleting an applicant is permanent, deleting a column moves its applicants to the
   first column, and the first column cannot be deleted. Local and cloud projects must apply
   the migration before the portal can load data. The dummy data source is removed.
+
+## ADR-020: Compare CVs with a free hosted model through an Edge Function
+
+- **Date:** 2026-11-10
+- **Status:** Accepted
+- **Context:** The static Pages build cannot safely hold a model API key, and the browser must
+  not validate or write trusted AI results. Applicants' CVs contain personal data,
+  while the free Kilo tier may log or train on requests. A deterministic rules-only matcher
+  would be brittle and a paid or local model would add cost and deployment weight.
+- **Decision:** Add an authenticated Supabase Edge Function, `fit-analysis`, that loads the
+  applicant with the service role, redacts identity and sensitive fields, sends only the job
+  spec, role/department, and redacted education/work experience to a free Kilo model, validates
+  the JSON similarities/gaps result, and upserts `public.applicant_fit_analyses`. The browser asks for explicit consent before every
+  analysis and reads results with the authenticated select-only RLS policy. There is no
+  fallback engine. The Kilo key lives only in Supabase Edge Function secrets; CI deploys the
+  function with `SUPABASE_ACCESS_TOKEN` and `SUPABASE_PROJECT_ID`.
+- **Consequences:** Fit analysis is English-only and depends on Kilo availability and free-tier
+  rate limits. A failed call leaves the previous result intact. Every signed-in user sees the
+  same result for an applicant. The app must keep the consent copy accurate, never expose
+  `KILO_API_KEY`, and refuse any `KILO_MODEL` that is not free.

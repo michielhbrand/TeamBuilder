@@ -32,6 +32,7 @@ const switcher = ref<InstanceType<typeof BoardSwitcher> | null>(null)
 const dragged = ref<{ candidateId: string; stepId: string } | null>(null)
 const settlingCandidateId = ref<string | null>(null)
 const profileCandidateId = ref<string | null>(null)
+const autoFitCandidateId = ref<string | null>(null)
 const profileOpen = ref(false)
 const editOpen = ref(false)
 const columnsOpen = ref(false)
@@ -73,6 +74,13 @@ function onBoardDeleted(): void {
 }
 
 function openProfile(candidate: Candidate): void {
+  autoFitCandidateId.value = null
+  profileCandidateId.value = candidate.id
+  profileOpen.value = true
+}
+
+function openCreatedApplicant(candidate: Candidate): void {
+  autoFitCandidateId.value = candidate.cvPath ? candidate.id : null
   profileCandidateId.value = candidate.id
   profileOpen.value = true
 }
@@ -131,6 +139,12 @@ function onKeydown(event: KeyboardEvent): void {
 
 watch(boardId, () => {
   profileOpen.value = false
+})
+
+watch(profileOpen, (open) => {
+  if (!open) {
+    autoFitCandidateId.value = null
+  }
 })
 
 onMounted(() => document.addEventListener('keydown', onKeydown))
@@ -299,7 +313,11 @@ onBeforeUnmount(() => {
     <BoardFormDialog v-model="editOpen" :board="board" @deleted="onBoardDeleted" />
     <ColumnDialog v-model="columnsOpen" :board="board" />
     <JobSpecDialog v-model="jobSpecOpen" :board="board" />
-    <ApplicantFormDialog v-model="applicantOpen" :board="board" />
-    <ApplicantDrawer v-model="profileOpen" :candidate-id="profileCandidateId" />
+    <ApplicantFormDialog v-model="applicantOpen" :board="board" @created="openCreatedApplicant" />
+    <ApplicantDrawer
+      v-model="profileOpen"
+      :candidate-id="profileCandidateId"
+      :auto-fit-candidate-id="autoFitCandidateId"
+    />
   </AppShell>
 </template>

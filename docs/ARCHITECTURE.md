@@ -4,14 +4,15 @@
 
 TeamBuilder is a static Vue 3 single-page application. Authentication and data access are
 performed directly against Supabase from the browser using the publishable key. There is no
-custom backend and no server-side session. Administrators provision users in Supabase and can
-invite them by email; invited users choose their own password.
+custom session server. One authenticated Supabase Edge Function, `fit-analysis`, proxies
+requests to a free hosted model for CV analysis. Administrators provision users in
+Supabase and can invite them by email; invited users choose their own password.
 
 The protected hiring portal is a board-based workspace. A board represents one open role,
 boards are grouped by department, and each board has its own ordered columns and applicants.
-Boards, columns, applicants, and their audit events are stored in Supabase Postgres and
-loaded through Pinia. Every signed-in user shares the same workspace; Row Level Security
-allows the `authenticated` role only.
+Boards, columns, applicants, their audit events, notes, and fit analyses are stored in
+Supabase Postgres and loaded through Pinia. Every signed-in user shares the same workspace;
+Row Level Security allows the `authenticated` role only.
 
 ```text
 Browser
@@ -132,14 +133,19 @@ The schema lives in `supabase/migrations/`:
   and `step_entered_at`. Email and phone are optional; when present they are unique per
   board.
 - `public.applicant_events` — board and applicant scope, actor id and name, action, rendered
-  message, and timestamp. The `(board_id, applicant_id)` foreign key targets the applicant's
-  composite unique key and cascades on delete, so deleting an applicant or board permanently
-  removes its events. Events are append-only: clients can select and insert, but there are no
-  update or delete policies.
+  message, and timestamp. Actions cover creation, profile edits, moves, hire/reject/reopen
+  status changes, and CV analyses. The `(board_id, applicant_id)` foreign key targets the
+  applicant's composite unique key and cascades on delete, so deleting an applicant or board
+  permanently removes its events. Events are append-only: clients can select and insert, but
+  there are no update or delete policies.
 - `public.applicant_notes` — board and applicant scope, author id and name, free-text body,
   and timestamp. The composite applicant foreign key cascades from the applicant and board.
   Notes are append-only: clients can select and insert, but there are no update or delete
   policies.
+- `public.applicant_fit_analyses` — one row per applicant, scoped by the composite
+  `(board_id, applicant_id)` foreign key. It stores CV, job-spec, and profile fingerprints,
+  the Kilo model and prompt version, and the validated similarities/gaps JSON. Authenticated
+  users can select; only the Edge Function with the service role writes.
 
 The composite applicant foreign key `(board_id, column_id)` guarantees that an applicant is
 assigned to a column on the same board. New applicants default to the column named
@@ -149,8 +155,8 @@ partial unique indexes so multiple applicants can leave them blank. A trigger ke
 `create_board`, `add_board_column`, `reorder_board_columns`, and `delete_board_column` make
 multi-row changes atomic.
 `delete_board_column` moves the column's applicants to the first column, and the first column
-cannot be deleted. Deleting a board cascades to its columns and applicants; deleting an
-applicant is permanent.
+cannot be deleted. Deleting a board cascades to its columns and applicants, and deleting an
+applicant cascades to its events, notes, and fit analysis.
 
 Applicant CVs use the private Supabase Storage bucket `cvs`. One PDF per applicant is stored
 at `<applicant-id>/cv.pdf`; the `applicants.cv_path` and `applicants.cv_name` columns hold the
@@ -191,10 +197,42 @@ fails, the applicant is still created and the board shows the store error; the C
 retried from the applicant drawer. LinkedIn URL scraping is intentionally not supported:
 LinkedIn blocks automated access, prohibits scraping, and has no free reliable profile API.
 
-RLS is enabled on all five tables. Table privileges are explicitly granted to
+### CV analysis
+
+The applicant drawer has an **Analize** tab. It compares the applicant's education and work
+experience with the board's PDF job spec and shows two lists: similarities and gaps. The flow is:
+
+```text
+Analize tab, CV upload, or refresh
+  -> consent dialog (every analysis, including re-evaluation)
+  -> browser extracts job-spec text locally (pdfjs-dist + OCR fallback)
+  -> supabase.functions.invoke('fit-analysis')
+  -> Edge Function verifies JWT, loads the applicant with the service role
+  -> redacts identity/sensitive fields, calls Kilo's free model
+  -> validates the similarities/gaps JSON
+  -> upserts public.applicant_fit_analyses
+  -> boards store records an analyzed applicant event
+  -> drawer reloads the stored result through the fit Pinia store
+```
+
+`src/stores/fit.ts` owns fit state. It downloads the CV and job spec through the boards store,
+hashes the CV bytes and cleaned job-spec text, and sends only the applicant id, job-spec text,
+and fingerprints; the Edge Function loads the role and department server-side. The UI requires
+consent before invoking the function. The Edge Function performs the actual model call and
+writes the row; the browser never validates model output or receives the Kilo key.
+
+The Edge Function sends only the job spec and redacted education/work experience to Kilo. It
+removes names, email, phone, URLs, address, date of birth, nationality, gender, age, marital
+status, and similar sensitive lines while keeping employers, institutions, and date ranges.
+Every analysis requires explicit consent because Kilo may log or train on free-tier requests.
+Results are shared with all signed-in users in the workspace. Analysis is English-only, has no
+local or paid fallback, and a failed or rate-limited call leaves the previous row intact.
+
+RLS is enabled on all six tables. Table privileges are explicitly granted to
 `authenticated` and revoked from `anon`; RLS policies then grant the operations each table
 needs. Board tables allow `select`, `insert`, `update`, and `delete`; applicant events and
-notes are append-only and allow `select` and `insert` only. RLS alone is not sufficient
+notes are append-only and allow `select` and `insert` only; fit analyses allow `select` only.
+RLS alone is not sufficient
 because PostgREST also requires the underlying table grants. RPC execution is revoked from
 `public` and `anon` and granted to `authenticated`.
 
@@ -213,6 +251,11 @@ boundaries. `src/stores/boards.ts` is the single source of truth for the hiring 
   applicant audit trail.
 - `loadApplicantNotes`, `addApplicantNote`, `notesFor`, and `notesLoadingFor` for applicant
   notes.
+
+`src/stores/fit.ts` holds fit analyses by applicant, loading/analyzing/error/progress state,
+and stale flags. Its `load` reads the stored row, `analyze` extracts the job spec, hashes the
+CV and profile, invokes `fit-analysis`, and `markStale` / `markBoardStale` flag results after a
+CV or job-spec change.
 
 The router guard awaits `boards.initialize()` before entering a protected route. Text-field
 edits update Pinia immediately and are debounced before the applicant row is written;
@@ -255,6 +298,10 @@ push to main
      -> actions/configure-pages
      -> actions/upload-pages-artifact
      -> actions/deploy-pages
+  -> functions job
+     -> validate KILO_MODEL is free
+     -> supabase secrets set KILO_API_KEY + KILO_MODEL
+     -> supabase functions deploy fit-analysis
   -> https://michielhbrand.github.io/TeamBuilder/
 
 push to main (in parallel)
@@ -266,7 +313,9 @@ push to main (in parallel)
 
 `ci.yml` runs on pull requests and pushes to `main`. It builds with placeholder values so
 forks and untrusted PRs do not need secrets. The deploy workflow, which runs only from the
-trusted `main` branch or a manual dispatch, uses the real repository secrets.
+trusted `main` branch or a manual dispatch, uses the real repository secrets. The function
+job never passes `KILO_API_KEY` to Vite; it sets it directly on the Supabase project and
+deploys `fit-analysis`.
 
 `release.yml` uses Conventional Commits to decide whether a release is needed. `fix` and
 `perf` create patches, `feat` creates minors, and breaking changes create majors. Releases
@@ -279,8 +328,23 @@ can be newer than the latest release.
 | ------------------------- | ------------------------ | --------------------------------- | ------------------------- |
 | Local dev, local Supabase | `http://127.0.0.1:54321` | `supabase status` publishable key | Disabled in `config.toml` |
 | Local dev, cloud Supabase | Project URL              | Supabase Connect dialog           | Disabled in dashboard     |
+| Local production build    | Project URL              | `.env.production.local`           | Not used                  |
 | CI build                  | Placeholder              | Workflow placeholders             | Not used                  |
 | Production build          | Project URL              | GitHub Actions secret             | Disabled in dashboard     |
+
+`npm run supabase:reset` recreates a local-only user from `LOCAL_USER_EMAIL`,
+`LOCAL_USER_PASSWORD`, and `LOCAL_USER_NAME` in `.env.local`; those credentials are never used
+for the cloud project. `.env.production.local` is gitignored and lets a local production
+build target the cloud project while `.env.local` targets local Supabase.
+
+Function secrets are separate from the Vite build:
+
+| Secret                  | Used by         | Notes                                       |
+| ----------------------- | --------------- | ------------------------------------------- |
+| `KILO_API_KEY`          | `fit-analysis`  | Server-only; never a `VITE_*` value         |
+| `KILO_MODEL`            | `fit-analysis`  | Must be `kilo-auto/free` or end in `:free`  |
+| `SUPABASE_ACCESS_TOKEN` | deploy workflow | Used to set secrets and deploy the function |
+| `SUPABASE_PROJECT_ID`   | deploy workflow | Supabase project ref                        |
 
 ## Failure modes
 
@@ -302,6 +366,12 @@ can be newer than the latest release.
 - No release after a push: the commit message is not a Conventional Commit or contains no
   release-worthy type. The deploy still succeeds; rewrite the commit or create a release
   manually only when recovering.
+- Fit analysis missing prerequisites: the tab explains whether the board needs a job spec,
+  the applicant needs a CV, or the profile needs education or experience.
+- Fit analysis not configured: the Edge Function returns a configuration error when
+  `KILO_API_KEY` or `KILO_MODEL` is missing, or when `KILO_MODEL` is not free.
+- Kilo rate limit or outage: the function returns an error and the previous stored analysis
+  remains visible; there is no fallback engine.
 - Pages direct navigation: served through `404.html`; if the fallback is removed, refreshing
   `/TeamBuilder/boards` returns a GitHub 404 page.
 - Renamed repository: production base and Supabase redirect URLs must change together. The
@@ -315,6 +385,9 @@ can be newer than the latest release.
   and add policies for the intended roles; keep the secret key server-side.
 - Keep the pure helpers in `src/lib/pipeline.ts` free of Supabase calls so pipeline behavior
   stays unit-testable.
+- To change fit analysis, update the prompt/validation/redaction in
+  `supabase/functions/fit-analysis`, bump `PROMPT_VERSION`, and keep the Edge Function as the
+  only writer of `public.applicant_fit_analyses`.
 - Keep the first board column as the fallback bucket. If column reordering is added, update
   the atomic delete function and the `position` ordering together.
 - Password recovery links already use the same `/set-password` flow. If magic links are

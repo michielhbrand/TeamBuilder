@@ -60,9 +60,55 @@ jobs:
         with:
           path: dist
 
+  functions:
+    name: Deploy Supabase function
+    needs: build
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Validate free model
+        env:
+          KILO_MODEL: ${{ secrets.KILO_MODEL }}
+        run: |
+          case "$KILO_MODEL" in
+            *:free|kilo-auto/free) ;;
+            *)
+              echo "KILO_MODEL must name a free Kilo model."
+              exit 1
+              ;;
+          esac
+
+      - name: Set fit-analysis secrets
+        env:
+          KILO_API_KEY: ${{ secrets.KILO_API_KEY }}
+          KILO_MODEL: ${{ secrets.KILO_MODEL }}
+        run: |
+          if [ -z "$KILO_API_KEY" ]; then
+            echo "KILO_API_KEY is not set."
+            exit 1
+          fi
+
+          supabase secrets set \
+            KILO_API_KEY="$KILO_API_KEY" \
+            KILO_MODEL="$KILO_MODEL" \
+            --project-ref "$SUPABASE_PROJECT_ID"
+
+      - name: Deploy fit-analysis
+        run: supabase functions deploy fit-analysis --project-ref "$SUPABASE_PROJECT_ID"
+
   deploy:
     name: Deploy
-    needs: build
+    needs: [build, functions]
     runs-on: ubuntu-latest
     environment:
       name: github-pages

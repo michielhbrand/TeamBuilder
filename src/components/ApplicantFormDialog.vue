@@ -12,7 +12,7 @@ import {
 import { isValidEmail, isValidPhone } from '@/lib/validation'
 import { useAuthStore } from '@/stores/auth'
 import { useBoardsStore } from '@/stores/boards'
-import type { Board } from '@/types/pipeline'
+import type { Board, Candidate } from '@/types/pipeline'
 
 const props = defineProps<{
   modelValue: boolean
@@ -21,7 +21,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   'update:modelValue': [value: boolean]
-  created: []
+  created: [candidate: Candidate]
 }>()
 
 const store = useBoardsStore()
@@ -259,7 +259,7 @@ async function submit(): Promise<void> {
     )
 
     if (created) {
-      emit('created')
+      emit('created', created)
       open.value = false
     }
   } finally {

@@ -311,6 +311,9 @@ class. Keep the rules attached to the field.
 - `FullNameDialog` is a persistent one-field dialog shown from `AppShell` when a signed-in
   user has no `full_name`. It has no close action; the user must save a name before using the
   protected pages.
+- `FitConsentDialog` is a persistent dialog shown before every CV analysis. It uses the
+  shared dialog shell, lists what is sent and removed, and requires an explicit **Analyze now**
+  or **Cancel** choice. Do not add a "remember this choice" option.
 
 ### Add applicant and CV import
 
@@ -335,11 +338,11 @@ class. Keep the rules attached to the field.
   than structured timeline items.
 - Email is optional and must be valid when present. Phone is optional and accepts digits
   only. Invalid values show a field error and are not persisted.
-- The drawer has two tabs below the header: **Details** for the editable profile and
-  **Events** for the applicant audit trail. Tabs use the display font, sentence case, an
-  accent underline, and the standard hairline divider. Events render newest first as a
-  vertical timeline with an accent dot, the event message, and an uppercase mono timestamp.
-  Show a quiet loading line or empty state when there are no events.
+- The drawer has three tabs below the header: **Details** for the editable profile, **Analize**
+  for the job-spec analysis, and **Events** for the applicant audit trail. Tabs use the
+  display font, sentence case, an accent underline, and the standard hairline divider. Events
+  render newest first as a vertical timeline with an accent dot, the event message, and an
+  uppercase mono timestamp. Show a quiet loading line or empty state when there are no events.
 - The Details tab ends with a **Notes** section. A free-text field and **Add note** button
   append a note for the current user; notes render newest first with the author name and a
   mono timestamp. Keep notes inside the standard drawer section rhythm and show a quiet
@@ -354,6 +357,22 @@ class. Keep the rules attached to the field.
 - Every PDF upload passes through the browser compressor in `src/lib/pdf.ts` before it
   reaches Supabase. It re-encodes embedded images, preserves selectable text, and never
   returns a larger file.
+
+### CV analysis
+
+- The **Analize** tab uses the same drawer surface, spacing, and hairline rhythm. Keep the
+  empty state quiet: one muted icon, a short title, the missing prerequisites, and a single
+  primary **Analyze CV** action.
+- Keep the result intentionally simple: an icon-only **Refresh** button above two lists under
+  **Similarities** and **Gaps**. Do not add a model/timestamp header, score, gauge, verdict
+  pill, confidence label, or per-requirement detail.
+- Similarities use the signal marker and gaps use the danger marker. Color is never the only
+  cue because the section labels carry the meaning.
+- Re-analysis always opens `FitConsentDialog` first. The dialog must explain what is sent,
+  what is removed, that Kilo may log or train on free-tier requests, and that results are
+  shared with the workspace. Use a warning-tonal alert for the privacy notice.
+- While analysis runs, show an indeterminate progress line or spinner with the current step
+  text. A failure stays in the tab and never hides the previous result.
 
 ### Brand, avatar, and status
 

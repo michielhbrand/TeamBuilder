@@ -2,6 +2,7 @@ import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import * as api from '@/lib/boards-api'
 import {
+  analyzedCvMessage,
   createdApplicantMessage,
   DEFAULT_ACTOR_NAME,
   editedProfileMessage,
@@ -235,6 +236,24 @@ export const useBoardsStore = defineStore('boards', () => {
     } catch (caught) {
       error.value = errorMessage(caught)
     }
+  }
+
+  async function recordCvAnalysis(
+    candidateId: string,
+    actorName: string = DEFAULT_ACTOR_NAME,
+  ): Promise<void> {
+    const context = candidateContext(candidateId)
+
+    if (!context) {
+      return
+    }
+
+    await recordApplicantEvent(
+      context,
+      'analyzed',
+      analyzedCvMessage(actorLabel(actorName), context.candidate.name),
+      actorName,
+    )
   }
 
   function beginCandidateEdit(candidateId: string): void {
@@ -990,6 +1009,7 @@ export const useBoardsStore = defineStore('boards', () => {
     loadApplicantEvents,
     eventsFor,
     eventsLoadingFor,
+    recordCvAnalysis,
     loadApplicantNotes,
     addApplicantNote,
     notesFor,

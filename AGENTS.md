@@ -10,9 +10,9 @@ TeamBuilder is a Vue 3 + Supabase hiring pipeline workspace. It is hosted on Git
 and exists to demonstrate a login screen, admin invitations that let users choose a
 password, in-memory sessions, a protected hiring portal, and sign-out. The portal has a
 dashboard overview, role boards grouped by department, a step-column pipeline for each role,
-an applicant audit trail, and an account page. Boards, pipeline columns, applicants, and
-their events are stored in Supabase Postgres and loaded through Pinia. Keep it focused; do
-not add unrelated product features.
+a consent-gated CV analysis that lists similarities and gaps, an applicant audit trail, and an account page. Boards,
+pipeline columns, applicants, events, notes, and fit analyses are stored in Supabase Postgres
+and loaded through Pinia. Keep it focused; do not add unrelated product features.
 
 ## Commands
 
@@ -22,6 +22,7 @@ Run from the repository root. Use Node 22 via `.nvmrc`.
 nvm use
 npm ci
 npm run dev
+npm run dev:local
 npm run lint
 npm run format:check
 npm run typecheck
@@ -29,7 +30,9 @@ npm test
 npm run build
 npm run validate:env
 npm run supabase:reset
+npm run supabase:seed:user
 npm run supabase:push
+npm run supabase:functions
 ```
 
 `npm run build` runs typechecking, the Vite build, and the `postbuild` script. A local
@@ -53,9 +56,15 @@ npm run build
   expose in the browser bundle.
 - Never place a Supabase secret key (`sb_secret_...`) or legacy `service_role` key in the
   frontend, a `VITE_*` variable, the repository, tests, logs, or chat.
-- `.env.local` is gitignored. `.env.example` contains placeholders only.
+- `KILO_API_KEY` and `KILO_MODEL` are Supabase Edge Function secrets for `fit-analysis`.
+  Never name the key `VITE_*` or inject it into the Pages build.
+- `SUPABASE_ACCESS_TOKEN` and `SUPABASE_PROJECT_ID` are GitHub Actions secrets used only to
+  set function secrets and deploy `fit-analysis`.
+- `.env.local` is gitignored. `.env.example` contains placeholders only. Function secret
+  placeholders live in `supabase/functions/.env.example`.
 - Production values come from GitHub Actions secrets named exactly
-  `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY`.
+  `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, `KILO_API_KEY`, `KILO_MODEL`,
+  `SUPABASE_ACCESS_TOKEN`, and `SUPABASE_PROJECT_ID`.
 - Use `npm run validate:env` before a deploy build. It rejects missing values and secret
   keys.
 
@@ -67,14 +76,24 @@ npm run build
 - `src/stores/auth.ts` — owns session state, initialization, sign-in, full-name capture,
   password setup, and sign-out.
 - `src/types/pipeline.ts` — board, step, candidate, applicant event, and summary types.
+- `src/types/fit.ts` — applicant CV/job-spec analysis types.
 - `src/lib/boards-api.ts` — Supabase reads and writes for boards, columns, applicants,
-  applicant events, and applicant notes.
+  applicant events, applicant notes, and fit analyses.
 - `src/lib/applicant-events.ts` — event message builders and timestamp formatting.
+- `src/lib/pdf-text.ts` — shared PDF text extraction, OCR fallback, IndexedDB cache, and PDF
+  fingerprints.
+- `src/lib/job-spec.ts` — job-spec PDF text extraction and cleanup.
+- `src/lib/fit-hash.ts` — CV, job-spec, and profile fingerprint helpers.
 - `src/lib/pipeline.ts` — pure pipeline helpers for steps, deadlines, summaries, department
   grouping, and dashboard candidate watch entries.
 - `src/lib/validation.ts` — shared email and phone validation helpers.
 - `src/stores/boards.ts` — persisted board, column, and applicant state and actions.
+- `src/stores/fit.ts` — persisted applicant CV-analysis state and actions.
 - `supabase/migrations/` — Postgres tables, RLS policies, indexes, and board RPC functions.
+- `supabase/functions/fit-analysis/` — authenticated Edge Function that redacts CV fields,
+  calls the free Kilo model, validates the similarities/gaps JSON, and upserts the shared
+  analysis.
+- `supabase/functions/.env.example` — placeholders for server-side function secrets.
 - `src/router/index.ts` — routes and the auth guard.
 - `src/components/AppShell.vue` — top-bar navigation and shared layout for protected pages.
 - `src/components/AuthShell.vue` — shared Orbital layout for login and password setup.
@@ -89,8 +108,11 @@ npm run build
 - `src/components/BoardSwitcher.vue` — compact header menu for switching between role boards.
 - `src/components/BoardColumn.vue` — one pipeline step column.
 - `src/components/CandidateCard.vue` — candidate summary and pipeline actions.
-- `src/components/ApplicantDrawer.vue` — right-side editable applicant profile with Details
-  and Events tabs, favourite, education, work-experience notes, and free-text applicant notes.
+- `src/components/ApplicantDrawer.vue` — right-side editable applicant profile with Details,
+  Analize, and Events tabs, favourite, education, work-experience notes, and free-text applicant
+  notes.
+- `src/components/FitConsentDialog.vue` — per-analysis consent dialog for sending redacted CV
+  data to the hosted model.
 - `src/components/JobSpecDialog.vue` — upload, preview, print, open, and remove a board's PDF
   job spec.
 - `src/components/ConfirmDialog.vue` — shared destructive-action confirmation dialog.
@@ -130,15 +152,17 @@ See `docs/ARCHITECTURE.md` for the auth lifecycle and deployment pipeline.
 
 - Use Vue single-file components with `<script setup lang="ts">`.
 - Keep auth state in the Pinia store. Components should not call `supabase.auth` directly.
-- Keep board state in `src/stores/boards.ts`. Components read from the store and call its
-  actions instead of calling Supabase directly.
+- Keep board state in `src/stores/boards.ts` and fit state in `src/stores/fit.ts`. Components
+  read from the stores and call their actions instead of calling Supabase or the Edge
+  Function directly.
 - Keep Supabase queries and row/domain mapping in `src/lib/boards-api.ts`. Board data is
   persisted in the tables created by `supabase/migrations/`.
 - Every signed-in user shares the same workspace. RLS policies allow the `authenticated`
   role only; do not grant board access to `anon`.
-- Deleting a board cascades to its columns, applicants, and applicant events. Deleting an
-  applicant is permanent and also deletes its events. Deleting a column reassigns its
-  applicants to the first column, which cannot be deleted or moved.
+- Deleting a board cascades to its columns, applicants, events, notes, and fit analyses.
+  Deleting an applicant is permanent and also deletes its events, notes, and fit analysis.
+  Deleting a column reassigns its applicants to the first column, which cannot be deleted or
+  moved.
 - Keep the Supabase client singleton in `src/lib/supabase.ts`.
 - Invite and recovery links arrive with a `type` in the URL hash or query. Preserve the
   detection in `src/lib/auth-link.ts`; do not let the login redirect bypass
@@ -170,7 +194,10 @@ See `docs/ARCHITECTURE.md` for the auth lifecycle and deployment pipeline.
 - Do not remove the `404.html` fallback; it is what makes `/TeamBuilder/boards` work on a
   hard refresh.
 - `.github/workflows/deploy.yml` is the only production deploy path. Keep Pages permissions
-  (`pages: write`, `id-token: write`) and the `github-pages` environment.
+  (`pages: write`, `id-token: write`) and the `github-pages` environment. The same workflow
+  sets `KILO_API_KEY` and `KILO_MODEL` as Supabase secrets and deploys `fit-analysis` using
+  `SUPABASE_ACCESS_TOKEN` and `SUPABASE_PROJECT_ID`; never inject those values into the Vite
+  build.
 - Deployments occur on pushes to `main`. Releases are created automatically by
   `semantic-release` from Conventional Commits; do not create tags or releases manually
   unless recovering from a failed release.
@@ -182,6 +209,10 @@ See `docs/ARCHITECTURE.md` for the auth lifecycle and deployment pipeline.
   through `/set-password`.
 - Keep the cloud Site URL aligned with the Pages origin so invite links return to the app.
   Local invitations use `supabase/config.toml` and Mailpit at `http://localhost:54324`.
+- `npm run supabase:reset` recreates a local-only auth user from `LOCAL_USER_EMAIL`,
+  `LOCAL_USER_PASSWORD`, and `LOCAL_USER_NAME` in `.env.local`. Those values are never used
+  for the cloud project. Keep cloud values for local production builds in the gitignored
+  `.env.production.local`.
 - Applicant CVs use the private Supabase Storage bucket `cvs` (one PDF per applicant,
   `<applicant-id>/cv.pdf`). Board job specs use the private `job-specs` bucket at
   `<board-id>/job-spec.pdf`. Keep storage policies limited to `authenticated`, validate PDF
@@ -198,10 +229,23 @@ See `docs/ARCHITECTURE.md` for the auth lifecycle and deployment pipeline.
   sections at achievements, certifications, skills, and other headings. OCR assets are
   generated into `public/ocr/` by `scripts/copy-ocr-assets.mjs` from `predev`/`prebuild`; do
   not commit them.
+- CV analysis runs through the authenticated `fit-analysis` Edge Function. It sends only
+  the job spec, role/department, and redacted education/work experience to a free Kilo model.
+  Never send name, email, phone, URLs, address, date of birth, nationality, gender, age, or
+  other sensitive personal fields. Consent is required for every analysis, including
+  re-evaluation, and the UI must state that Kilo may log or train on free-tier requests.
+- Fit results are stored in `public.applicant_fit_analyses`, one row per applicant, scoped by
+  the composite `(board_id, applicant_id)` foreign key. Authenticated users may select;
+  only the Edge Function with the service role may insert or update. Validate the model JSON
+  on the server and store only the returned similarities and gaps.
+- Fit analysis is English-only, has no local or paid fallback, and must keep the previous
+  result when Kilo is unavailable or rate-limited. Refuse any `KILO_MODEL` that is not a free
+  model. Do not expose the Kilo key to the browser.
 - Do not add LinkedIn or other third-party profile scraping. LinkedIn blocks automated
   requests and prohibits scraping, and no free API is reliable. Profile data may only enter
   through user-provided text or files.
-- Board data uses `public.boards`, `public.board_columns`, and `public.applicants`. Board
+- Board data uses `public.boards`, `public.board_columns`, `public.applicants`, and
+  `public.applicant_fit_analyses`. Board
   names are unique within a department; applicant email and phone are optional and unique
   per board only when filled. New applicants default to the `Applied` column. If you
   add a table, add a migration under `supabase/migrations`, enable Row Level Security, write
@@ -213,8 +257,8 @@ See `docs/ARCHITECTURE.md` for the auth lifecycle and deployment pipeline.
   events permanently. Events are immutable: clients may select and insert, but there are no
   update or delete policies. Insert `actor_name` from the signed-in user's full name and let
   the `actor_id` default to `auth.uid()`. Record applicant creation, moves,
-  hire/reject/reopen status changes, and one edit event per profile drawer session when any
-  profile field changed.
+  hire/reject/reopen status changes, CV analyses, and one edit event per profile drawer
+  session when any profile field changed.
 - Applicant notes use `public.applicant_notes`, also scoped by `(board_id, applicant_id)` with
   a cascading composite foreign key. Notes are append-only free text: clients may select and
   insert, but there are no update or delete policies. Insert `author_name` from the signed-in
@@ -227,6 +271,9 @@ See `docs/ARCHITECTURE.md` for the auth lifecycle and deployment pipeline.
 
 - Do not commit `.env` files, keys, tokens, or generated secrets.
 - Do not add a sign-up UI without an explicit product decision.
+- Do not add a local or paid fallback for CV analysis, and do not send CV data to Kilo
+  without the consent dialog.
+- Do not let the browser validate model output or write `public.applicant_fit_analyses`.
 - Do not add analytics, error reporting, or third-party scripts that handle auth data
   without documenting the privacy/security impact.
 - Do not change the deployment target, repo name assumptions, or base path without updating

@@ -1,16 +1,19 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
+import FitConsentDialog from '@/components/FitConsentDialog.vue'
 import { DEFAULT_ACTOR_NAME, formatEventTime } from '@/lib/applicant-events'
 import { printPdfBlob } from '@/lib/pdf'
 import { initials as getInitials } from '@/lib/pipeline'
 import { isValidEmail, isValidPhone } from '@/lib/validation'
 import { useAuthStore } from '@/stores/auth'
 import { useBoardsStore, type EditableCandidateField } from '@/stores/boards'
+import { useFitStore } from '@/stores/fit'
 
 const props = defineProps<{
   modelValue: boolean
   candidateId: string | null
+  autoFitCandidateId?: string | null
 }>()
 
 const emit = defineEmits<{
@@ -19,9 +22,13 @@ const emit = defineEmits<{
 
 const store = useBoardsStore()
 const auth = useAuthStore()
+const fit = useFitStore()
 const actorName = computed(() => auth.fullName || auth.user?.email || DEFAULT_ACTOR_NAME)
 const candidate = computed(() =>
   props.candidateId ? store.candidateById(props.candidateId) : undefined,
+)
+const board = computed(() =>
+  candidate.value ? store.boardById(candidate.value.boardId) : undefined,
 )
 const initials = computed(() => (candidate.value ? getInitials(candidate.value.name) : ''))
 const events = computed(() => (props.candidateId ? store.eventsFor(props.candidateId) : []))
@@ -32,7 +39,8 @@ const notes = computed(() => (props.candidateId ? store.notesFor(props.candidate
 const notesLoading = computed(() =>
   props.candidateId ? store.notesLoadingFor(props.candidateId) : false,
 )
-const activeTab = ref<'details' | 'events'>('details')
+const activeTab = ref<'details' | 'events' | 'fit'>('details')
+const fitConsentOpen = ref(false)
 const noteDraft = ref('')
 const noteSaving = ref(false)
 const open = computed({
@@ -59,6 +67,39 @@ const fieldErrors = reactive({
   email: '',
   phone: '',
 })
+
+const fitAnalysis = computed(() =>
+  props.candidateId ? fit.analysisFor(props.candidateId) : undefined,
+)
+const fitLoading = computed(() => (props.candidateId ? fit.isLoadingFor(props.candidateId) : false))
+const fitAnalyzing = computed(() =>
+  props.candidateId ? fit.isAnalyzingFor(props.candidateId) : false,
+)
+const fitError = computed(() => (props.candidateId ? fit.errorFor(props.candidateId) : null))
+const fitProgress = computed(() => (props.candidateId ? fit.progressFor(props.candidateId) : ''))
+const fitStale = computed(() =>
+  props.candidateId && fitAnalysis.value ? fit.isStaleFor(props.candidateId) : false,
+)
+const fitPrerequisites = computed(() => {
+  const current = candidate.value
+  const currentBoard = board.value
+  const issues: string[] = []
+
+  if (!currentBoard?.jobSpecPath) {
+    issues.push('Add a PDF job spec to this board.')
+  }
+
+  if (!current?.cvPath) {
+    issues.push('Upload a PDF CV for this applicant.')
+  }
+
+  if (!current?.education.trim() && !current?.experience.trim()) {
+    issues.push('Add education or work experience.')
+  }
+
+  return issues
+})
+const canAnalyze = computed(() => fitPrerequisites.value.length === 0)
 
 const deleteMessage = computed(
   () => `Delete ${candidate.value?.name ?? 'this applicant'}? This cannot be undone.`,
@@ -113,6 +154,10 @@ function updateField(field: EditableCandidateField, value: unknown): void {
   }
 
   store.updateCandidateField(current.id, field, next)
+
+  if (field === 'education' || field === 'experience') {
+    void fit.refreshProfileStale(current.id)
+  }
 }
 
 async function addNote(): Promise<void> {
@@ -129,6 +174,52 @@ async function addNote(): Promise<void> {
 
   if (added) {
     noteDraft.value = ''
+  }
+}
+
+function requestFitAnalysis(): void {
+  if (!candidate.value || !canAnalyze.value) {
+    return
+  }
+
+  fitConsentOpen.value = true
+}
+
+async function confirmFitAnalysis(): Promise<void> {
+  const current = candidate.value
+
+  fitConsentOpen.value = false
+
+  if (!current) {
+    return
+  }
+
+  await fit.analyze(current.id, { force: true, actorName: actorName.value })
+}
+
+function openFitAfterUpload(): void {
+  if (candidate.value) {
+    fit.markStale(candidate.value.id)
+  }
+
+  activeTab.value = 'fit'
+
+  if (canAnalyze.value) {
+    fitConsentOpen.value = true
+  }
+}
+
+function maybeAutoFit(): void {
+  const current = candidate.value
+
+  if (!current || props.autoFitCandidateId !== current.id) {
+    return
+  }
+
+  activeTab.value = 'fit'
+
+  if (canAnalyze.value) {
+    fitConsentOpen.value = true
   }
 }
 
@@ -181,7 +272,10 @@ async function onCvSelected(event: Event): Promise<void> {
 
   if (!uploaded) {
     cvError.value = store.error ?? 'The CV could not be uploaded.'
+    return
   }
+
+  openFitAfterUpload()
 }
 
 async function removeCv(): Promise<void> {
@@ -196,6 +290,7 @@ async function removeCv(): Promise<void> {
   cvBusy.value = false
 
   if (removed) {
+    fit.markStale(current.id)
     closeCvPreview()
     return
   }
@@ -283,10 +378,13 @@ watch([() => props.modelValue, () => props.candidateId], ([value, candidateId]) 
     closeCvPreview()
     cvError.value = ''
     noteDraft.value = ''
+    fitConsentOpen.value = false
     activeTab.value = 'details'
     store.beginCandidateEdit(candidateId)
     void store.loadApplicantEvents(candidateId)
     void store.loadApplicantNotes(candidateId)
+    void fit.load(candidateId)
+    maybeAutoFit()
   }
 })
 
@@ -297,6 +395,7 @@ watch(
 
     if (!value) {
       closeCvPreview()
+      fitConsentOpen.value = false
 
       if (props.candidateId) {
         void store.flushCandidate(props.candidateId, actorName.value)
@@ -350,6 +449,7 @@ onBeforeUnmount(() => setPageScrollLocked(false))
 
         <v-tabs v-if="!cvPreviewOpen" v-model="activeTab" class="applicant-tabs" grow>
           <v-tab value="details">Details</v-tab>
+          <v-tab value="fit">Analize</v-tab>
           <v-tab value="events">Events</v-tab>
         </v-tabs>
 
@@ -546,7 +646,7 @@ onBeforeUnmount(() => setPageScrollLocked(false))
           </v-btn>
         </div>
 
-        <div v-else class="applicant-events">
+        <div v-else-if="activeTab === 'events'" class="applicant-events">
           <v-alert v-if="store.error" class="orbital-alert" type="error" density="compact">
             {{ store.error }}
           </v-alert>
@@ -567,6 +667,82 @@ onBeforeUnmount(() => setPageScrollLocked(false))
             </li>
           </ol>
         </div>
+
+        <div v-else class="applicant-fit">
+          <v-alert v-if="fitError" class="orbital-alert" type="error" density="compact">
+            {{ fitError }}
+          </v-alert>
+
+          <v-alert v-if="fitStale" class="orbital-alert" type="warning" density="compact">
+            This profile, CV, or job spec has changed since the last analysis. Use the refresh
+            button to update it.
+          </v-alert>
+
+          <div v-if="fitAnalyzing" class="applicant-fit__status" role="status" aria-live="polite">
+            <v-progress-circular indeterminate color="primary" size="22" />
+            <span>{{ fitProgress || 'Analyzing the CV against the job spec…' }}</span>
+          </div>
+
+          <template v-else-if="fitAnalysis">
+            <div class="fit-toolbar">
+              <v-btn
+                icon="mdi-refresh"
+                size="small"
+                variant="text"
+                aria-label="Re-analyze CV"
+                title="Re-analyze CV"
+                :disabled="!canAnalyze"
+                @click="requestFitAnalysis"
+              />
+            </div>
+
+            <div class="fit-columns">
+              <section class="applicant-section">
+                <p class="eyebrow">Similarities</p>
+                <ul
+                  v-if="fitAnalysis.result.similarities.length"
+                  class="fit-list fit-list--positive"
+                >
+                  <li v-for="item in fitAnalysis.result.similarities" :key="item">{{ item }}</li>
+                </ul>
+                <p v-else class="fit-empty__hint">No similarities returned.</p>
+              </section>
+
+              <section class="applicant-section">
+                <p class="eyebrow">Gaps</p>
+                <ul v-if="fitAnalysis.result.gaps.length" class="fit-list fit-list--gap">
+                  <li v-for="item in fitAnalysis.result.gaps" :key="item">{{ item }}</li>
+                </ul>
+                <p v-else class="fit-empty__hint">No gaps returned.</p>
+              </section>
+            </div>
+
+            <p class="applicant-drawer__note">
+              AI analysis only. Review the CV and job spec before making decisions.
+            </p>
+          </template>
+
+          <div v-else-if="fitLoading" class="applicant-fit__status">Loading the last analysis…</div>
+
+          <div v-else class="fit-empty">
+            <v-icon icon="mdi-file-compare" size="40" />
+            <p class="fit-empty__title">No analysis yet</p>
+            <p class="fit-empty__hint">
+              Analyze this CV against the role's job spec to list similarities and gaps.
+            </p>
+            <ul v-if="fitPrerequisites.length" class="fit-empty__checks">
+              <li v-for="item in fitPrerequisites" :key="item">{{ item }}</li>
+            </ul>
+            <v-btn
+              color="primary"
+              prepend-icon="mdi-file-compare"
+              :disabled="!canAnalyze"
+              @click="requestFitAnalysis"
+            >
+              Analyze CV
+            </v-btn>
+          </div>
+        </div>
       </div>
     </v-navigation-drawer>
   </Teleport>
@@ -579,5 +755,14 @@ onBeforeUnmount(() => setPageScrollLocked(false))
     confirm-label="Delete applicant"
     :loading="deleting"
     @confirm="confirmDeleteApplicant"
+  />
+
+  <FitConsentDialog
+    v-model="fitConsentOpen"
+    :candidate-name="candidate?.name ?? 'this applicant'"
+    :board-name="board?.name ?? 'this role'"
+    :busy="fitAnalyzing"
+    @confirm="confirmFitAnalysis"
+    @cancel="fitConsentOpen = false"
   />
 </template>
