@@ -392,6 +392,22 @@ Deno.serve(async (request) => {
       throw new HttpError(500, 'The fit analysis could not be saved.')
     }
 
+    const fullName =
+      typeof user.user_metadata?.full_name === 'string' ? user.user_metadata.full_name.trim() : ''
+    const actorName = fullName || user.email?.trim() || 'A teammate'
+    const { error: eventError } = await admin.from('applicant_events').insert({
+      board_id: applicant.board_id,
+      applicant_id: applicant.id,
+      actor_id: user.id,
+      actor_name: actorName,
+      action: 'analyzed',
+      message: `${actorName} has analyzed ${applicant.full_name}'s CV against the job spec`,
+    })
+
+    if (eventError) {
+      console.error('The analyzed applicant event could not be recorded', eventError.message)
+    }
+
     return json(request, saved)
   } catch (caught) {
     if (caught instanceof HttpError) {

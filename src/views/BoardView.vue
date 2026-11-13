@@ -1,8 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { DEFAULT_ACTOR_NAME } from '@/lib/applicant-events'
-import { useAuthStore } from '@/stores/auth'
 import ApplicantDrawer from '@/components/ApplicantDrawer.vue'
 import ApplicantFormDialog from '@/components/ApplicantFormDialog.vue'
 import AppShell from '@/components/AppShell.vue'
@@ -26,8 +24,6 @@ import type { Candidate } from '@/types/pipeline'
 const route = useRoute()
 const router = useRouter()
 const store = useBoardsStore()
-const auth = useAuthStore()
-const actorName = computed(() => auth.fullName || auth.user?.email || DEFAULT_ACTOR_NAME)
 const switcher = ref<InstanceType<typeof BoardSwitcher> | null>(null)
 const dragged = ref<{ candidateId: string; stepId: string } | null>(null)
 const settlingCandidateId = ref<string | null>(null)
@@ -103,7 +99,7 @@ function onCandidateDrop(stepId: string): void {
     return
   }
 
-  void store.moveCandidate(current.candidateId, stepId, actorName.value)
+  void store.moveCandidate(current.candidateId, stepId)
   settlingCandidateId.value = current.candidateId
   window.clearTimeout(settleTimer)
   settleTimer = window.setTimeout(() => {
@@ -267,11 +263,7 @@ onBeforeUnmount(() => {
                   <span class="candidate-source">Last step: {{ lastStepName(candidate) }}</span>
                 </span>
               </button>
-              <v-btn
-                size="small"
-                variant="text"
-                @click="store.reopenCandidate(candidate.id, actorName)"
-              >
+              <v-btn size="small" variant="text" @click="store.reopenCandidate(candidate.id)">
                 Reopen
               </v-btn>
             </div>
@@ -297,11 +289,7 @@ onBeforeUnmount(() => {
                   <span class="candidate-source">Last step: {{ lastStepName(candidate) }}</span>
                 </span>
               </button>
-              <v-btn
-                size="small"
-                variant="text"
-                @click="store.reopenCandidate(candidate.id, actorName)"
-              >
+              <v-btn size="small" variant="text" @click="store.reopenCandidate(candidate.id)">
                 Reopen
               </v-btn>
             </div>

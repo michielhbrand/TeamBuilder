@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
-import { DEFAULT_ACTOR_NAME } from '@/lib/applicant-events'
 import { PDF_MAX_BYTES, isPdfFile } from '@/lib/pdf'
 import { defaultApplicantStep } from '@/lib/pipeline'
 import {
@@ -10,7 +9,6 @@ import {
   type ApplicantDraftField,
 } from '@/lib/resume-import'
 import { isValidEmail, isValidPhone } from '@/lib/validation'
-import { useAuthStore } from '@/stores/auth'
 import { useBoardsStore } from '@/stores/boards'
 import type { Board, Candidate } from '@/types/pipeline'
 
@@ -25,8 +23,6 @@ const emit = defineEmits<{
 }>()
 
 const store = useBoardsStore()
-const auth = useAuthStore()
-const actorName = computed(() => auth.fullName || auth.user?.email || DEFAULT_ACTOR_NAME)
 const submitting = ref(false)
 const localError = ref('')
 const stepId = ref('')
@@ -255,7 +251,6 @@ async function submit(): Promise<void> {
         stepId: stepId.value,
       },
       cvFile.value,
-      actorName.value,
     )
 
     if (created) {

@@ -79,7 +79,8 @@ npm run build
 - `src/types/fit.ts` — applicant CV/job-spec analysis types.
 - `src/lib/boards-api.ts` — Supabase reads and writes for boards, columns, applicants,
   applicant events, applicant notes, and fit analyses.
-- `src/lib/applicant-events.ts` — event message builders and timestamp formatting.
+- `src/lib/applicant-events.ts` — fallback actor label and timestamp formatting for the
+  audit trail.
 - `src/lib/pdf-text.ts` — shared PDF text extraction, OCR fallback, IndexedDB cache, and PDF
   fingerprints.
 - `src/lib/job-spec.ts` — job-spec PDF text extraction and cleanup.
@@ -254,11 +255,13 @@ See `docs/ARCHITECTURE.md` for the auth lifecycle and deployment pipeline.
   `anon`.
 - Audit events use `public.applicant_events`, scoped by `(board_id, applicant_id)`. The
   composite foreign key cascades from the applicant and board, so deleting either removes its
-  events permanently. Events are immutable: clients may select and insert, but there are no
-  update or delete policies. Insert `actor_name` from the signed-in user's full name and let
-  the `actor_id` default to `auth.uid()`. Record applicant creation, moves,
-  hire/reject/reopen status changes, CV analyses, and one edit event per profile drawer
-  session when any profile field changed.
+  events permanently. Events are immutable: clients may select them but cannot insert,
+  update, or delete. An `after insert or update` trigger on `public.applicants` records
+  creation, moves, and hire/reject/reopen status changes in the same transaction as the
+  applicant change and derives `actor_name` from `auth.jwt()` (`user_metadata.full_name`,
+  falling back to email). The `record_applicant_edit_event` RPC records one profile-edit event
+  per drawer session, and the `fit-analysis` Edge Function records CV analyses. Do not add
+  client-side event inserts.
 - Applicant notes use `public.applicant_notes`, also scoped by `(board_id, applicant_id)` with
   a cascading composite foreign key. Notes are append-only free text: clients may select and
   insert, but there are no update or delete policies. Insert `author_name` from the signed-in

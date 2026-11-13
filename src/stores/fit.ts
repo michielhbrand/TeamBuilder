@@ -166,7 +166,7 @@ export const useFitStore = defineStore('fit', () => {
 
   async function analyze(
     applicantId: string,
-    options: { force?: boolean; actorName?: string } = {},
+    options: { force?: boolean } = {},
   ): Promise<FitAnalysis | null> {
     if (analyzing.value[applicantId]) {
       return null
@@ -247,7 +247,7 @@ export const useFitStore = defineStore('fit', () => {
         ocrUsed: jobSpec.ocrUsed,
       })
 
-      await boards.recordCvAnalysis(applicantId, options.actorName)
+      await boards.loadApplicantEvents(applicantId)
       analyses.value = { ...analyses.value, [applicantId]: analysis }
       loaded.value = { ...loaded.value, [applicantId]: true }
       profileStale.value = {

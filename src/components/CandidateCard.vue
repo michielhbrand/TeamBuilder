@@ -1,7 +1,5 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { DEFAULT_ACTOR_NAME } from '@/lib/applicant-events'
-import { useAuthStore } from '@/stores/auth'
 import { useBoardsStore } from '@/stores/boards'
 import {
   daysInStep as getDaysInStep,
@@ -27,8 +25,6 @@ const emit = defineEmits<{
 }>()
 
 const store = useBoardsStore()
-const auth = useAuthStore()
-const actorName = computed(() => auth.fullName || auth.user?.email || DEFAULT_ACTOR_NAME)
 
 const step = computed(() => stepById(props.board, props.candidate.stepId))
 const next = computed(() => nextStep(props.board, props.candidate))
@@ -59,7 +55,7 @@ const appliedLabel = computed(() => {
 
 function moveTo(target: PipelineStep | undefined): void {
   if (target) {
-    void store.moveCandidate(props.candidate.id, target.id, actorName.value)
+    void store.moveCandidate(props.candidate.id, target.id)
   }
 }
 
@@ -162,7 +158,7 @@ function onDragEnd(): void {
             class="candidate-action candidate-action--hire"
             color="primary"
             variant="outlined"
-            @click="store.hireCandidate(candidate.id, actorName)"
+            @click="store.hireCandidate(candidate.id)"
           >
             Hire
           </v-btn>
@@ -170,7 +166,7 @@ function onDragEnd(): void {
             class="candidate-action candidate-action--reject"
             color="error"
             variant="outlined"
-            @click="store.rejectCandidate(candidate.id, actorName)"
+            @click="store.rejectCandidate(candidate.id)"
           >
             Reject
           </v-btn>

@@ -136,8 +136,12 @@ The schema lives in `supabase/migrations/`:
   message, and timestamp. Actions cover creation, profile edits, moves, hire/reject/reopen
   status changes, and CV analyses. The `(board_id, applicant_id)` foreign key targets the
   applicant's composite unique key and cascades on delete, so deleting an applicant or board
-  permanently removes its events. Events are append-only: clients can select and insert, but
-  there are no update or delete policies.
+  permanently removes its events. Events are immutable: clients have select-only access to
+  the table. An `after insert or update` trigger on `public.applicants` writes creation, move,
+  and status events in the same transaction as the applicant change, using the JWT full name
+  or email as the actor. The narrow `record_applicant_edit_event` RPC records the one
+  profile-edit event per drawer session, and the `fit-analysis` Edge Function records
+  CV-analysis events. There are no update or delete policies.
 - `public.applicant_notes` — board and applicant scope, author id and name, free-text body,
   and timestamp. The composite applicant foreign key cascades from the applicant and board.
   Notes are append-only: clients can select and insert, but there are no update or delete
@@ -211,7 +215,7 @@ Analize tab, CV upload, or refresh
   -> redacts identity/sensitive fields, calls Kilo's free model
   -> validates the similarities/gaps JSON
   -> upserts public.applicant_fit_analyses
-  -> boards store records an analyzed applicant event
+  -> Edge Function records an analyzed applicant event
   -> drawer reloads the stored result through the fit Pinia store
 ```
 
@@ -230,9 +234,10 @@ local or paid fallback, and a failed or rate-limited call leaves the previous ro
 
 RLS is enabled on all six tables. Table privileges are explicitly granted to
 `authenticated` and revoked from `anon`; RLS policies then grant the operations each table
-needs. Board tables allow `select`, `insert`, `update`, and `delete`; applicant events and
-notes are append-only and allow `select` and `insert` only; fit analyses allow `select` only.
-RLS alone is not sufficient
+needs. Board tables allow `select`, `insert`, `update`, and `delete`; applicant events allow
+`select` only and applicant notes allow `select` and `insert`; fit analyses allow `select`
+only. Events are written by database triggers, the narrow edit RPC, or the Edge Function with
+the service role. RLS alone is not sufficient
 because PostgREST also requires the underlying table grants. RPC execution is revoked from
 `public` and `anon` and granted to `authenticated`.
 
@@ -262,11 +267,11 @@ edits update Pinia immediately and are debounced before the applicant row is wri
 `flushCandidate` writes any pending edit when the drawer closes. The drawer snapshots the
 profile when it opens; on close, `flushCandidate` compares the snapshot and records one
 `edited` event only when a name, contact, role, education, experience, favourite, or CV value
-changed. This avoids one event per keystroke. Drag-and-drop moves, status changes, deletes,
-and creations call the API directly. Applicant creation, moves, and hire/reject/reopen
-changes record one event after the applicant update succeeds. `src/types/pipeline.ts` defines
-the domain types,
-`src/lib/applicant-events.ts` builds event messages and formats timestamps, and
+changed. This avoids one event per keystroke; the narrow `record_applicant_edit_event` RPC
+derives the actor and message from the session and applicant. Database triggers record
+creation, moves, and hire/reject/reopen events in the same transaction as the applicant
+change. `src/types/pipeline.ts` defines the domain types,
+`src/lib/applicant-events.ts` provides the fallback actor label and formats timestamps, and
 `src/lib/pipeline.ts` contains pure helpers for column lookup, deadlines, elapsed days,
 next-step navigation, department grouping, and summaries. Components read from the store and
 call its actions; they do not call Supabase directly.

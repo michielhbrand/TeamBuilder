@@ -194,7 +194,7 @@ async function confirmFitAnalysis(): Promise<void> {
     return
   }
 
-  await fit.analyze(current.id, { force: true, actorName: actorName.value })
+  await fit.analyze(current.id, { force: true })
 }
 
 function openFitAfterUpload(): void {
@@ -398,7 +398,7 @@ watch(
       fitConsentOpen.value = false
 
       if (props.candidateId) {
-        void store.flushCandidate(props.candidateId, actorName.value)
+        void store.flushCandidate(props.candidateId)
       }
     }
   },

@@ -450,32 +450,12 @@ export async function fetchApplicantEvents(
   return ((data ?? []) as unknown as ApplicantEventRow[]).map(mapApplicantEvent)
 }
 
-export async function createApplicantEvent(input: {
-  boardId: string
-  applicantId: string
-  action: ApplicantEventAction
-  actorName: string
-  message: string
-}): Promise<ApplicantEvent> {
-  const { data, error } = await supabase
-    .from('applicant_events')
-    .insert({
-      board_id: input.boardId,
-      applicant_id: input.applicantId,
-      action: input.action,
-      actor_name: input.actorName,
-      message: input.message,
-    })
-    .select(APPLICANT_EVENT_SELECT)
-    .single()
+export async function recordApplicantEditEvent(applicantId: string): Promise<void> {
+  const { error } = await supabase.rpc('record_applicant_edit_event', {
+    p_applicant_id: applicantId,
+  })
 
   fail(error)
-
-  if (!data) {
-    throw new Error('The event could not be recorded.')
-  }
-
-  return mapApplicantEvent(data as unknown as ApplicantEventRow)
 }
 
 export async function fetchApplicantNotes(
