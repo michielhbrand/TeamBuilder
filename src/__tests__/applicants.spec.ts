@@ -40,6 +40,7 @@ vi.mock('@/lib/storage-api', () => ({
 
 import { useApplicantsStore } from '@/stores/applicants'
 import { useBoardsStore } from '@/stores/boards'
+import { useUndoStore } from '@/stores/undo'
 
 function makeCandidate(overrides: Partial<Candidate> = {}): Candidate {
   return {
@@ -128,6 +129,72 @@ describe('applicants store', () => {
     applicants.hireCandidate(candidate.id)
     expect(candidate.status).toBe('hired')
     expect(mocks.updateApplicant).toHaveBeenCalledTimes(3)
+  })
+
+  it('rejectCandidate pushes an undo entry naming the applicant', async () => {
+    const { applicants } = await initializedStores()
+
+    await applicants.rejectCandidate('c1')
+
+    expect(useUndoStore().entry?.message).toBe('Amara Okafor rejected')
+  })
+
+  it('undo restores active status through the API', async () => {
+    const { applicants } = await initializedStores()
+    await applicants.hireCandidate('c1')
+
+    await useUndoStore().run()
+
+    expect(applicants.candidateById('c1')?.status).toBe('active')
+    expect(mocks.updateApplicant).toHaveBeenLastCalledWith('c1', { status: 'active' })
+  })
+
+  it('undo does nothing when the status has changed since', async () => {
+    const { applicants } = await initializedStores()
+    await applicants.rejectCandidate('c1')
+    const candidate = applicants.candidateById('c1')
+    if (!candidate) return
+    candidate.status = 'hired'
+    mocks.updateApplicant.mockClear()
+
+    await useUndoStore().run()
+
+    expect(mocks.updateApplicant).not.toHaveBeenCalled()
+    expect(candidate.status).toBe('hired')
+  })
+
+  it('a failed write rolls back and pushes no entry', async () => {
+    const { applicants } = await initializedStores()
+    mocks.updateApplicant.mockRejectedValue(new Error('boom'))
+
+    const result = await applicants.rejectCandidate('c1')
+
+    expect(result).toBe(false)
+    expect(applicants.candidateById('c1')?.status).toBe('active')
+    expect(useUndoStore().entry).toBeNull()
+  })
+
+  it('reopenCandidate pushes no entry', async () => {
+    const { applicants } = await initializedStores()
+    await applicants.rejectCandidate('c1')
+    useUndoStore().reset()
+
+    const result = await applicants.reopenCandidate('c1')
+
+    expect(result).toBe(true)
+    expect(useUndoStore().entry).toBeNull()
+  })
+
+  it('hire and reject resolve true on success and false on failure', async () => {
+    const { applicants } = await initializedStores()
+
+    expect(await applicants.hireCandidate('c1')).toBe(true)
+    expect(await applicants.rejectCandidate('c1')).toBe(true)
+
+    mocks.updateApplicant.mockRejectedValue(new Error('boom'))
+
+    expect(await applicants.hireCandidate('c1')).toBe(false)
+    expect(await applicants.rejectCandidate('c1')).toBe(false)
   })
 
   it('updates profile fields locally and persists them on flush', async () => {

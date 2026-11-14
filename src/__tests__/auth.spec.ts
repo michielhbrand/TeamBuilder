@@ -31,6 +31,7 @@ import { useApplicantActivityStore } from '@/stores/applicant-activity'
 import { useApplicantsStore } from '@/stores/applicants'
 import { useAuthStore } from '@/stores/auth'
 import { useBoardsStore } from '@/stores/boards'
+import { useUndoStore } from '@/stores/undo'
 
 const candidate: Candidate = {
   id: 'c1',
@@ -282,6 +283,19 @@ describe('auth store', () => {
     expect(activity.notesFor('c1')).toEqual([])
     expect(applicants.pendingProfileValues('c1')).toBeUndefined()
     expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('signing out resets the undo store', async () => {
+    mocks.getSession.mockResolvedValue({ data: { session }, error: null })
+    mocks.signOut.mockResolvedValue({ error: null })
+    const auth = useAuthStore()
+    await auth.initialize()
+    const undo = useUndoStore()
+    undo.push('Amara hired', vi.fn<() => Promise<void>>())
+
+    await auth.signOut()
+
+    expect(undo.entry).toBeNull()
   })
 
   it('clears the session on sign out', async () => {

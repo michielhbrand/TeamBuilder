@@ -108,6 +108,10 @@ npm run build
   state; derives the note author from the auth store's `actorName`.
 - `src/stores/storage.ts` — CV and job-spec uploads, removals, signed URLs, and blobs.
 - `src/stores/fit.ts` — persisted applicant CV-analysis state and actions.
+- `src/stores/undo.ts` — the single pending undo entry with an 8 second timer; reset on
+  sign-out.
+- `src/components/UndoToast.vue` — bottom-left status toast with an Undo action, mounted once
+  in `AppShell.vue`.
 - `supabase/migrations/` — Postgres tables, RLS policies, indexes, and board RPC functions.
 - `supabase/functions/fit-analysis/` — authenticated Edge Function that redacts CV fields,
   calls the free Kilo model, validates the similarities/gaps JSON, and upserts the shared
@@ -202,6 +206,9 @@ See `docs/ARCHITECTURE.md` for the auth lifecycle and deployment pipeline.
   Deleting an applicant is permanent and also deletes its events, notes, and fit analysis.
   Deleting a column reassigns its applicants to the first stage, which cannot be deleted or
   moved.
+- Reversible decisions (hire, reject) apply immediately and offer Undo through
+  `useUndoStore().push`; use `ConfirmDialog` only for permanent actions such as deletes.
+  `hireCandidate`, `rejectCandidate`, and `reopenCandidate` return `Promise<boolean>`.
 - Keep the Supabase client singleton in `src/lib/supabase.ts`.
 - Password reset requests go through `auth.requestPasswordReset`; never reveal whether an
   account exists. The reset email returns to the app root as a recovery link.

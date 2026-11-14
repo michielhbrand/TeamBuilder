@@ -7,6 +7,7 @@ import { errorMessage } from '@/lib/store-errors'
 import { useApplicantActivityStore } from '@/stores/applicant-activity'
 import { useBoardsStore } from '@/stores/boards'
 import { useStorageStore } from '@/stores/storage'
+import { useUndoStore } from '@/stores/undo'
 import type {
   ApplicantInput,
   Board,
@@ -304,11 +305,14 @@ export const useApplicantsStore = defineStore('applicants', () => {
     }
   }
 
-  async function setCandidateStatus(candidateId: string, status: CandidateStatus): Promise<void> {
+  async function setCandidateStatus(
+    candidateId: string,
+    status: CandidateStatus,
+  ): Promise<boolean> {
     const context = candidateContext(candidateId)
 
     if (!context || context.candidate.status === status) {
-      return
+      return false
     }
 
     error.value = null
@@ -317,25 +321,45 @@ export const useApplicantsStore = defineStore('applicants', () => {
 
     try {
       await api.updateApplicant(candidateId, { status })
+      return true
     } catch (caught) {
       if (context.candidate.status === status) {
         context.candidate.status = previousStatus
       }
 
       error.value = errorMessage(caught)
+      return false
     }
   }
 
-  async function hireCandidate(candidateId: string): Promise<void> {
-    await setCandidateStatus(candidateId, 'hired')
+  async function decideCandidate(
+    candidateId: string,
+    status: 'hired' | 'rejected',
+  ): Promise<boolean> {
+    const saved = await setCandidateStatus(candidateId, status)
+    const candidate = candidateById(candidateId)
+
+    if (saved && candidate) {
+      useUndoStore().push(`${candidate.name} ${status}`, async () => {
+        if (candidateById(candidateId)?.status === status) {
+          await reopenCandidate(candidateId)
+        }
+      })
+    }
+
+    return saved
   }
 
-  async function rejectCandidate(candidateId: string): Promise<void> {
-    await setCandidateStatus(candidateId, 'rejected')
+  function hireCandidate(candidateId: string): Promise<boolean> {
+    return decideCandidate(candidateId, 'hired')
   }
 
-  async function reopenCandidate(candidateId: string): Promise<void> {
-    await setCandidateStatus(candidateId, 'active')
+  function rejectCandidate(candidateId: string): Promise<boolean> {
+    return decideCandidate(candidateId, 'rejected')
+  }
+
+  function reopenCandidate(candidateId: string): Promise<boolean> {
+    return setCandidateStatus(candidateId, 'active')
   }
 
   function clearSaveTimer(candidateId: string): void {

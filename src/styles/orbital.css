@@ -905,6 +905,57 @@ body {
   line-height: 1.55;
 }
 
+.undo-toast-region {
+  position: fixed;
+  bottom: 24px;
+  left: 24px;
+  z-index: 2500;
+  max-width: calc(100vw - 32px);
+}
+
+.undo-toast {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 8px 8px 16px;
+  border: 1px solid var(--orbital-line);
+  border-radius: var(--orbital-radius-sm);
+  background: var(--orbital-surface-2);
+  color: var(--orbital-ink);
+  box-shadow: var(--orbital-shadow);
+  font-size: 0.875rem;
+}
+
+.undo-toast-message {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.undo-toast-action.v-btn {
+  min-height: 32px;
+  color: var(--orbital-ink);
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.undo-toast-close.v-btn {
+  color: var(--orbital-muted);
+}
+
+@media (max-width: 1024px) {
+  .undo-toast-action.v-btn {
+    min-height: 40px;
+  }
+}
+
+@media (max-width: 480px) {
+  .undo-toast-region {
+    bottom: 16px;
+    left: 16px;
+  }
+}
+
 /* App shell */
 
 .app-topbar {

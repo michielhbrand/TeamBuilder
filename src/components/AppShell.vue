@@ -4,6 +4,7 @@ import { RouterLink } from 'vue-router'
 import BrandMark from '@/components/BrandMark.vue'
 import FullNameDialog from '@/components/FullNameDialog.vue'
 import ThemeToggle from '@/components/ThemeToggle.vue'
+import UndoToast from '@/components/UndoToast.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useBoardsStore } from '@/stores/boards'
 
@@ -88,5 +89,6 @@ onBeforeUnmount(() => {
     </main>
 
     <FullNameDialog />
+    <UndoToast />
   </div>
 </template>

@@ -316,6 +316,9 @@ class. Keep the rules attached to the field.
 
 - Alerts are tonal, `8px` radius, and use the `orbital-alert` class. Use `error` for failures
   and `success` for completed actions.
+- The undo toast (`.undo-toast`) sits bottom-left in a `role="status"` `aria-live="polite"`
+  region. It uses the neutral surface-2 fill, line border, ink text, an Undo text button, and a
+  close icon; it carries no colour accent and auto-dismisses after 8 seconds.
 - Badges are pill-shaped mono uppercase labels. Use `status-badge--signal` for active or
   healthy state, and the neutral badge for classification.
 - A status dot is `6px`, current-color, with a soft halo.

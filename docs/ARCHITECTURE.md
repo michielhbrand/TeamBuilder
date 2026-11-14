@@ -64,7 +64,7 @@ rule set; the selected reference is `design/ui-directions.html#orbital`.
    local or session storage; a full reload starts a fresh sign-in.
 3. The store subscribes to `onAuthStateChange`; token refreshes and sign-out events update
    `session` in place. When the next session is `null`, the auth store resets the boards,
-   applicants, applicant-activity, storage, and fit stores so no workspace data or pending
+   applicants, applicant-activity, storage, fit, and undo stores so no workspace data or pending
    saves survive a sign-out.
 4. Only after initialization does `main.ts` install the router and mount the app. This keeps
    the first navigation from racing the session lookup.
@@ -138,6 +138,8 @@ The hiring workspace is split by domain, and each store owns its own `error` sta
   loading state.
 - `src/stores/storage.ts` owns CV and job-spec uploads, removals, signed URLs, and blobs.
 - `src/stores/fit.ts` owns persisted CV-analysis state.
+- `src/stores/undo.ts` owns the single pending undo entry (message, action, and an 8 second
+  timer). A new entry replaces the current one; sign-out resets it.
 
 Components call the store for the area they are changing instead of calling Supabase
 directly. Because the errors are separate, a failed CV upload does not overwrite a board or
@@ -154,6 +156,10 @@ and typing stay responsive:
   `setCandidateStatus` remembers the previous `status`. If the API call fails, the store
   restores the remembered values and sets its `error`, so the board never shows a column or
   outcome the database does not have.
+- `hireCandidate`, `rejectCandidate`, and `reopenCandidate` resolve `true` when the write
+  succeeds. Hire and reject also push an undo entry (`"<name> hired"` / `"<name> rejected"`)
+  that `UndoToast` shows; running it reopens the applicant only if the status still matches
+  the one just set. Reopen pushes nothing.
 - Autosave tracks the profile fields that changed since the last successful save and writes
   only those fields. Profile saves never include `status` or `column_id`, so editing a name,
   contact detail, role, education, experience, or favorite cannot move an applicant or

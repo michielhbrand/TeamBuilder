@@ -15,6 +15,7 @@ import { useApplicantsStore } from '@/stores/applicants'
 import { useBoardsStore } from '@/stores/boards'
 import { useFitStore } from '@/stores/fit'
 import { useStorageStore } from '@/stores/storage'
+import { useUndoStore } from '@/stores/undo'
 
 function errorMessage(error: unknown): string {
   if (error instanceof Error) {
@@ -91,6 +92,7 @@ export const useAuthStore = defineStore('auth', () => {
     useApplicantActivityStore().reset()
     useStorageStore().reset()
     useFitStore().reset()
+    useUndoStore().reset()
   }
 
   async function initialize(): Promise<void> {
