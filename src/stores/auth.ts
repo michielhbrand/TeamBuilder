@@ -29,6 +29,10 @@ function errorMessage(error: unknown): string {
   return 'Something went wrong. Please try again.'
 }
 
+function isPerUserThrottle(caught: unknown): boolean {
+  return errorMessage(caught).toLowerCase().includes('for security purposes')
+}
+
 function friendlyErrorMessage(message: string): string {
   const normalized = message.toLowerCase()
 
@@ -185,6 +189,10 @@ export const useAuthStore = defineStore('auth', () => {
 
       return true
     } catch (caught) {
+      if (isPerUserThrottle(caught)) {
+        return true
+      }
+
       error.value = friendlyErrorMessage(errorMessage(caught))
       return false
     } finally {

@@ -381,6 +381,31 @@ describe('auth store', () => {
     expect(auth.error).toBe('Too many requests. Wait a minute and try again.')
   })
 
+  it('requestPasswordReset treats the per-user throttle as success so existence is not revealed', async () => {
+    mocks.resetPasswordForEmail.mockResolvedValue({
+      data: null,
+      error: Object.assign(
+        new Error('For security purposes, you can only request this after 47 seconds.'),
+        { code: 'over_email_send_rate_limit', status: 429 },
+      ),
+    })
+    const auth = useAuthStore()
+
+    expect(await auth.requestPasswordReset('a@b.co')).toBe(true)
+    expect(auth.error).toBeNull()
+  })
+
+  it('requestPasswordReset treats the throttle message as success without an error code', async () => {
+    mocks.resetPasswordForEmail.mockResolvedValue({
+      data: null,
+      error: new Error('For security purposes, you can only request this after 12 seconds.'),
+    })
+    const auth = useAuthStore()
+
+    expect(await auth.requestPasswordReset('a@b.co')).toBe(true)
+    expect(auth.error).toBeNull()
+  })
+
   it('requestPasswordReset maps network failure', async () => {
     mocks.resetPasswordForEmail.mockRejectedValue(new Error('Failed to fetch'))
     const auth = useAuthStore()

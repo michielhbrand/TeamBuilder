@@ -112,7 +112,7 @@ rule set; the selected reference is `design/ui-directions.html#orbital`.
     calls `auth.requestPasswordReset(email)`, which validates the email and calls
     `supabase.auth.resetPasswordForEmail(email, { redirectTo: <origin><BASE_URL> })`. The view
     shows the same "If an account exists for that address..." message whether or not the
-    account exists, and disables resend for 30 seconds. The emailed link returns to the app
+    account exists, and disables resend for 60 seconds, and treats Supabase's per-user "for security purposes" throttle as success too. The emailed link returns to the app
     root as a `recovery` link, which the steps above route to `/set-password`. The router
     guard treats `/forgot-password` like `/` (redirect to `/overview` when signed in, to
     `/set-password` when password setup is pending).
@@ -132,7 +132,8 @@ rule set; the selected reference is `design/ui-directions.html#orbital`.
   `DEFAULT_ACTOR_NAME`
 - `initialized` and `loading`
 - `error` (user-facing message)
-- `initialize`, `signIn`, `verifyLink`, `setPassword`, `updateFullName`, `signOut`
+- `initialize`, `signIn`, `requestPasswordReset`, `clearError`, `verifyLink`, `setPassword`,
+  `updateFullName`, `signOut`
 - `passwordSetupRequired`, `linkType`, `linkTokenHash`, and `linkError` for
   invitation/recovery links
 
@@ -143,14 +144,16 @@ The hiring workspace is split by domain, and each store owns its own `error` sta
 
 - `src/stores/boards.ts` owns boards, stages (`board_columns`), and the derived groups, summaries, and totals.
 - `src/stores/applicants.ts` owns applicant lookup, applicant CRUD, moves, status changes,
-  debounced autosave, and edit snapshots.
+  debounced autosave (`retryCandidateSave` retries a failed save without touching the edit
+  snapshot; `flushCandidate` saves and records the profile-edit event on close), and edit
+  snapshots.
 - `src/stores/applicant-activity.ts` owns applicant events and notes plus their per-applicant
   loading state.
 - `src/stores/storage.ts` owns CV and job-spec uploads, removals, signed URLs, and blobs.
 - `src/stores/fit.ts` owns persisted CV-analysis state.
 - `src/stores/undo.ts` owns the single pending undo entry (message, action, and an 8 second
-  timer). A new entry replaces the current one; sign-out resets it. `run()` never rejects: a
-  thrown undo action is caught and its message stored in the undo store's `error`.
+  timer). A new entry replaces the current one; sign-out resets it. The undo action handles its own
+  failures: a failed undo write rolls back and surfaces through `applicants.error`.
 
 Components call the store for the area they are changing instead of calling Supabase
 directly. Because the errors are separate, a failed CV upload does not overwrite a board or
@@ -170,7 +173,8 @@ and typing stay responsive:
 - `hireCandidate`, `rejectCandidate`, and `reopenCandidate` resolve `true` when the write
   succeeds. Hire and reject also push an undo entry (`"<name> hired"` / `"<name> rejected"`)
   that `UndoToast` shows; running it reopens the applicant only if the status still matches
-  the one just set. Reopen pushes nothing.
+  the one just set, both locally and on the server (`reopenApplicantIfStatus` updates only a
+  row that still has that status, so a decision changed elsewhere is left alone). Reopen pushes nothing.
 - Autosave tracks the profile fields that changed since the last successful save and writes
   only those fields. Profile saves never include `status` or `column_id`, so editing a name,
   contact detail, role, education, experience, or favorite cannot move an applicant or

@@ -4,7 +4,7 @@ import AuthShell from '@/components/AuthShell.vue'
 import { isValidEmail } from '@/lib/validation'
 import { useAuthStore } from '@/stores/auth'
 
-const RESEND_SECONDS = 30
+const RESEND_SECONDS = 60
 
 const auth = useAuthStore()
 
