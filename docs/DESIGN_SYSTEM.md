@@ -344,10 +344,9 @@ class. Keep the rules attached to the field.
   and `success` for completed actions.
 - The undo toast (`.undo-toast`) sits bottom-left in a `role="status"` `aria-live="polite"`
   region. It uses the neutral surface-2 fill, line border, ink text, an Undo text button, and a
-  close icon; it carries no colour accent and auto-dismisses after 8 seconds.
-- Badges are pill-shaped mono uppercase labels. Use `status-badge--signal` for active or
-  healthy state, and the neutral badge for classification.
-- A status dot is `6px`, current-color, with a soft halo.
+  close icon; it carries no color accent and auto-dismisses after 8 seconds.
+- Badges are pill-shaped mono uppercase labels (`status-badge`, used on the Overview
+  dashboard) in the neutral style, for classification only.
 - Notes use `.auth-note`: surface-2 fill, line border, 2 px accent left border, shield or
   lock icon, and small muted copy.
 
@@ -355,12 +354,12 @@ class. Keep the rules attached to the field.
 
 - Use `.auth-panel`, `.data-panel`, and `.stat-card`; do not reimplement their borders,
   radius, or shadow.
-- Panel header: mono label above a Manrope panel title; optional classification badge on the
-  right.
-- Identity/data rows are a three-column grid: mono index, label/value stack, optional MDI
-  icon. Separate rows with hairlines; no zebra striping.
-- Values wrap with `overflow-wrap: anywhere`; IDs and session timestamps use mono at
-  `0.78rem`.
+- Panel header (`.data-panel-head`): a Manrope panel title with an optional muted hint line
+  beneath it; there is no mono label or badge. The Account page uses this for Profile and
+  Password, and shows the session as a single row with the avatar, "Signed in as" name, and
+  Sign out.
+- Data rows separate with hairlines; no zebra striping.
+- Values wrap with `overflow-wrap: anywhere`.
 
 ### Dialogs
 

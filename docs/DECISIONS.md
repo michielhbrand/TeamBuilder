@@ -339,8 +339,8 @@ Dates use ISO 8601. Status values are proposed, accepted, superseded, or depreca
   misclicks costly.
 - **Decision:** Hire and Reject apply optimistically and push one entry to the `undo` store,
   shown by `UndoToast` for 8 seconds. Running Undo reopens the applicant only if the status still
-  matches; a failing undo is recorded in the undo store's `error` instead of an unhandled
-  rejection. Deleting a board, stage, or applicant keeps its confirm dialog.
+  matches, locally and in the database (a conditional update), and a failing undo write rolls
+  back and surfaces through `applicants.error`. Deleting a board, stage, or applicant keeps its confirm dialog.
 - **Consequences:** Only the most recent decision can be undone; a new push replaces the old
   entry. Reopen from the Closed panel remains the long-term way back.
 

@@ -110,8 +110,8 @@ npm run build
   state; derives the note author from the auth store's `actorName`.
 - `src/stores/storage.ts` — CV and job-spec uploads, removals, signed URLs, and blobs.
 - `src/stores/fit.ts` — persisted applicant CV-analysis state and actions.
-- `src/stores/undo.ts` — the single pending undo entry with an 8 second timer and an `error`
-  for an undo that throws; reset on sign-out.
+- `src/stores/undo.ts` — the single pending undo entry with an 8 second timer; the undo action
+  reports failures through `applicants.error`. Reset on sign-out.
 - `src/components/UndoToast.vue` — bottom-left status toast with an Undo action, mounted once
   in `AppShell.vue`.
 - `supabase/migrations/` — Postgres tables, RLS policies, indexes, and board RPC functions.
