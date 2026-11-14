@@ -403,7 +403,7 @@ src/
   views/LoginView.vue       Login form
   views/SetPasswordView.vue Invite and password update form
   views/OverviewView.vue    Post-login hiring overview
-  views/BoardsView.vue      All boards grouped by department
+  views/BoardsView.vue      Boards list: search, filter, sort, grouped cards
   views/BoardView.vue       Stage-column pipeline for one role
   views/AccountView.vue     Full name, password, appearance, sign out
   styles/orbital.css        Orbital tokens and shared page styles

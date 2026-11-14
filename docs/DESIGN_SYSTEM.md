@@ -230,9 +230,13 @@ Use `AppShell` for `/overview`, `/boards`, `/boards/:boardId`, and `/account`.
 Adapt the structure of `design/hiring-pipeline-step-columns.html` to Orbital. Do not copy
 that prototype's palette, gradients, or Bricolage/Hanken fonts.
 
-- `/boards` uses a search field, All roles / Past deadline filter chips, department
-  headings, and a responsive grid of board cards. Each card shows the role, open positions,
-  active applicants, deadline, and a pipeline bar.
+- `/boards` has a `PageHeader` whose meta reads "N roles across M departments" plus "K past
+  deadline" in danger text. The toolbar holds a search field with a `/` hint, `All N` and
+  `Past deadline N` chips, a sort select (Deadline soonest, Name, Most active), and the
+  primary New board button. Department headings are lighter than card titles and show a
+  count. Each card shows the role, a deadline chip (neutral with a calendar icon, or danger
+  with an alert icon when overdue), Open and Active figures, a pipeline bar, and a one-line
+  stage breakdown ("Applied 2 · Interview 3 · +2 more").
 - `/boards/:boardId` gives the stage-column pipeline the full content width. A compact
   board-switcher button in the page header opens a searchable, department-grouped menu for
   changing roles. At `1024px` the header stacks and the switcher spans the available width.
@@ -253,8 +257,8 @@ that prototype's palette, gradients, or Bricolage/Hanken fonts.
   adjacent columns highlight with the accent token and accept the drop. The card in flight
   keeps full opacity and uses an accent border ring. Cards in the first and final steps can
   still move in the available direction.
-- Boards past their deadline use the danger token on the card label and in overview
-  attention rows. Never rely on color alone; the copy says "Past deadline".
+- Boards past their deadline use the danger token on the card deadline chip and in overview
+  attention rows. Never rely on color alone; the chip has an alert icon and says "N days overdue".
 - The closed-candidates disclosure uses two columns for hired and rejected, with a reopen
   action. It stacks at `720px`. Hiring or rejecting an applicant removes the card from the
   stage columns and adds the name to the matching closed column.

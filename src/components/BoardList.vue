@@ -2,7 +2,14 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import PipelineBar from '@/components/PipelineBar.vue'
-import { activeCandidates, formatDeadline, isOverdue, summariseBoard } from '@/lib/pipeline'
+import {
+  activeCandidates,
+  deadlineLabel,
+  isOverdue,
+  sortBoards,
+  stageBreakdown,
+  summariseBoard,
+} from '@/lib/pipeline'
 import type { Board, BoardGroup } from '@/types/pipeline'
 
 const props = defineProps<{
@@ -16,11 +23,12 @@ const emit = defineEmits<{
 
 const query = ref('')
 const attentionOnly = ref(false)
+const sortKey = ref<'deadline' | 'name' | 'active'>('deadline')
 const searchInput = ref<HTMLInputElement | null>(null)
 
-const attentionCount = computed(
-  () => props.groups.flatMap((group) => group.boards).filter((board) => isOverdue(board)).length,
-)
+const allBoards = computed(() => props.groups.flatMap((group) => group.boards))
+const totalCount = computed(() => allBoards.value.length)
+const attentionCount = computed(() => allBoards.value.filter((board) => isOverdue(board)).length)
 
 const filteredGroups = computed(() => {
   const term = query.value.trim().toLowerCase()
@@ -28,7 +36,7 @@ const filteredGroups = computed(() => {
   return props.groups
     .map((group) => ({
       department: group.department,
-      boards: group.boards.filter((board) => {
+      boards: sortBoards(group.boards, sortKey.value).filter((board) => {
         const matchesQuery =
           !term || `${board.name} ${board.department}`.toLowerCase().includes(term)
         const matchesFilter = !attentionOnly.value || isOverdue(board)
@@ -38,14 +46,14 @@ const filteredGroups = computed(() => {
     .filter((group) => group.boards.length > 0)
 })
 
-const visibleCount = computed(() =>
-  filteredGroups.value.reduce((total, group) => total + group.boards.length, 0),
-)
-
 const hasBoards = computed(() => props.groups.some((group) => group.boards.length > 0))
 
 function activeCount(board: Board): number {
   return activeCandidates(board).length
+}
+
+function breakdown(board: Board) {
+  return stageBreakdown(board)
 }
 
 function pipelineCounts(board: Board): number[] {
@@ -80,15 +88,19 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
 <template>
   <div class="board-list">
     <div class="board-toolbar">
-      <input
-        ref="searchInput"
-        v-model="query"
-        class="board-search"
-        type="search"
-        placeholder="Search roles or teams"
-        aria-label="Search roles or teams"
-        autocomplete="off"
-      />
+      <div class="board-search-field">
+        <v-icon icon="mdi-magnify" size="18" aria-hidden="true" />
+        <input
+          ref="searchInput"
+          v-model="query"
+          class="board-search"
+          type="search"
+          placeholder="Search roles or teams"
+          aria-label="Search roles or teams"
+          autocomplete="off"
+        />
+        <kbd class="board-search-field__kbd" aria-hidden="true">/</kbd>
+      </div>
       <div class="board-filters">
         <button
           class="board-chip"
@@ -96,7 +108,7 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
           :aria-pressed="!attentionOnly"
           @click="attentionOnly = false"
         >
-          All roles
+          All {{ totalCount }}
         </button>
         <button
           class="board-chip"
@@ -107,12 +119,23 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
           Past deadline {{ attentionCount }}
         </button>
       </div>
+      <label class="board-sort">
+        <span class="mono-label">Sort</span>
+        <select v-model="sortKey" class="board-search board-sort__select" aria-label="Sort roles">
+          <option value="deadline">Deadline (soonest)</option>
+          <option value="name">Name</option>
+          <option value="active">Most active</option>
+        </select>
+      </label>
+      <v-btn
+        class="board-toolbar__create"
+        color="primary"
+        prepend-icon="mdi-plus"
+        @click="emit('create')"
+      >
+        New board
+      </v-btn>
     </div>
-
-    <p class="board-list__hint">
-      Bars show active applicants by stage. Darker segments are further along the process.
-      {{ visibleCount }} {{ visibleCount === 1 ? 'role' : 'roles' }} shown.
-    </p>
 
     <div v-if="!hasBoards" class="board-empty">
       <h2>No boards yet.</h2>
@@ -144,16 +167,43 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
             :class="{ 'board-card--active': board.id === activeBoardId }"
           >
             <div class="board-card__head">
-              <div>
-                <h3>{{ board.name }}</h3>
-                <p>
-                  {{ board.openPositions }} open &middot; {{ activeCount(board) }} active &middot;
-                  due {{ formatDeadline(board.deadline) }}
-                </p>
-              </div>
-              <span v-if="isOverdue(board)" class="board-card__late">Past deadline</span>
+              <h3>{{ board.name }}</h3>
+              <span
+                class="board-card__deadline"
+                :class="{ 'board-card__deadline--overdue': deadlineLabel(board).overdue }"
+              >
+                <v-icon
+                  :icon="
+                    deadlineLabel(board).overdue
+                      ? 'mdi-alert-circle-outline'
+                      : 'mdi-calendar-blank-outline'
+                  "
+                  size="14"
+                  aria-hidden="true"
+                />
+                {{ deadlineLabel(board).text }}
+              </span>
             </div>
+            <dl class="board-card__figures">
+              <div>
+                <dt>Open</dt>
+                <dd>{{ board.openPositions }}</dd>
+              </div>
+              <div>
+                <dt>Active</dt>
+                <dd>{{ activeCount(board) }}</dd>
+              </div>
+            </dl>
             <PipelineBar :steps="board.steps" :counts="pipelineCounts(board)" />
+            <p class="board-card__stages">
+              <template v-for="(item, index) in breakdown(board).items" :key="item.name">
+                <span v-if="index > 0" aria-hidden="true"> &middot; </span>{{ item.name }}
+                {{ item.count }}
+              </template>
+              <template v-if="breakdown(board).hidden > 0">
+                &middot; +{{ breakdown(board).hidden }} more
+              </template>
+            </p>
           </RouterLink>
         </div>
       </section>
