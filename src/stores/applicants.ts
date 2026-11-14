@@ -40,12 +40,15 @@ type ProfileSnapshot = Pick<
   | 'cvName'
 >
 
+export type SaveStatus = 'idle' | 'pending' | 'saving' | 'saved' | 'failed'
+
 const SAVE_DELAY_MS = 500
 
 export const useApplicantsStore = defineStore('applicants', () => {
   const boards = useBoardsStore()
   const error = ref<string | null>(null)
   const unsavedCandidates = ref<Record<string, boolean>>({})
+  const saveStatuses = ref<Record<string, SaveStatus>>({})
   const saveTimers = new Map<string, ReturnType<typeof setTimeout>>()
   const editSnapshots = new Map<string, ProfileSnapshot>()
   const dirtyFields = new Map<string, Set<SavableCandidateField>>()
@@ -94,6 +97,22 @@ export const useApplicantsStore = defineStore('applicants', () => {
 
   function hasUnsavedChanges(candidateId: string): boolean {
     return unsavedCandidates.value[candidateId] === true
+  }
+
+  function saveStatusFor(candidateId: string): SaveStatus {
+    return saveStatuses.value[candidateId] ?? 'idle'
+  }
+
+  function setSaveStatus(candidateId: string, status: SaveStatus): void {
+    const next = { ...saveStatuses.value }
+
+    if (status === 'idle') {
+      delete next[candidateId]
+    } else {
+      next[candidateId] = status
+    }
+
+    saveStatuses.value = next
   }
 
   function setUnsaved(candidateId: string, unsaved: boolean): void {
@@ -197,6 +216,7 @@ export const useApplicantsStore = defineStore('applicants', () => {
       editSnapshots.delete(candidateId)
       dirtyFields.delete(candidateId)
       setUnsaved(candidateId, false)
+      setSaveStatus(candidateId, 'idle')
       useApplicantActivityStore().forgetCandidate(candidateId)
 
       if (cvPath) {
@@ -373,6 +393,7 @@ export const useApplicantsStore = defineStore('applicants', () => {
 
   function scheduleSave(candidateId: string): void {
     clearSaveTimer(candidateId)
+    setSaveStatus(candidateId, 'pending')
     saveTimers.set(
       candidateId,
       setTimeout(() => {
@@ -400,6 +421,8 @@ export const useApplicantsStore = defineStore('applicants', () => {
       [...savedFields].map((field) => [field, candidate[field]]),
     ) as PendingProfileValues
 
+    setSaveStatus(candidateId, 'saving')
+
     try {
       await api.updateApplicant(candidateId, patch)
       const remaining = dirtyFields.get(candidateId)
@@ -421,11 +444,14 @@ export const useApplicantsStore = defineStore('applicants', () => {
 
       if (dirtyFields.has(candidateId)) {
         scheduleSave(candidateId)
+      } else {
+        setSaveStatus(candidateId, 'saved')
       }
 
       return true
     } catch (caught) {
       setUnsaved(candidateId, true)
+      setSaveStatus(candidateId, 'failed')
       error.value = errorMessage(caught)
       return false
     }
@@ -450,6 +476,7 @@ export const useApplicantsStore = defineStore('applicants', () => {
     editSnapshots.delete(candidateId)
     dirtyFields.delete(candidateId)
     setUnsaved(candidateId, false)
+    setSaveStatus(candidateId, 'idle')
   }
 
   function forgetCandidates(candidateIds: string[]): void {
@@ -465,6 +492,7 @@ export const useApplicantsStore = defineStore('applicants', () => {
     editSnapshots.clear()
     dirtyFields.clear()
     unsavedCandidates.value = {}
+    saveStatuses.value = {}
     error.value = null
   }
 
@@ -472,6 +500,7 @@ export const useApplicantsStore = defineStore('applicants', () => {
     error,
     candidateById,
     hasUnsavedChanges,
+    saveStatusFor,
     pendingProfileValues,
     createApplicant,
     deleteApplicant,

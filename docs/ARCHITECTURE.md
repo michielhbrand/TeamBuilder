@@ -169,6 +169,10 @@ and typing stay responsive:
   `persistCandidate` marks the applicant as not saved (`hasUnsavedChanges`), the applicant
   drawer shows a non-blocking "Changes not saved" alert with a Retry action, and the next
   successful save clears the flag.
+- `saveStatusFor(candidateId)` exposes the autosave lifecycle as `SaveStatus`
+  (`idle`, `pending`, `saving`, `saved`, `failed`): an edit sets `pending`, the write sets
+  `saving`, success sets `saved` (or `pending` again if a field changed mid-write), failure
+  sets `failed`, and `forgetCandidate`/`reset` return to `idle`.
 
 Because every signed-in user shares the workspace, `AppShell` re-fetches boards when the
 window regains focus and when the tab becomes visible again. `boards.refresh()` merges the

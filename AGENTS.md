@@ -192,7 +192,9 @@ See `docs/ARCHITECTURE.md` for the auth lifecycle and deployment pipeline.
   debounced field autosave are optimistic: roll back the previous `stepId`/`status`/
   `stepEnteredAt` when a move or status write fails, and keep the not-saved flag set when an
   autosave fails. Autosave writes only profile fields that changed since the last successful
-  save; it must never include `status` or `column_id`.
+  save; it must never include `status` or `column_id`. Components read the autosave state
+  from `saveStatusFor(candidateId)` (`idle | pending | saving | saved | failed`) instead of
+  tracking it themselves.
 - The shared workspace refreshes on window focus and when the tab becomes visible. A refresh
   merges remote boards and applicants in place and preserves dirty local profile fields, so
   another user's move or edit appears without a full page reload.

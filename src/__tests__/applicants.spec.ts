@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { createCareerEntry } from '@/lib/career'
 import type { Board, Candidate } from '@/types/pipeline'
@@ -559,5 +559,99 @@ describe('applicants store', () => {
     applicants.reset()
 
     expect(applicants.error).toBeNull()
+  })
+
+  describe('save status', () => {
+    beforeEach(() => {
+      vi.useFakeTimers()
+    })
+
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    it('status is idle before any edit', async () => {
+      const { applicants } = await initializedStores()
+
+      expect(applicants.saveStatusFor('c1')).toBe('idle')
+    })
+
+    it('editing a field makes it pending', async () => {
+      const { applicants } = await initializedStores()
+
+      applicants.updateCandidateField('c1', 'name', 'Amara O.')
+
+      expect(applicants.saveStatusFor('c1')).toBe('pending')
+    })
+
+    it('is saving while the write is in flight and saved after', async () => {
+      const { applicants } = await initializedStores()
+      let finish: () => void = () => {}
+      mocks.updateApplicant.mockImplementation(
+        () => new Promise<void>((resolve) => (finish = resolve)),
+      )
+
+      applicants.updateCandidateField('c1', 'name', 'Amara O.')
+      await vi.advanceTimersByTimeAsync(500)
+      expect(applicants.saveStatusFor('c1')).toBe('saving')
+
+      finish()
+      await vi.advanceTimersByTimeAsync(0)
+      expect(applicants.saveStatusFor('c1')).toBe('saved')
+    })
+
+    it('a failed write sets failed and hasUnsavedChanges stays true', async () => {
+      const { applicants } = await initializedStores()
+      mocks.updateApplicant.mockRejectedValue(new Error('offline'))
+
+      applicants.updateCandidateField('c1', 'name', 'Amara O.')
+      await vi.advanceTimersByTimeAsync(500)
+
+      expect(applicants.saveStatusFor('c1')).toBe('failed')
+      expect(applicants.hasUnsavedChanges('c1')).toBe(true)
+    })
+
+    it('a retry that succeeds returns to saved', async () => {
+      const { applicants } = await initializedStores()
+      mocks.updateApplicant.mockRejectedValueOnce(new Error('offline'))
+
+      applicants.updateCandidateField('c1', 'name', 'Amara O.')
+      await vi.advanceTimersByTimeAsync(500)
+      expect(applicants.saveStatusFor('c1')).toBe('failed')
+
+      await applicants.flushCandidate('c1')
+
+      expect(applicants.saveStatusFor('c1')).toBe('saved')
+      expect(applicants.hasUnsavedChanges('c1')).toBe(false)
+    })
+
+    it('a second edit during the write returns to pending afterwards', async () => {
+      const { applicants } = await initializedStores()
+      let finish: () => void = () => {}
+      mocks.updateApplicant.mockImplementationOnce(
+        () => new Promise<void>((resolve) => (finish = resolve)),
+      )
+
+      applicants.updateCandidateField('c1', 'name', 'Amara O.')
+      await vi.advanceTimersByTimeAsync(500)
+      applicants.updateCandidateField('c1', 'name', 'Amara Ok')
+
+      finish()
+      await vi.advanceTimersByTimeAsync(0)
+
+      expect(applicants.saveStatusFor('c1')).toBe('pending')
+    })
+
+    it('forgetCandidate and reset return to idle', async () => {
+      const { applicants } = await initializedStores()
+
+      applicants.updateCandidateField('c1', 'name', 'Amara O.')
+      applicants.forgetCandidate('c1')
+      expect(applicants.saveStatusFor('c1')).toBe('idle')
+
+      applicants.updateCandidateField('c1', 'name', 'Amara Ok')
+      applicants.reset()
+      expect(applicants.saveStatusFor('c1')).toBe('idle')
+    })
   })
 })
