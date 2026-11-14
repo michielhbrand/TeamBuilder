@@ -1,13 +1,17 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import { useTheme } from 'vuetify'
 import AppShell from '@/components/AppShell.vue'
+import PageHeader from '@/components/PageHeader.vue'
+import { darkThemeName, lightThemeName, persistTheme } from '@/lib/theme'
+import { initials } from '@/lib/pipeline'
 import { useAuthStore } from '@/stores/auth'
 
 const auth = useAuthStore()
 const router = useRouter()
 
-const provider = computed(() => auth.user?.app_metadata.provider ?? 'email')
+const theme = useTheme()
 
 const fullName = ref(auth.fullName)
 const fullNameSaving = ref(false)
@@ -20,7 +24,6 @@ const showPassword = ref(false)
 const passwordSaving = ref(false)
 const passwordSaved = ref(false)
 const passwordError = ref('')
-const passwordForm = ref<{ validate: () => Promise<{ valid: boolean }> } | null>(null)
 
 const passwordRules = [
   (value: string) => Boolean(value) || 'Password is required',
@@ -39,20 +42,30 @@ watch(
   },
 )
 
-const expiryDate = computed(() =>
-  auth.session?.expires_at ? new Date(auth.session.expires_at * 1000) : null,
+const themeName = computed({
+  get: () => theme.global.name.value,
+  set: (value: string | undefined) => {
+    if (value !== lightThemeName && value !== darkThemeName) {
+      return
+    }
+    theme.global.name.value = value
+    persistTheme(value)
+  },
+})
+
+const nameDirty = computed(() => {
+  const trimmed = fullName.value.trim()
+  return Boolean(trimmed) && trimmed !== auth.fullName
+})
+
+const passwordValid = computed(
+  () => password.value.length >= 8 && confirmation.value === password.value,
 )
 
-const sessionExpiry = computed(() => expiryDate.value?.toLocaleString() ?? 'Unknown')
+const displayName = computed(() => auth.fullName || auth.user?.email || 'Signed in')
 
-const sessionExpiryShort = computed(
-  () =>
-    expiryDate.value?.toLocaleString(undefined, {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    }) ?? 'Unknown',
+const avatarInitials = computed(() =>
+  auth.fullName ? initials(auth.fullName) : (auth.user?.email ?? 'TB').slice(0, 2).toUpperCase(),
 )
 
 async function signOut(): Promise<void> {
@@ -64,8 +77,7 @@ async function saveFullName(): Promise<void> {
   fullNameError.value = ''
   fullNameSaved.value = false
 
-  if (!fullName.value.trim()) {
-    fullNameError.value = 'Enter your full name.'
+  if (!nameDirty.value) {
     return
   }
 
@@ -82,8 +94,7 @@ async function saveFullName(): Promise<void> {
 }
 
 async function savePassword(): Promise<void> {
-  const validation = await passwordForm.value?.validate()
-  if (!validation?.valid) {
+  if (!passwordValid.value) {
     return
   }
 
@@ -106,154 +117,24 @@ async function savePassword(): Promise<void> {
 
 <template>
   <AppShell>
+    <PageHeader title="Account" />
+
     <v-alert v-if="auth.error && !fullNameError && !passwordError" class="mb-6" type="error">
       {{ auth.error }}
     </v-alert>
 
-    <div class="page-heading">
-      <div>
-        <p class="eyebrow">Account</p>
-        <h1 class="page-title">Account.</h1>
-        <p class="lede">Your Supabase identity, active session, and access details at a glance.</p>
-      </div>
-
-      <v-btn :loading="auth.loading" prepend-icon="mdi-logout" variant="outlined" @click="signOut">
-        Sign out
-      </v-btn>
-    </div>
-
-    <div class="stat-grid">
-      <article class="stat-card">
-        <span class="meta">Session</span>
-        <strong class="stat-value">Active</strong>
-        <span class="stat-meta">JWT held in Pinia memory</span>
-      </article>
-      <article class="stat-card">
-        <span class="meta">Provider</span>
-        <strong class="stat-value">{{ provider }}</strong>
-        <span class="stat-meta">Supabase Auth</span>
-      </article>
-      <article class="stat-card">
-        <span class="meta">Expires</span>
-        <strong class="stat-value">{{ sessionExpiryShort }}</strong>
-        <span class="stat-meta">Auto-refresh enabled</span>
-      </article>
-    </div>
-
-    <div class="account-grid">
-      <section class="data-panel" aria-labelledby="identity-title">
-        <div class="data-panel-head">
+    <div class="account-column">
+      <section class="data-panel" aria-labelledby="profile-title">
+        <div class="data-panel-head account-panel-head">
           <div>
-            <p class="meta">Identity record</p>
-            <h2 id="identity-title" class="panel-title mt-1">Account details</h2>
-          </div>
-          <span class="status-badge">Supabase auth</span>
-        </div>
-
-        <div class="data-panel-body">
-          <div class="identity-row">
-            <span class="identity-index">01</span>
-            <div>
-              <span class="identity-label">Full name</span>
-              <p class="identity-value">{{ auth.fullName || 'Not set' }}</p>
-            </div>
-            <v-icon class="identity-icon" icon="mdi-account-outline" size="20" />
-          </div>
-
-          <div class="identity-row">
-            <span class="identity-index">02</span>
-            <div>
-              <span class="identity-label">Email</span>
-              <p class="identity-value">{{ auth.user?.email ?? 'Unknown' }}</p>
-            </div>
-            <v-icon class="identity-icon" icon="mdi-email-outline" size="20" />
-          </div>
-
-          <div class="identity-row">
-            <span class="identity-index">03</span>
-            <div>
-              <span class="identity-label">User ID</span>
-              <p class="identity-value identity-value--mono">{{ auth.user?.id ?? 'Unknown' }}</p>
-            </div>
-            <v-icon class="identity-icon" icon="mdi-identifier" size="20" />
-          </div>
-
-          <div class="identity-row">
-            <span class="identity-index">04</span>
-            <div>
-              <span class="identity-label">Auth provider</span>
-              <p class="identity-value">{{ provider }}</p>
-            </div>
-            <v-icon class="identity-icon" icon="mdi-shield-account-outline" size="20" />
-          </div>
-
-          <div class="identity-row">
-            <span class="identity-index">05</span>
-            <div>
-              <span class="identity-label">Session expires</span>
-              <p class="identity-value">{{ sessionExpiry }}</p>
-            </div>
-            <v-icon class="identity-icon" icon="mdi-clock-outline" size="20" />
+            <h2 id="profile-title" class="panel-title">Profile</h2>
+            <p class="account-panel-hint">
+              Your name appears on notes and in each applicant's activity.
+            </p>
           </div>
         </div>
-      </section>
 
-      <aside class="aside-stack">
-        <section class="data-panel" aria-labelledby="status-title">
-          <div class="data-panel-head">
-            <div>
-              <p class="meta">Connection</p>
-              <h2 id="status-title" class="panel-title mt-1">Session status</h2>
-            </div>
-          </div>
-
-          <div class="data-panel-body">
-            <div class="signal-card">
-              <span class="status-dot" />
-              <div>
-                <strong>Session active</strong>
-                <span>Supabase Auth / auto-refresh</span>
-              </div>
-            </div>
-
-            <dl class="meta-list mt-3">
-              <div>
-                <dt>Expires</dt>
-                <dd>{{ sessionExpiry }}</dd>
-              </div>
-              <div>
-                <dt>Provider</dt>
-                <dd>{{ provider }}</dd>
-              </div>
-              <div>
-                <dt>Storage</dt>
-                <dd>In-memory Pinia store</dd>
-              </div>
-            </dl>
-          </div>
-        </section>
-
-        <div class="auth-note">
-          <v-icon icon="mdi-shield-lock-outline" size="18" />
-          <p>
-            Your session is managed by Supabase Auth. Signing out clears it from this browser and
-            returns you to secure access.
-          </p>
-        </div>
-      </aside>
-    </div>
-
-    <div class="account-grid account-grid--settings">
-      <section class="data-panel" aria-labelledby="profile-settings-title">
-        <div class="data-panel-head">
-          <div>
-            <p class="meta">Profile</p>
-            <h2 id="profile-settings-title" class="panel-title mt-1">Full name</h2>
-          </div>
-          <span class="status-badge">Account</span>
-        </div>
-
-        <div class="data-panel-body account-form">
+        <form class="data-panel-body account-form" @submit.prevent="saveFullName">
           <v-alert v-if="fullNameError" density="compact" type="error">
             {{ fullNameError }}
           </v-alert>
@@ -269,26 +150,41 @@ async function savePassword(): Promise<void> {
             prepend-inner-icon="mdi-account-outline"
           />
 
-          <v-btn color="primary" :loading="fullNameSaving" variant="outlined" @click="saveFullName">
-            Save full name
-          </v-btn>
-        </div>
+          <div>
+            <v-text-field
+              :model-value="auth.user?.email ?? ''"
+              append-inner-icon="mdi-lock-outline"
+              class="account-readonly"
+              hide-details
+              label="Email"
+              readonly
+            />
+            <p class="account-field-hint">Your administrator manages this address.</p>
+          </div>
+
+          <div class="account-actions">
+            <v-btn
+              color="primary"
+              :disabled="!nameDirty"
+              :loading="fullNameSaving"
+              type="submit"
+              variant="flat"
+            >
+              Save changes
+            </v-btn>
+          </div>
+        </form>
       </section>
 
-      <section class="data-panel" aria-labelledby="password-settings-title">
-        <div class="data-panel-head">
+      <section class="data-panel" aria-labelledby="password-title">
+        <div class="data-panel-head account-panel-head">
           <div>
-            <p class="meta">Security</p>
-            <h2 id="password-settings-title" class="panel-title mt-1">Reset password</h2>
+            <h2 id="password-title" class="panel-title">Password</h2>
+            <p class="account-panel-hint">At least 8 characters.</p>
           </div>
-          <span class="status-badge">Supabase auth</span>
         </div>
 
-        <v-form
-          ref="passwordForm"
-          class="data-panel-body account-form"
-          @submit.prevent="savePassword"
-        >
+        <form class="data-panel-body account-form" @submit.prevent="savePassword">
           <v-alert v-if="passwordError" density="compact" type="error">
             {{ passwordError }}
           </v-alert>
@@ -296,32 +192,78 @@ async function savePassword(): Promise<void> {
             Password updated.
           </v-alert>
 
-          <v-text-field
-            v-model="password"
-            autocomplete="new-password"
-            label="New password"
-            prepend-inner-icon="mdi-lock-outline"
-            required
-            :rules="passwordRules"
-            :type="showPassword ? 'text' : 'password'"
-            :append-inner-icon="showPassword ? 'mdi-eye-off' : 'mdi-eye'"
-            @click:append-inner="showPassword = !showPassword"
-          />
+          <div class="account-two-col">
+            <v-text-field
+              v-model="password"
+              autocomplete="new-password"
+              label="New password"
+              :rules="passwordRules"
+              :type="showPassword ? 'text' : 'password'"
+              :append-inner-icon="showPassword ? 'mdi-eye-off' : 'mdi-eye'"
+              @click:append-inner="showPassword = !showPassword"
+            />
 
-          <v-text-field
-            v-model="confirmation"
-            autocomplete="new-password"
-            label="Confirm password"
-            prepend-inner-icon="mdi-lock-check-outline"
-            required
-            :rules="confirmationRules"
-            :type="showPassword ? 'text' : 'password'"
-          />
+            <v-text-field
+              v-model="confirmation"
+              autocomplete="new-password"
+              label="Confirm password"
+              placeholder="Repeat it"
+              :rules="confirmationRules"
+              :type="showPassword ? 'text' : 'password'"
+            />
+          </div>
 
-          <v-btn color="primary" :loading="passwordSaving" type="submit" variant="outlined">
-            Update password
+          <div class="account-actions">
+            <v-btn
+              color="primary"
+              :disabled="!passwordValid"
+              :loading="passwordSaving"
+              type="submit"
+              variant="flat"
+            >
+              Update password
+            </v-btn>
+          </div>
+        </form>
+      </section>
+
+      <section class="data-panel" aria-labelledby="appearance-title">
+        <div class="data-panel-body account-row">
+          <div>
+            <h2 id="appearance-title" class="panel-title">Appearance</h2>
+            <p class="account-panel-hint">Applies on this device.</p>
+          </div>
+          <v-btn-toggle
+            v-model="themeName"
+            aria-label="Color theme"
+            color="primary"
+            density="comfortable"
+            divided
+            mandatory
+            variant="outlined"
+          >
+            <v-btn :value="lightThemeName" prepend-icon="mdi-white-balance-sunny">Light</v-btn>
+            <v-btn :value="darkThemeName" prepend-icon="mdi-weather-night">Dark</v-btn>
+          </v-btn-toggle>
+        </div>
+      </section>
+
+      <section class="data-panel" aria-label="Session">
+        <div class="data-panel-body account-row">
+          <span class="user-avatar account-avatar">{{ avatarInitials }}</span>
+          <div class="account-signed">
+            <strong>Signed in as {{ displayName }}</strong>
+            <span>Sign out to end this session on this device.</span>
+          </div>
+          <v-btn
+            :loading="auth.loading"
+            prepend-icon="mdi-logout"
+            variant="outlined"
+            @click="signOut"
+          >
+            Sign out
           </v-btn>
-        </v-form>
+        </div>
       </section>
     </div>
   </AppShell>

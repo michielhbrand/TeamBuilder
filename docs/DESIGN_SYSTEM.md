@@ -214,12 +214,16 @@ Use `AppShell` for `/overview`, `/boards`, `/boards/:boardId`, and `/account`.
   rows drill into a department, board, or applicant. Dashboard grids become one column at
   `1024px`; filter chips and applicant lists stack at `720px`; tables scroll horizontally on
   small screens.
-- The Account page keeps the existing three-card stat row and two-column identity/status
-  body. A second grid adds full-name editing and password reset panels using the same
-  `.data-panel` shell and `.account-form` spacing.
+- The Account page is one 640px column (`.account-column`) of four `.data-panel`s under a
+  `PageHeader`: Profile (full name plus a read-only email with a lock icon), Password (new and
+  confirm in two columns, one column at `720px`), Appearance (a Light / Dark segmented control
+  that mirrors the top-bar toggle), and Signed in as (avatar, name, Sign out). Forms use
+  `.account-form` with 16px between fields; Save changes and Update password are right-aligned
+  and disabled until the form is dirty or valid. It shows no stat cards, user id, provider, or
+  session expiry.
 - At `920px` the top bar wraps: brand and actions on the first row, navigation on its own
   row. Do not collapse the navigation into a hidden menu without a product decision.
-- At `720px` stat grids stack and the account aside stacks.
+- At `720px` stat grids stack.
 
 ### Boards
 

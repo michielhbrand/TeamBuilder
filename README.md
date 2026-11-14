@@ -40,7 +40,7 @@ fit analyses are stored in Supabase Postgres and loaded through Pinia.
 - An applicant Activity tab with a timestamped audit trail for creation, profile edits, moves,
   CV analyses, and hire/reject/reopen actions
 - Persisted applicant actions: advance, move, reject, hire, reopen, and delete
-- An account page with non-sensitive session details, full-name editing, and password reset
+- An account page with full-name editing, password reset, a light/dark appearance setting, and sign-out
 - A blocking full-name prompt after sign-in when the profile has no name yet
 - Sign-out and redirect back to the login screen
 - Build-time environment injection from GitHub Actions secrets
@@ -405,7 +405,7 @@ src/
   views/OverviewView.vue    Post-login hiring overview
   views/BoardsView.vue      All boards grouped by department
   views/BoardView.vue       Stage-column pipeline for one role
-  views/AccountView.vue     Session details, full name, and password reset
+  views/AccountView.vue     Full name, password, appearance, sign out
   styles/orbital.css        Orbital tokens and shared page styles
   plugins/vuetify.ts        Vuetify themes and component defaults
 scripts/

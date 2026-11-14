@@ -78,8 +78,8 @@ rule set; the selected reference is `design/ui-directions.html#orbital`.
    candidates, outcomes, deadlines, role performance, and applicant watch lists, with a
    department filter and drill-downs into boards and applicant profiles. `BoardsView.vue`
    lists boards grouped by department, `BoardView.vue` renders one board's stage columns, and
-   `AccountView.vue` shows non-sensitive session details, full-name editing, and password
-   reset. Sign-out calls `auth.signOut()`, which clears the session and resets the dependent
+   `AccountView.vue` is a single column with full-name editing, a read-only email, password
+   reset, a light/dark appearance control, and sign-out. Sign-out calls `auth.signOut()`, which clears the session and resets the dependent
    workspace stores; `App.vue` watches `auth.isAuthenticated` and redirects a protected route
    to `/` with a `redirect` query when the session ends.
 9. Signed-in users whose `user_metadata.full_name` is empty see the persistent

@@ -47,8 +47,6 @@ const banned = [
 const PENDING: Record<string, string[]> = {
   // Task 10 (auth shell readout)
   'components/AuthShell.vue': ['Pinia'],
-  // Task 10 (account page)
-  'views/AccountView.vue': ['JWT', 'Pinia', 'Identity console'],
 }
 
 function vueFiles(dir: string): string[] {
