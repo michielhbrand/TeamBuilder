@@ -182,9 +182,9 @@ The schema lives in `supabase/migrations/`:
 - `public.applicants` — board, assigned column, contact details, current role, structured
   education and work experience (jsonb arrays of entries with `id`, `title`, `organization`,
   `start` and `end` as `YYYY-MM`, `current`, and `description`; a check constraint requires
-  arrays), favourite flag, status, CV path and filename, `applied_at`,
-  and `step_entered_at`. Email and phone are optional; when present they are unique per
-  board.
+  arrays), favourite flag, status, CV path and filename, `applied_at`, and `step_entered_at`.
+  Entries are validated as valid month/year values and kept sorted newest first before they
+  are written. Email and phone are optional; when present they are unique per board.
 - `public.applicant_events` — board and applicant scope, actor id and name, action, rendered
   message, and timestamp. Actions cover creation, profile edits, moves, hire/reject/reopen
   status changes, and CV analyses. The `(board_id, applicant_id)` foreign key targets the
@@ -234,15 +234,19 @@ or Edge Function.
 
 `src/lib/resume-import.ts` fills the add-applicant form locally; no CV data is sent to a
 third party. It extracts each PDF page's text layer with `pdfjs-dist`, then applies
-heuristics for name, email, phone, current role, education, and work experience. Names are
-title-cased and emails are lowercased. Education and experience are returned as structured
-entries: the title line becomes the qualification or job title, an `at`/comma split or an
-institution-looking line becomes the institution or company, date ranges become start and end
-months (year-only dates use January and December, `Present`/`Ongoing` sets the current flag),
-and the remaining lines become the description. Section headings such as achievements,
-certifications, and skills stop education and experience extraction. Extracted entries
-populate the create dialog's timelines immediately but remain editable and are marked as
-filled from the CV.
+heuristics for three groups: basics (name, email, phone, current role), education, and work
+experience. Names are title-cased and emails are lowercased. Education and experience are
+returned as structured entries: the title line becomes the qualification or job title, an
+`at`/comma split or an institution-looking line becomes the institution or company, date
+ranges become start and end months, and the remaining lines become the description. Start and
+end months are validated as `YYYY-MM` before they reach an entry: month names, `MM/YYYY`,
+`YYYY-MM`, and `YYYY/MM` are normalized, year-only dates use January and December,
+`Present`/`Ongoing` and `Since <date>` set the current flag, invalid months are dropped, and an
+end month before the start month is cleared. Section headings such as achievements,
+certifications, and skills stop education and experience extraction. The current role comes
+from an explicit label or the latest/current experience entry, and duplicate entries are
+collapsed. Extracted entries populate the create dialog's timelines immediately but remain
+editable and are marked as filled from the CV.
 
 Pages with little or no text are treated as scanned. When key fields are still missing, the
 importer lazy-loads Tesseract.js (`eng`) and OCRs at most the first three scanned pages,

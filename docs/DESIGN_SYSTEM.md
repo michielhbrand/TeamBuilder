@@ -361,14 +361,19 @@ class. Keep the rules attached to the field.
 ### Career timeline and strip
 
 - Entries have four visible parts: title (job title or qualification), organisation (company
-  or institution), time span, and description. Time spans are month pickers with a
-  "Currently working here" / "Still studying" checkbox that disables the end month.
+  or institution), time span, and description. Time spans use "Start date" and "End date"
+  fields with a `YYYY-MM` placeholder (for example, `2024-06`), inline validation while the
+  user types or leaves a field, and a "Currently working here" / "Still studying" checkbox
+  that disables the end date. A start date is required; a non-current entry also needs a
+  valid end date on or after the start.
 - `CareerTimeline` renders entries newest first as a vertical rail. A mono date column on the
   left shows the end month (or **Present**), start month, and duration; the rail carries a dot
   per entry, and the current entry uses the signal token with a soft halo. Cards use the
   standard 12 px radius and hairline border. The pencil swaps a card for the inline editor
   with **Save**, **Cancel**, and **Delete** (through `ConfirmDialog`); the add button is a
-  dashed outline. Below `540px` of container width the date column narrows to `76px`.
+  dashed outline. Adding an entry opens the editor at the add button, not above the list, and
+  saving sorts the entry into its dated position. Below `540px` of container width the date
+  column narrows to `76px`.
 - `CareerStrip` is a horizontal strip on a shared time axis with a Work lane (filled accent
   bars, signal for the current role) and an Education lane (outlined bars). Overlapping
   entries stack on extra rows, employment gaps longer than three months are dashed boxes, and

@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
+import { isValidMonth } from '@/lib/career'
 import type { CareerEntry, CareerKind } from '@/types/pipeline'
 
 const props = defineProps<{
@@ -10,6 +11,10 @@ const props = defineProps<{
 const emit = defineEmits<{
   'update:modelValue': [value: CareerEntry]
 }>()
+
+const DATE_FORMAT_ERROR = 'Use YYYY-MM (for example, 2024-06).'
+const startTouched = ref(false)
+const endTouched = ref(false)
 
 const labels = computed(() =>
   props.kind === 'experience'
@@ -26,6 +31,39 @@ const labels = computed(() =>
         description: 'Major, thesis, distinctions',
       },
 )
+
+const startError = computed(() => {
+  const start = props.modelValue.start
+
+  if (start) {
+    return isValidMonth(start) ? '' : DATE_FORMAT_ERROR
+  }
+
+  return startTouched.value ? 'Choose a start date.' : ''
+})
+
+const endError = computed(() => {
+  if (props.modelValue.current) {
+    return ''
+  }
+
+  const start = props.modelValue.start
+  const end = props.modelValue.end
+
+  if (end) {
+    if (!isValidMonth(end)) {
+      return DATE_FORMAT_ERROR
+    }
+
+    if (isValidMonth(start) && end < start) {
+      return 'The end date must be on or after the start date.'
+    }
+
+    return ''
+  }
+
+  return endTouched.value ? 'Choose an end date, or mark this as current.' : ''
+})
 
 let latest = props.modelValue
 
@@ -74,24 +112,30 @@ function setCurrent(value: unknown): void {
     <div class="career-editor__row career-editor__row--dates">
       <v-text-field
         class="orbital-field"
-        label="Start"
-        type="month"
+        label="Start date"
+        placeholder="YYYY-MM"
         variant="outlined"
         density="compact"
-        hide-details
+        hide-details="auto"
+        autocomplete="off"
         :model-value="modelValue.start"
+        :error-messages="startError"
         @update:model-value="patch({ start: String($event ?? '') })"
+        @blur="startTouched = true"
       />
       <v-text-field
         class="orbital-field"
-        label="End"
-        type="month"
+        label="End date"
+        placeholder="YYYY-MM"
         variant="outlined"
         density="compact"
-        hide-details
+        hide-details="auto"
+        autocomplete="off"
         :disabled="modelValue.current"
         :model-value="modelValue.end"
+        :error-messages="endError"
         @update:model-value="patch({ end: String($event ?? '') })"
+        @blur="endTouched = true"
       />
       <v-checkbox
         class="career-editor__current"

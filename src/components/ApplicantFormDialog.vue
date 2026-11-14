@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import CareerTimeline from '@/components/CareerTimeline.vue'
+import { careerEntryError, isEntryEmpty, sortEntries } from '@/lib/career'
 import { PDF_MAX_BYTES, isPdfFile } from '@/lib/pdf'
 import { defaultApplicantStep } from '@/lib/pipeline'
 import {
@@ -104,6 +105,30 @@ function setEntries(field: CareerKind, entries: CareerEntry[]): void {
   form[field] = entries
   editedFields.add(field)
   autoFilled.delete(field)
+}
+
+function careerError(): string {
+  const sections: Array<{ field: CareerKind; label: string }> = [
+    { field: 'experience', label: 'Work experience' },
+    { field: 'education', label: 'Education' },
+  ]
+
+  for (const { field, label } of sections) {
+    for (const entry of form[field]) {
+      if (isEntryEmpty(entry)) {
+        continue
+      }
+
+      const message = careerEntryError(entry, field)
+
+      if (message) {
+        const title = entry.title.trim()
+        return `${label}${title ? ` (“${title}”)` : ''}: ${message}`
+      }
+    }
+  }
+
+  return ''
 }
 
 function chooseCv(): void {
@@ -246,6 +271,13 @@ async function submit(): Promise<void> {
     return
   }
 
+  const entriesError = careerError()
+
+  if (entriesError) {
+    localError.value = entriesError
+    return
+  }
+
   submitting.value = true
 
   try {
@@ -256,8 +288,8 @@ async function submit(): Promise<void> {
         email: emailValue,
         phone: phoneValue,
         currentRole: form.currentRole,
-        education: form.education,
-        experience: form.experience,
+        education: sortEntries(form.education),
+        experience: sortEntries(form.experience),
         stepId: stepId.value,
       },
       cvFile.value,

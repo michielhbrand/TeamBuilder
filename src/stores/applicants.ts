@@ -1,7 +1,7 @@
 import { ref } from 'vue'
 import { defineStore } from 'pinia'
 import * as api from '@/lib/applicants-api'
-import { entriesEqual } from '@/lib/career'
+import { entriesEqual, sortEntries } from '@/lib/career'
 import { defaultApplicantStep, nextStep } from '@/lib/pipeline'
 import { errorMessage } from '@/lib/store-errors'
 import { useApplicantActivityStore } from '@/stores/applicant-activity'
@@ -161,8 +161,8 @@ export const useApplicantsStore = defineStore('applicants', () => {
         email: input.email.trim(),
         phone: input.phone.trim(),
         currentRole: input.currentRole?.trim() ?? '',
-        education: input.education ?? [],
-        experience: input.experience ?? [],
+        education: sortEntries(input.education ?? []),
+        experience: sortEntries(input.experience ?? []),
       })
       board.candidates = [...board.candidates, candidate]
 
@@ -231,7 +231,7 @@ export const useApplicantsStore = defineStore('applicants', () => {
     const context = candidateContext(candidateId)
 
     if (context) {
-      context.candidate[field] = entries
+      context.candidate[field] = sortEntries(entries)
       markDirty(candidateId, field)
       scheduleSave(candidateId)
     }

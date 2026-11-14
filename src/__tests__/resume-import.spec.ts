@@ -134,7 +134,7 @@ Built the hiring workspace.
       start: '2021-01',
       end: '2023-12',
     })
-    expect(draft.currentRole).toBe('Senior Product Designer, Acme')
+    expect(draft.currentRole).toBe('Product Designer')
   })
 
   it('removes trailing separators from an experience role line', () => {
@@ -142,7 +142,109 @@ Built the hiring workspace.
       'Jane Doe\njane@example.com\nExperience\nSenior Product Designer, Acme, 2022 - Present',
     )
 
-    expect(draft.currentRole).toBe('Senior Product Designer, Acme')
+    expect(draft.currentRole).toBe('Senior Product Designer')
+  })
+
+  it('normalizes common date formats and rejects invalid months', () => {
+    const draft = extractApplicantDraft(`
+EXPERIENCE
+Engineer, Acme
+2020-03 - 2022-06
+Built the platform.
+Analyst, Beta
+03/2019 - 12/2019
+Analyzed the market.
+Intern, Gamma
+Jan '18 – Dec '18
+Supported the team.
+
+EDUCATION
+BSc Computer Science, University of Cape Town
+2015/02 - 2018/11
+`)
+
+    expect(draft.experience[0]).toMatchObject({ start: '2020-03', end: '2022-06' })
+    expect(draft.experience[1]).toMatchObject({ start: '2019-03', end: '2019-12' })
+    expect(draft.experience[2]).toMatchObject({ start: '2018-01', end: '2018-12' })
+    expect(draft.education[0]).toMatchObject({
+      title: 'BSc Computer Science',
+      organization: 'University of Cape Town',
+      start: '2015-02',
+      end: '2018-11',
+    })
+  })
+
+  it('does not emit an invalid month value', () => {
+    const draft = extractApplicantDraft(`
+Experience
+Invalid, Delta
+2020-13 - 2021-02
+Unreadable dates.
+`)
+
+    expect(draft.experience[0]).toMatchObject({ start: '', end: '' })
+  })
+
+  it('clears an end date that is before its start date', () => {
+    const draft = extractApplicantDraft(`
+Experience
+Engineer, Acme
+2021-06 - 2020-01
+`)
+
+    expect(draft.experience[0]).toMatchObject({ start: '2021-06', end: '', current: false })
+  })
+
+  it('treats a since date as a current role', () => {
+    const draft = extractApplicantDraft(`
+Experience
+CTO at Acme
+Since 2020
+`)
+
+    expect(draft.experience[0]).toMatchObject({
+      title: 'CTO',
+      organization: 'Acme',
+      start: '2020-01',
+      current: true,
+    })
+  })
+
+  it('derives the current role from the latest or current experience entry', () => {
+    const draft = extractApplicantDraft(`
+Experience
+Analyst, Beta
+2015 - 2018
+Engineer, Acme
+2020 - Present
+`)
+
+    expect(draft.currentRole).toBe('Engineer')
+  })
+
+  it('deduplicates repeated entries', () => {
+    const draft = extractApplicantDraft(`
+Experience
+Engineer, Acme
+2020 - 2021
+Engineer, Acme
+2020 - 2021
+`)
+
+    expect(draft.experience).toHaveLength(1)
+  })
+
+  it('splits an education institution from the qualification without a comma', () => {
+    const draft = extractApplicantDraft(`
+Education
+BSc Computer Science University of Cape Town
+2015 - 2018
+`)
+
+    expect(draft.education[0]).toMatchObject({
+      title: 'BSc Computer Science',
+      organization: 'University of Cape Town',
+    })
   })
 
   it('falls back to the filename when no name line is present', () => {

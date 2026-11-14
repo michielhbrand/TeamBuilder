@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  careerEntryError,
   createCareerEntry,
   employmentGaps,
   entryDuration,
@@ -7,6 +8,7 @@ import {
   formatMonths,
   formatPeriod,
   hasCareerContent,
+  isValidMonth,
   layoutStrip,
   normalizeEntries,
   serializeEntries,
@@ -54,13 +56,57 @@ describe('serializeEntries', () => {
     expect(saved[0]).toMatchObject({ title: 'Engineer', organization: 'Acme', end: '' })
   })
 
+  it('validates months, clears reversed spans and sorts newest first', () => {
+    const saved = serializeEntries([
+      entry({ id: 'old', start: '2010-01', end: '2011-01' }),
+      entry({ id: 'invalid', start: '2020-13', end: '2021-01' }),
+      entry({ id: 'reversed', start: '2022-05', end: '2021-01' }),
+      entry({ id: 'new', start: '2020-01', current: true }),
+    ])
+
+    expect(saved.map((item) => item.id)).toEqual(['reversed', 'new', 'old', 'invalid'])
+    expect(saved.find((item) => item.id === 'invalid')).toMatchObject({
+      start: '',
+      end: '2021-01',
+    })
+    expect(saved.find((item) => item.id === 'reversed')).toMatchObject({ end: '' })
+  })
+
   it('detects whether any entry has content', () => {
     expect(hasCareerContent([], [createCareerEntry()])).toBe(false)
     expect(hasCareerContent([], [entry({})])).toBe(true)
   })
 })
 
+describe('careerEntryError', () => {
+  it('requires a title and valid ordered month and year values', () => {
+    expect(careerEntryError(entry({ title: '' }), 'experience')).toBe('Enter a job title.')
+    expect(careerEntryError(entry({ title: '' }), 'education')).toBe('Enter a qualification.')
+    expect(careerEntryError(entry({ start: '' }), 'experience')).toBe(
+      'Choose a valid start month and year.',
+    )
+    expect(careerEntryError(entry({ start: '2020-01', end: '' }), 'experience')).toContain(
+      'valid end month',
+    )
+    expect(careerEntryError(entry({ start: '2021-01', end: '2020-01' }), 'experience')).toBe(
+      'The end month must not be before the start month.',
+    )
+    expect(careerEntryError(entry({ start: '2020-01', current: true }), 'experience')).toBe('')
+    expect(careerEntryError(entry({ start: '2020-01', end: '2020-12' }), 'education')).toBe('')
+  })
+})
+
 describe('dates and durations', () => {
+  it('validates YYYY-MM month values', () => {
+    expect(isValidMonth('2020-01')).toBe(true)
+    expect(isValidMonth('2020-12')).toBe(true)
+    expect(isValidMonth('2020-13')).toBe(false)
+    expect(isValidMonth('2020-1')).toBe(false)
+    expect(isValidMonth('2020-00')).toBe(false)
+    expect(isValidMonth('')).toBe(false)
+    expect(isValidMonth(null)).toBe(false)
+  })
+
   it('formats periods and durations', () => {
     const current = entry({ start: '2022-03', current: true })
 

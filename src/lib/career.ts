@@ -1,4 +1,4 @@
-import type { CareerEntry } from '@/types/pipeline'
+import type { CareerEntry, CareerKind } from '@/types/pipeline'
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 const MONTH_RE = /^(\d{4})-(0[1-9]|1[0-2])$/
@@ -53,8 +53,12 @@ function asText(value: unknown): string {
   return typeof value === 'string' ? value : ''
 }
 
+export function isValidMonth(value: unknown): value is string {
+  return typeof value === 'string' && MONTH_RE.test(value)
+}
+
 function asMonth(value: unknown): string {
-  return typeof value === 'string' && MONTH_RE.test(value) ? value : ''
+  return isValidMonth(value) ? value : ''
 }
 
 export function normalizeEntries(value: unknown): CareerEntry[] {
@@ -90,18 +94,47 @@ export function isEntryEmpty(entry: CareerEntry): boolean {
   )
 }
 
+export function careerEntryError(entry: CareerEntry, kind: CareerKind): string {
+  if (!entry.title.trim()) {
+    return kind === 'experience' ? 'Enter a job title.' : 'Enter a qualification.'
+  }
+
+  if (!isValidMonth(entry.start)) {
+    return 'Choose a valid start month and year.'
+  }
+
+  if (!entry.current) {
+    if (!isValidMonth(entry.end)) {
+      return 'Choose a valid end month and year, or mark this as current.'
+    }
+
+    if (entry.end < entry.start) {
+      return 'The end month must not be before the start month.'
+    }
+  }
+
+  return ''
+}
+
 export function serializeEntries(entries: CareerEntry[]): CareerEntry[] {
-  return entries
-    .filter((entry) => !isEntryEmpty(entry))
-    .map((entry) => ({
-      id: entry.id,
-      title: entry.title.trim(),
-      organization: entry.organization.trim(),
-      start: entry.start,
-      end: entry.current ? '' : entry.end,
-      current: entry.current,
-      description: entry.description.trim(),
-    }))
+  return sortEntries(
+    entries
+      .filter((entry) => !isEntryEmpty(entry))
+      .map((entry) => {
+        const start = asMonth(entry.start)
+        const end = entry.current ? '' : asMonth(entry.end)
+
+        return {
+          id: entry.id,
+          title: entry.title.trim(),
+          organization: entry.organization.trim(),
+          start,
+          end: start && end && end < start ? '' : end,
+          current: entry.current,
+          description: entry.description.trim(),
+        }
+      }),
+  )
 }
 
 export function entriesEqual(left: CareerEntry[], right: CareerEntry[]): boolean {

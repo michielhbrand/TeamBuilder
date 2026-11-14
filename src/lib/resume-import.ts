@@ -7,7 +7,7 @@ import {
   type PdfPageText,
   type PdfTextProgress,
 } from '@/lib/pdf-text'
-import { createCareerEntry, entriesEqual, isEntryEmpty } from '@/lib/career'
+import { createCareerEntry, entriesEqual, isEntryEmpty, isValidMonth } from '@/lib/career'
 import type { CareerEntry } from '@/types/pipeline'
 
 const MAX_IMPORTED_ENTRIES = 12
@@ -63,12 +63,24 @@ const NAME_STOP_WORDS =
 const MONTH_PATTERN =
   '(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\\.?'
 
-const DATE_POINT_PATTERN = `(?:${MONTH_PATTERN}\\s*,?\\s*)?(?:19|20)\\d{2}|(?:0?[1-9]|1[0-2])[/.]\\d{2,4}|(?:present|current|ongoing|now|today)`
+const YEAR_PATTERN = '(?:19|20)\\d{2}'
+
+const DATE_POINT_PATTERN = [
+  `${YEAR_PATTERN}[-/.](?:0?[1-9]|1[0-2])(?!\\d)`,
+  `(?:${MONTH_PATTERN})\\s*,?\\s*${YEAR_PATTERN}`,
+  `(?:${MONTH_PATTERN})\\s*,?\\s*['’]\\s*\\d{2}(?!\\d)`,
+  YEAR_PATTERN,
+  `(?:0?[1-9]|1[0-2])[/.]${YEAR_PATTERN}`,
+  `(?:0?[1-9]|1[0-2])[/.]\\d{2}`,
+  `(?:present|current|ongoing|now|today)`,
+].join('|')
 
 const DATE_RANGE_RE = new RegExp(
   `(${DATE_POINT_PATTERN})\\s*(?:-|–|—|\\bto\\b|\\buntil\\b)\\s*(${DATE_POINT_PATTERN})`,
   'i',
 )
+
+const SINCE_DATE_RE = new RegExp(`\\b(?:since|from)\\s+(${DATE_POINT_PATTERN})`, 'i')
 
 const EDUCATION_TITLE_RE =
   /\b(?:ph\.?\s?d|doctorate|doctoral|mba|m\.?\s?s\.?c?|m\.?\s?eng|master(?:'s)?|magister|b\.?\s?s\.?c?|b\.?\s?eng|bachelor(?:'s)?|undergraduate|honou?rs|diploma|postgraduate|graduate certificate|higher certificate|degree|matric|high school|secondary|a-level|abitur)\b/i
@@ -367,6 +379,18 @@ const MONTH_NAMES = [
   'dec',
 ]
 
+function monthNameIndex(value: string): number {
+  return MONTH_NAMES.findIndex((name) => new RegExp(`\\b${name}`, 'i').test(value))
+}
+
+function formatMonthValue(year: number, month: number): string {
+  if (year < 1900 || year > 2099 || month < 1 || month > 12) {
+    return ''
+  }
+
+  return `${year}-${String(month).padStart(2, '0')}`
+}
+
 function toMonthValue(token: string, edge: 'start' | 'end'): string {
   const cleaned = token.trim()
 
@@ -374,24 +398,38 @@ function toMonthValue(token: string, edge: 'start' | 'end'): string {
     return ''
   }
 
-  const numeric = cleaned.match(/^(0?[1-9]|1[0-2])[/.](\d{2,4})$/)
+  const iso = cleaned.match(/^((?:19|20)\d{2})[-/.](\d{1,2})$/)
+
+  if (iso?.[1] && iso[2]) {
+    return formatMonthValue(Number(iso[1]), Number(iso[2]))
+  }
+
+  const numeric = cleaned.match(/^(0?[1-9]|1[0-2])[/.]((?:19|20)\d{2}|\d{2})$/)
 
   if (numeric?.[1] && numeric[2]) {
     const raw = Number(numeric[2])
     const year = numeric[2].length === 2 ? (raw > 50 ? 1900 : 2000) + raw : raw
-    return `${year}-${numeric[1].padStart(2, '0')}`
+    return formatMonthValue(year, Number(numeric[1]))
   }
 
-  const year = dateYear(cleaned)
+  const named = monthNameIndex(cleaned)
+  let year = dateYear(cleaned)
+
+  if (year === null && named >= 0) {
+    const short = cleaned.match(/['’]\s*(\d{2})(?!\d)/)
+
+    if (short?.[1]) {
+      const raw = Number(short[1])
+      year = raw > 50 ? 1900 + raw : 2000 + raw
+    }
+  }
 
   if (year === null) {
     return ''
   }
 
-  const named = MONTH_NAMES.findIndex((name) => new RegExp(`\\b${name}`, 'i').test(cleaned))
   const month = named >= 0 ? named + 1 : edge === 'start' ? 1 : 12
-
-  return `${year}-${String(month).padStart(2, '0')}`
+  return formatMonthValue(year, month)
 }
 
 function parseDateRange(line: string): ResumeDateRange | null {
@@ -412,6 +450,10 @@ function parseDateRange(line: string): ResumeDateRange | null {
   const startMonth = toMonthValue(match[1] ?? '', 'start')
   const parsedEnd = current ? '' : toMonthValue(match[2] ?? '', 'end')
 
+  if (!startMonth && !parsedEnd && !current) {
+    return null
+  }
+
   return {
     start,
     end,
@@ -421,6 +463,33 @@ function parseDateRange(line: string): ResumeDateRange | null {
     startMonth,
     endMonth: parsedEnd && startMonth && parsedEnd < startMonth ? '' : parsedEnd,
     current,
+  }
+}
+
+function parseSinceDate(line: string): ResumeDateRange | null {
+  const match = line.match(SINCE_DATE_RE)
+
+  if (!match?.[1]) {
+    return null
+  }
+
+  const startMonth = toMonthValue(match[1], 'start')
+
+  if (!startMonth) {
+    return null
+  }
+
+  const start = formatDateToken(match[1])
+
+  return {
+    start,
+    end: 'Present',
+    label: `${start} – Present`,
+    startYear: dateYear(start) ?? Number(startMonth.slice(0, 4)),
+    endYear: new Date().getFullYear(),
+    startMonth,
+    endMonth: '',
+    current: true,
   }
 }
 
@@ -434,8 +503,9 @@ function findDatedResumeLines(lines: string[]): DatedResumeLine[] {
       continue
     }
 
-    const match = line.match(DATE_RANGE_RE)
-    const range = parseDateRange(line)
+    const parsedRange = parseDateRange(line)
+    const range = parsedRange ?? parseSinceDate(line)
+    const match = line.match(parsedRange ? DATE_RANGE_RE : SINCE_DATE_RE)
 
     if (!match || match.index === undefined || !range) {
       continue
@@ -674,10 +744,40 @@ function splitOrganization(
     }
   }
 
+  if (kind === 'education') {
+    const institutionIndex = title.search(INSTITUTION_RE)
+
+    if (institutionIndex > 0) {
+      const left = title
+        .slice(0, institutionIndex)
+        .trim()
+        .replace(/\s+(?:at|from)$/i, '')
+      const right = title.slice(institutionIndex).trim()
+
+      if (left && right.length <= 120 && looksLikeEducationTitle(left)) {
+        return { title: left, organization: right }
+      }
+    }
+  }
+
   return { title, organization: '' }
 }
 
+function entryEndMonth(entry: ResumeEntry): string {
+  if (entry.current || !isValidMonth(entry.endMonth)) {
+    return ''
+  }
+
+  if (isValidMonth(entry.startMonth) && entry.endMonth < entry.startMonth) {
+    return ''
+  }
+
+  return entry.endMonth
+}
+
 function toCareerEntries(entries: ResumeEntry[], kind: ResumeSectionKind): CareerEntry[] {
+  const seen = new Set<string>()
+
   return entries
     .map((entry) => {
       const split = splitOrganization(entry.title, kind)
@@ -685,7 +785,10 @@ function toCareerEntries(entries: ResumeEntry[], kind: ResumeSectionKind): Caree
       let organization = split.organization
 
       if (!organization && kind === 'education') {
-        const index = details.findIndex((line) => looksLikeInstitution(line) && line.length <= 120)
+        const index = details.findIndex(
+          (line) =>
+            looksLikeInstitution(line) && line.length <= 120 && !looksLikeEducationTitle(line),
+        )
 
         if (index >= 0) {
           organization = details.splice(index, 1)[0] ?? ''
@@ -695,13 +798,32 @@ function toCareerEntries(entries: ResumeEntry[], kind: ResumeSectionKind): Caree
       return createCareerEntry({
         title: split.title,
         organization,
-        start: entry.startMonth,
-        end: entry.current ? '' : entry.endMonth,
+        start: isValidMonth(entry.startMonth) ? entry.startMonth : '',
+        end: entryEndMonth(entry),
         current: entry.current,
         description: details.join('\n').trim().slice(0, 2000),
       })
     })
-    .filter((entry) => !isEntryEmpty(entry))
+    .filter((entry) => {
+      if (isEntryEmpty(entry)) {
+        return false
+      }
+
+      const key = [
+        entry.title.toLowerCase(),
+        entry.organization.toLowerCase(),
+        entry.start,
+        entry.current ? 'present' : entry.end,
+        entry.description.toLowerCase(),
+      ].join('|')
+
+      if (seen.has(key)) {
+        return false
+      }
+
+      seen.add(key)
+      return true
+    })
     .slice(0, MAX_IMPORTED_ENTRIES)
 }
 
@@ -742,7 +864,29 @@ function looksLikeRole(value: string): boolean {
   return ROLE_KEYWORDS.test(line) || /\bat\b/i.test(line)
 }
 
-function extractCurrentRole(lines: string[], experience: string): string {
+function currentRoleFromExperience(entries: CareerEntry[]): string {
+  const titled = entries.filter((entry) => entry.title.trim())
+
+  if (!titled.length) {
+    return ''
+  }
+
+  const current = titled.filter((entry) => entry.current)
+  const pool = current.length ? current : titled
+
+  return (
+    [...pool]
+      .sort((left, right) => (right.start || '').localeCompare(left.start || ''))
+      .find((entry) => entry.title.trim())
+      ?.title.trim() ?? ''
+  )
+}
+
+function extractCurrentRole(
+  lines: string[],
+  experience: CareerEntry[],
+  experienceSource: string,
+): string {
   for (const line of lines.slice(0, 20)) {
     const match = line.match(
       /^(?:current role|current position|job title|position|role|title)\s*[:-]\s*(.+)$/i,
@@ -753,7 +897,13 @@ function extractCurrentRole(lines: string[], experience: string): string {
     }
   }
 
-  const experienceLines = experience.split('\n').map(cleanLine).filter(Boolean)
+  const fromExperience = currentRoleFromExperience(experience)
+
+  if (fromExperience) {
+    return fromExperience
+  }
+
+  const experienceLines = experienceSource.split('\n').map(cleanLine).filter(Boolean)
 
   for (const line of experienceLines.slice(0, 12)) {
     if (looksLikeRole(line)) {
@@ -786,7 +936,7 @@ export function extractApplicantDraft(text: string, filename = ''): ApplicantDra
     name: formatPersonName(extractName(lines, filename)),
     email: extractEmail(normalized).toLowerCase(),
     phone: extractPhone(normalized),
-    currentRole: extractCurrentRole(lines, experienceSource),
+    currentRole: extractCurrentRole(lines, experience, experienceSource),
     education,
     experience,
   }

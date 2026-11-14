@@ -264,11 +264,13 @@ See `docs/ARCHITECTURE.md` for the auth lifecycle and deployment pipeline.
 - Applicant CV autofill is entirely local. `src/lib/resume-import.ts` extracts the PDF text
   layer first, then lazy-loads Tesseract OCR for scanned pages. OCR runs in a Web Worker,
   processes at most three pages, is cancellable, and caches page text in IndexedDB. Parsed
-  names are title-cased, emails are lowercased, and education/experience are returned as
-  structured entries (title, organisation, start and end month, current flag, description). Stop those
-  sections at achievements, certifications, skills, and other headings. OCR assets are
-  generated into `public/ocr/` by `scripts/copy-ocr-assets.mjs` from `predev`/`prebuild`; do
-  not commit them.
+  names are title-cased, emails are lowercased, and basics, education, and experience are
+  returned as structured data (education: qualification, institution, start/end month, current
+  flag, details; experience: role, company, start/end month, current flag, details). Start and
+  end months are validated as `YYYY-MM`; invalid months are dropped and reversed ranges are
+  cleared. Stop those sections at achievements, certifications, skills, and other headings. OCR
+  assets are generated into `public/ocr/` by `scripts/copy-ocr-assets.mjs` from
+  `predev`/`prebuild`; do not commit them.
 - CV analysis runs through the authenticated `fit-analysis` Edge Function. It sends only
   the job spec, role/department, and redacted education/work experience to a free Kilo model.
   Never send name, email, phone, URLs, address, date of birth, nationality, gender, age, or

@@ -3,6 +3,7 @@ import { computed, nextTick, onBeforeUnmount, ref } from 'vue'
 import CareerEntryEditor from '@/components/CareerEntryEditor.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import {
+  careerEntryError,
   createCareerEntry,
   entryDuration,
   formatMonth,
@@ -78,22 +79,18 @@ function save(): void {
     return
   }
 
-  if (!entry.title.trim()) {
-    error.value = props.kind === 'experience' ? 'Enter a job title.' : 'Enter a qualification.'
+  const message = careerEntryError(entry, props.kind)
+
+  if (message) {
+    error.value = message
     return
   }
 
-  if (!entry.current && entry.start && entry.end && entry.end < entry.start) {
-    error.value = 'The end month must not be before the start month.'
-    return
-  }
+  const next = isNew.value
+    ? [...props.entries, entry]
+    : props.entries.map((item) => (item.id === entry.id ? entry : item))
 
-  emit(
-    'update:entries',
-    isNew.value
-      ? [...props.entries, entry]
-      : props.entries.map((item) => (item.id === entry.id ? entry : item)),
-  )
+  emit('update:entries', sortEntries(next))
   stopEditing()
 }
 
@@ -146,18 +143,6 @@ onBeforeUnmount(() => clearTimeout(flashTimer))
 <template>
   <div ref="root" class="career-timeline">
     <ol class="career-timeline__list">
-      <li v-if="draft && isNew" class="career-item career-item--editing">
-        <span class="career-item__rail"><i class="career-item__dot" /></span>
-        <div class="career-card career-card--editing">
-          <CareerEntryEditor v-model="draft" :kind="kind" />
-          <p v-if="error" class="career-card__error" role="alert">{{ error }}</p>
-          <div class="career-card__actions">
-            <v-btn color="primary" size="small" prepend-icon="mdi-check" @click="save">Save</v-btn>
-            <v-btn size="small" variant="text" @click="stopEditing">Cancel</v-btn>
-          </div>
-        </div>
-      </li>
-
       <li
         v-for="entry in ordered"
         :key="entry.id"
@@ -180,7 +165,7 @@ onBeforeUnmount(() => clearTimeout(flashTimer))
         <span class="career-item__rail"><i class="career-item__dot" /></span>
 
         <div v-if="editingId === entry.id && draft" class="career-card career-card--editing">
-          <CareerEntryEditor v-model="draft" :kind="kind" />
+          <CareerEntryEditor v-model="draft" :kind="kind" @update:model-value="error = ''" />
           <p v-if="error" class="career-card__error" role="alert">{{ error }}</p>
           <div class="career-card__actions">
             <v-btn color="primary" size="small" prepend-icon="mdi-check" @click="save">Save</v-btn>
@@ -213,6 +198,18 @@ onBeforeUnmount(() => clearTimeout(flashTimer))
             :aria-label="`Edit ${entry.title || copy.noun}`"
             @click="startEdit(entry)"
           />
+        </div>
+      </li>
+
+      <li v-if="draft && isNew" class="career-item career-item--editing">
+        <span class="career-item__rail"><i class="career-item__dot" /></span>
+        <div class="career-card career-card--editing">
+          <CareerEntryEditor v-model="draft" :kind="kind" @update:model-value="error = ''" />
+          <p v-if="error" class="career-card__error" role="alert">{{ error }}</p>
+          <div class="career-card__actions">
+            <v-btn color="primary" size="small" prepend-icon="mdi-check" @click="save">Save</v-btn>
+            <v-btn size="small" variant="text" @click="stopEditing">Cancel</v-btn>
+          </div>
         </div>
       </li>
     </ol>

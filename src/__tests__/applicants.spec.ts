@@ -205,6 +205,31 @@ describe('applicants store', () => {
     expect(mocks.recordApplicantEditEvent).toHaveBeenCalledExactlyOnceWith(candidate.id)
   })
 
+  it('keeps career entries sorted by start date', async () => {
+    const { applicants } = await initializedStores()
+    const candidate = applicants.candidateById('c1')
+
+    expect(candidate).toBeDefined()
+    if (!candidate) return
+
+    const older = createCareerEntry({
+      id: 'older',
+      title: 'Analyst',
+      start: '2015-01',
+      end: '2018-01',
+    })
+    const newer = createCareerEntry({
+      id: 'newer',
+      title: 'Engineer',
+      start: '2020-01',
+      current: true,
+    })
+
+    applicants.updateCandidateEntries(candidate.id, 'experience', [older, newer])
+
+    expect(candidate.experience.map((entry) => entry.id)).toEqual(['newer', 'older'])
+  })
+
   it('does not record an edit event when entries are replaced with identical content', async () => {
     const entry = createCareerEntry({ title: 'Analyst', start: '2019-03', end: '2020-03' })
     mocks.fetchBoards.mockResolvedValue([
