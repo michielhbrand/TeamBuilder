@@ -31,7 +31,9 @@ fit analyses are stored in Supabase Postgres and loaded through Pinia.
 - A hiring dashboard at `/overview` with workload, outcomes, role performance, deadlines, and
   applicant watch lists
 - Role boards grouped by department at `/boards`
-- A stage-column pipeline for each role with applicant cards and deadline indicators
+- A stage-column pipeline for each role with quiet applicant cards (time in stage, hover and
+  keyboard actions, Hire and Reject with Undo), drag to an adjacent stage, deadline chips, and
+  stage tabs on phones
 - Board creation and editing, including ordered pipeline stages
 - Applicant creation per board with a right-side editable profile, favorite toggle, and a
   Career tab that shows education and work experience as editable timelines with a career strip
@@ -367,6 +369,7 @@ src/
   lib/job-spec.ts           Job-spec PDF text extraction and cleanup
   lib/fit-hash.ts           CV, job-spec, and profile fingerprints
   lib/validation.ts         Email and phone validation helpers
+  lib/use-media-query.ts    Reactive matchMedia composable
   lib/boards-api.ts         Supabase reads/writes for boards and stages
   lib/applicants-api.ts     Supabase create, update, and delete for applicants
   lib/activity-api.ts       Supabase reads/writes for applicant events and notes
@@ -391,7 +394,8 @@ src/
   components/ColumnDialog.vue Add, rename, reorder, and delete pipeline stages
   components/ApplicantFormDialog.vue Create an applicant on a board
   components/BoardColumn.vue One pipeline stage column
-  components/CandidateCard.vue Candidate summary and actions
+  components/CandidateCard.vue Applicant card with tools tray and overflow menu
+  components/StageTabs.vue  Phone stage tabs with counts
   components/ApplicantDrawer.vue Editable applicant profile, Career, CV fit, activity, and notes
   components/CareerTimeline.vue Editable education / work timeline
   components/CareerStrip.vue Career strip with work and education lanes

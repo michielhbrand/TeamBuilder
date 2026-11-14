@@ -36,6 +36,7 @@ scale, Orbital can read as a generic SaaS theme. Use the motif and the tokens de
 | Board switcher      | `src/components/BoardSwitcher.vue`         |
 | Board column        | `src/components/BoardColumn.vue`           |
 | Candidate card      | `src/components/CandidateCard.vue`         |
+| Stage tabs          | `src/components/StageTabs.vue`             |
 | Applicant drawer    | `src/components/ApplicantDrawer.vue`       |
 | Job spec dialog     | `src/components/JobSpecDialog.vue`         |
 | Confirmation dialog | `src/components/ConfirmDialog.vue`         |
@@ -237,33 +238,50 @@ that prototype's palette, gradients, or Bricolage/Hanken fonts.
   count. Each card shows the role, a deadline chip (neutral with a calendar icon, or danger
   with an alert icon when overdue), Open and Active figures, a pipeline bar, and a one-line
   stage breakdown ("Applied 2 · Interview 3 · +2 more").
-- `/boards/:boardId` gives the stage-column pipeline the full content width. A compact
-  board-switcher button in the page header opens a searchable, department-grouped menu for
-  changing roles. At `1024px` the header stacks and the switcher spans the available width.
-  Edit, Columns, Job spec, and Add applicant are equal-sized icon-only buttons. The Job spec
-  button opens the upload state when the board has no PDF and the preview state when it does.
-- Stage columns are a horizontal grid with a numbered stage header, applicant count, and
-  applicant cards. Columns use the surface-2 fill and hairline dividers. There are no
-  per-step target days.
-- Applicant cards use a 12 px radius, a token-only initials avatar, current role, time in
-  step, a favorite star in the top-right corner, and persistent Hire and Reject actions.
-  Chevron-left and chevron-right buttons beside the Hire and Reject actions move the
-  applicant one stage without opening the profile.
+- `/boards/:boardId` uses `PageHeader`: a "Boards > department" breadcrumb, the 2rem role
+  title with a **Switch role** button (it shows a `/` kbd hint and opens the searchable,
+  department-grouped `BoardSwitcher` menu), meta chips for open positions, active applicants,
+  and the deadline (`deadlineLabel`; danger with an alert icon only when overdue), and a
+  **Job spec** text button that opens `JobSpecDialog`. Actions are a labelled **Add applicant**
+  primary and a **Board** menu (Edit board, Manage stages). The header wraps at `1024px`.
+- Stage columns are a grid of `repeat(var(--columns), minmax(208px, 1fr))` panels with a 12px
+  gap, so five stages fit in the 1180px content width. Wider boards scroll horizontally with a
+  visible, token-colored scrollbar; never use an edge fade or gradient. Each column is a
+  surface-2 panel with the stage name and a count pill. There are no numbered stage circles
+  and no per-stage target days.
+- Applicant cards are quiet: initials avatar, the name as a button labelled "Open profile for
+  <name>" (wrapping to two lines at most), the current role, a star toggle (visible when the
+  applicant is a favorite, or on hover or focus), and "N days in stage" in muted text with a
+  clock icon. Time in stage is never colored by age. Clicking the card body also opens the
+  profile, but the card root is an `<article>`, not a button, and no interactive element is
+  nested inside another.
+- A tools tray holds move back, move forward, and an overflow menu. It appears on hover and
+  `:focus-within`, stays open while its menu is open, and is always visible at `1024px` and
+  below and on touch devices. Tray buttons are 32px with 8px spacing (40px at `1024px`). First-
+  stage cards have no move back and last-stage cards no move forward. The overflow menu lists
+  Open profile, Move to... (a list of the other stages), Hire (signal icon, ink text), and
+  Reject (danger). Hire and Reject never confirm; they show the 8 second Undo toast.
 - Clicking an applicant card opens a right-side applicant drawer at roughly half the viewport
   width. It uses the surface, hairline, and field tokens, with an editable basic-information
   form, a star favorite toggle, a **Career** tab with a pinned career strip and vertical
   timelines for work and education, and a single PDF CV document. The drawer becomes full width at `720px`.
-- Candidate cards can be dragged one step left or right. While a card is held, only the
+- Applicant cards can be dragged one stage left or right. While a card is held, only the
   adjacent columns highlight with the accent token and accept the drop. The card in flight
-  keeps full opacity and uses an accent border ring. Cards in the first and final steps can
-  still move in the available direction.
-- Boards past their deadline use the danger token on the card deadline chip and in overview
+  keeps full opacity and uses an accent border ring. Moves are optimistic and roll back when
+  the write fails.
+- Boards past their deadline use the danger token on the deadline chip and in overview
   attention rows. Never rely on color alone; the chip has an alert icon and says "N days overdue".
-- The closed-candidates disclosure uses two columns for hired and rejected, with a reopen
-  action. It stacks at `720px`. Hiring or rejecting an applicant removes the card from the
-  stage columns and adds the name to the matching closed column.
-- Keyboard support mirrors the concept: `/` focuses board search. The applicant drawer CV
-  preview and the job spec preview support open in a new tab, print, and remove controls.
+- At `720px` and below the board shows `StageTabs` (a scrollable `role="tablist"` of pills with
+  counts, arrow/Home/End keys) and only the selected stage. The default tab is the first stage
+  with applicants, and the selection resets when the board changes.
+- Closed applicants collapse into a one-line summary row ("Closed · N hired, M rejected") with
+  a Show/Hide button. Expanded, it lists hired and rejected applicants in two columns (stacked
+  at `720px`), each row showing "Last stage: <name>" and a visible outlined **Reopen** button.
+- Keyboard support: `/` opens the role switcher with its search focused (and focuses the board
+  search on `/boards`). Tab order on a card is name, star, move back, move forward, overflow;
+  Enter or Space opens the overflow menu, arrows move through it, and Escape returns focus to
+  the overflow button. The applicant drawer CV preview and the job spec preview support open
+  in a new tab, print, and remove controls.
 
 ## Components
 

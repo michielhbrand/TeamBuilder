@@ -100,6 +100,8 @@ npm run build
   summaries, `stageBreakdown`, `sortBoards`, `applicantsInStage`, `reorderIds` (first stage
   locked), `applicantActions`, department grouping, and dashboard applicant watch entries.
 - `src/lib/validation.ts` — shared email and phone validation helpers.
+- `src/lib/use-media-query.ts` — `useMediaQuery(query)` composable returning a reactive
+  `matchMedia` result that removes its listener when the scope stops.
 - `src/stores/boards.ts` — persisted board and column state, derived groups/summaries/totals,
   board actions, and the focus/visibility refresh used to keep the shared workspace current.
 - `src/stores/applicants.ts` — applicant lookup, applicant CRUD, moves, status changes,
@@ -129,9 +131,14 @@ npm run build
 - `src/components/ColumnDialog.vue` — add, rename, reorder, and delete pipeline stages.
 - `src/components/ApplicantFormDialog.vue` — create an applicant on a board, with optional
   PDF CV autofill and CV attachment.
-- `src/components/BoardSwitcher.vue` — compact header menu for switching between role boards.
-- `src/components/BoardColumn.vue` — one pipeline step column.
-- `src/components/CandidateCard.vue` — applicant summary and pipeline actions.
+- `src/components/BoardSwitcher.vue` — "Switch role" button (with a `/` hint) beside the board
+  title that opens a searchable menu for switching between role boards.
+- `src/components/BoardColumn.vue` — one pipeline stage column with a name and count pill.
+- `src/components/CandidateCard.vue` — quiet applicant card (avatar, name button, role, star,
+  "N days in stage") with a hover/focus tools tray: move back, move forward, and an overflow
+  menu (Open profile, Move to..., Hire, Reject).
+- `src/components/StageTabs.vue` — `role="tablist"` stage pills with counts; the phone (up to
+  720px) board shows one stage at a time.
 - `src/components/ApplicantDrawer.vue` — right-side editable applicant profile with Details,
   Career, CV fit, and Activity tabs, favorite, a career summary, and free-text applicant notes.
 - `src/components/CareerTimeline.vue` — editable vertical timeline of education or work
@@ -161,7 +168,9 @@ npm run build
   workload chart, outcome donut, sortable role table, deadline watch, applicant lists, and
   department filtering.
 - `src/views/BoardsView.vue` — all role boards grouped by department.
-- `src/views/BoardView.vue` — stage-column pipeline for one role.
+- `src/views/BoardView.vue` — stage-column pipeline for one role: `PageHeader` with
+  breadcrumb, switch-role button, meta chips, Job spec, Add applicant, and a Board menu; stage
+  tabs at 720px and below; and a collapsible closed-applicants summary row.
 - `src/views/AccountView.vue` — protected session, identity, full-name editing, and password
   reset.
 - `src/styles/orbital.css` — locked design tokens, layout primitives, board styling, and
@@ -195,6 +204,12 @@ See `docs/ARCHITECTURE.md` for the auth lifecycle and deployment pipeline.
   save; it must never include `status` or `column_id`. Components read the autosave state
   from `saveStatusFor(candidateId)` (`idle | pending | saving | saved | failed`) instead of
   tracking it themselves.
+- Hire and Reject never ask for confirmation; they rely on the undo toast pushed by
+  `hireCandidate` / `rejectCandidate`. On the board they live in the card overflow menu, not
+  on the resting card. Interactive elements are never nested: the card root is an `<article>`
+  and only its name button, star, and tray buttons are focusable. The tools tray must stay
+  keyboard reachable (`:focus-within`) and always visible at `1024px` and below. Time in stage
+  is plain muted text; never color it by age.
 - The shared workspace refreshes on window focus and when the tab becomes visible. A refresh
   merges remote boards and applicants in place and preserves dirty local profile fields, so
   another user's move or edit appears without a full page reload.

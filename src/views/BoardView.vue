@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 import ApplicantDrawer from '@/components/ApplicantDrawer.vue'
 import ApplicantFormDialog from '@/components/ApplicantFormDialog.vue'
 import AppShell from '@/components/AppShell.vue'
@@ -9,18 +9,21 @@ import BoardFormDialog from '@/components/BoardFormDialog.vue'
 import BoardSwitcher from '@/components/BoardSwitcher.vue'
 import ColumnDialog from '@/components/ColumnDialog.vue'
 import JobSpecDialog from '@/components/JobSpecDialog.vue'
+import PageHeader from '@/components/PageHeader.vue'
+import StageTabs from '@/components/StageTabs.vue'
 import {
   candidatesInStep,
   closedCandidates,
+  deadlineLabel,
   formatDeadline,
   initials,
-  isOverdue,
   stepById,
   summariseBoard,
 } from '@/lib/pipeline'
+import { useMediaQuery } from '@/lib/use-media-query'
 import { useApplicantsStore } from '@/stores/applicants'
 import { useBoardsStore } from '@/stores/boards'
-import type { Candidate } from '@/types/pipeline'
+import type { Board, Candidate } from '@/types/pipeline'
 
 const route = useRoute()
 const router = useRouter()
@@ -36,6 +39,9 @@ const editOpen = ref(false)
 const columnsOpen = ref(false)
 const jobSpecOpen = ref(false)
 const applicantOpen = ref(false)
+const closedOpen = ref(false)
+const selectedStepId = ref<string | null>(null)
+const isPhone = useMediaQuery('(max-width: 720px)')
 let settleTimer: ReturnType<typeof setTimeout> | undefined
 
 const boardId = computed(() => String(route.params.boardId ?? ''))
@@ -43,6 +49,21 @@ const board = computed(() => store.boardById(boardId.value))
 const summary = computed(() => (board.value ? summariseBoard(board.value) : undefined))
 const hired = computed(() => (board.value ? closedCandidates(board.value, 'hired') : []))
 const rejected = computed(() => (board.value ? closedCandidates(board.value, 'rejected') : []))
+const deadline = computed(() => (board.value ? deadlineLabel(board.value) : undefined))
+const stageCounts = computed(() =>
+  board.value ? board.value.steps.map((step) => candidatesFor(step.id).length) : [],
+)
+const visibleSteps = computed(() => {
+  if (!board.value) {
+    return []
+  }
+
+  if (!isPhone.value) {
+    return board.value.steps
+  }
+
+  return board.value.steps.filter((step) => step.id === selectedStepId.value)
+})
 
 const draggedStepIndex = computed(() => {
   if (!board.value || !dragged.value) {
@@ -65,6 +86,12 @@ const dropStepIds = computed(() => {
 
 function candidatesFor(stepId: string): Candidate[] {
   return board.value ? candidatesInStep(board.value, stepId) : []
+}
+
+function defaultStepId(target: Board): string | null {
+  const withApplicants = target.steps.find((step) => candidatesInStep(target, step.id).length > 0)
+
+  return (withApplicants ?? target.steps[0])?.id ?? null
 }
 
 function onBoardDeleted(): void {
@@ -137,7 +164,25 @@ function onKeydown(event: KeyboardEvent): void {
 
 watch(boardId, () => {
   profileOpen.value = false
+  closedOpen.value = false
+  selectedStepId.value = null
 })
+
+watch(
+  () => [boardId.value, board.value?.steps.map((step) => step.id).join(',')],
+  () => {
+    const current = board.value
+
+    if (!current) {
+      return
+    }
+
+    if (!current.steps.some((step) => step.id === selectedStepId.value)) {
+      selectedStepId.value = defaultStepId(current)
+    }
+  },
+  { immediate: true },
+)
 
 watch(profileOpen, (open) => {
   if (!open) {
@@ -161,59 +206,83 @@ onBeforeUnmount(() => {
     </div>
 
     <div v-else class="board-detail-layout">
-      <header class="page-heading board-heading">
-        <div>
-          <p class="eyebrow">{{ board.department }}</p>
-          <h1 class="page-title board-title">{{ board.name }}</h1>
-          <p class="lede">
-            {{ board.openPositions }}
-            {{ board.openPositions === 1 ? 'open position' : 'open positions' }}.
-            {{ summary?.active ?? 0 }} active
-            {{ summary?.active === 1 ? 'applicant' : 'applicants' }}. Deadline
-            {{ formatDeadline(board.deadline) }}.
-            <template v-if="isOverdue(board)"> Past deadline. </template>
-          </p>
-        </div>
+      <PageHeader class="board-header" :title="board.name">
+        <template #breadcrumb>
+          <nav class="breadcrumb" aria-label="Breadcrumb">
+            <RouterLink to="/boards">Boards</RouterLink>
+            <v-icon icon="mdi-chevron-right" size="16" aria-hidden="true" />
+            <span>{{ board.department }}</span>
+          </nav>
+        </template>
 
-        <div class="board-controls">
+        <template #title-adornment>
           <BoardSwitcher ref="switcher" :groups="store.groups" :active-board-id="board.id" />
+        </template>
 
-          <div class="board-nav">
-            <v-btn
-              class="board-icon-btn"
-              icon="mdi-pencil-outline"
-              variant="outlined"
-              aria-label="Edit board"
-              title="Edit board"
-              @click="editOpen = true"
+        <template #meta>
+          <span class="meta-chip">
+            <v-icon icon="mdi-account-multiple-outline" size="16" aria-hidden="true" />
+            {{ board.openPositions }}
+            {{ board.openPositions === 1 ? 'open position' : 'open positions' }}
+          </span>
+          <span class="meta-chip">
+            <v-icon icon="mdi-account-group-outline" size="16" aria-hidden="true" />
+            {{ summary?.active ?? 0 }} active
+            {{ summary?.active === 1 ? 'applicant' : 'applicants' }}
+          </span>
+          <span
+            v-if="deadline"
+            class="meta-chip"
+            :class="{ 'meta-chip--danger': deadline.overdue }"
+            :title="`Deadline ${formatDeadline(board.deadline)}`"
+          >
+            <v-icon
+              :icon="deadline.overdue ? 'mdi-alert-circle-outline' : 'mdi-calendar-clock-outline'"
+              size="16"
+              aria-hidden="true"
             />
-            <v-btn
-              class="board-icon-btn"
-              icon="mdi-view-column-outline"
-              variant="outlined"
-              aria-label="Manage stages"
-              title="Manage stages"
-              @click="columnsOpen = true"
-            />
-            <v-btn
-              class="board-icon-btn"
-              icon="mdi-file-document-outline"
-              variant="outlined"
-              aria-label="Job spec"
-              title="Job spec"
-              @click="jobSpecOpen = true"
-            />
-            <v-btn
-              class="board-icon-btn"
-              color="primary"
-              icon="mdi-account-plus-outline"
-              aria-label="Add applicant"
-              title="Add applicant"
-              @click="applicantOpen = true"
-            />
-          </div>
-        </div>
-      </header>
+            {{ deadline.text }}
+          </span>
+          <v-btn
+            class="board-jobspec-btn"
+            prepend-icon="mdi-file-document-outline"
+            variant="text"
+            :height="36"
+            @click="jobSpecOpen = true"
+          >
+            Job spec
+          </v-btn>
+        </template>
+
+        <template #actions>
+          <v-btn
+            color="primary"
+            prepend-icon="mdi-account-plus-outline"
+            @click="applicantOpen = true"
+          >
+            Add applicant
+          </v-btn>
+          <v-menu location="bottom end" :offset="4">
+            <template #activator="{ props: menuProps }">
+              <v-btn v-bind="menuProps" prepend-icon="mdi-dots-horizontal" variant="outlined">
+                Board
+              </v-btn>
+            </template>
+            <v-list class="app-menu board-menu" density="compact">
+              <v-list-item
+                prepend-icon="mdi-pencil-outline"
+                title="Edit board"
+                @click="editOpen = true"
+              />
+              <v-list-item
+                prepend-icon="mdi-view-column-outline"
+                title="Manage stages"
+                @click="columnsOpen = true"
+              />
+            </v-list>
+          </v-menu>
+        </template>
+      </PageHeader>
 
       <v-alert
         v-if="store.error || applicants.error"
@@ -224,14 +293,27 @@ onBeforeUnmount(() => {
         {{ store.error || applicants.error }}
       </v-alert>
 
-      <div class="board-columns-wrap">
-        <div class="board-columns" :style="{ '--columns': board.steps.length }">
+      <StageTabs
+        v-if="isPhone && selectedStepId"
+        v-model="selectedStepId"
+        class="board-stage-tabs"
+        :steps="board.steps"
+        :counts="stageCounts"
+        panel-id="board-stage-panel"
+      />
+
+      <div
+        :id="isPhone ? 'board-stage-panel' : undefined"
+        class="board-columns-wrap"
+        :role="isPhone ? 'tabpanel' : undefined"
+        :aria-labelledby="isPhone && selectedStepId ? `stage-tab-${selectedStepId}` : undefined"
+      >
+        <div class="board-columns" :style="{ '--columns': visibleSteps.length }">
           <BoardColumn
-            v-for="(step, index) in board.steps"
+            v-for="step in visibleSteps"
             :key="step.id"
             :board="board"
             :step="step"
-            :index="index"
             :candidates="candidatesFor(step.id)"
             :drop-target="dropStepIds.includes(step.id)"
             :dragging-candidate-id="dragged?.candidateId"
@@ -244,12 +326,27 @@ onBeforeUnmount(() => {
         </div>
       </div>
 
-      <details class="closed-panel" open>
-        <summary>
-          Closed applicants. {{ hired.length }} hired, {{ rejected.length }} rejected.
-        </summary>
+      <section class="closed-panel" aria-label="Closed applicants">
+        <div class="closed-summary">
+          <v-icon class="closed-summary__icon" icon="mdi-archive-outline" aria-hidden="true" />
+          <p>
+            <strong>Closed</strong> &middot; {{ hired.length }} hired, {{ rejected.length }}
+            rejected
+          </p>
+          <v-btn
+            class="closed-summary__toggle"
+            :append-icon="closedOpen ? 'mdi-chevron-up' : 'mdi-chevron-down'"
+            variant="text"
+            :height="36"
+            :aria-expanded="closedOpen"
+            aria-controls="closed-lists"
+            @click="closedOpen = !closedOpen"
+          >
+            {{ closedOpen ? 'Hide' : 'Show' }}
+          </v-btn>
+        </div>
 
-        <div class="closed-grid">
+        <div v-show="closedOpen" id="closed-lists" class="closed-grid">
           <div class="closed-column">
             <h3>
               Hired <span>{{ hired.length }}</span>
@@ -259,7 +356,7 @@ onBeforeUnmount(() => {
               <button
                 class="closed-row__open"
                 type="button"
-                :aria-label="`Open applicant profile for ${candidate.name}`"
+                :aria-label="`Open profile for ${candidate.name}`"
                 @click="openProfile(candidate)"
               >
                 <span class="candidate-avatar candidate-avatar--small" aria-hidden="true">
@@ -267,10 +364,14 @@ onBeforeUnmount(() => {
                 </span>
                 <span class="closed-row__copy">
                   <span class="candidate-name">{{ candidate.name }}</span>
-                  <span class="candidate-source">Last step: {{ lastStepName(candidate) }}</span>
+                  <span class="candidate-source">Last stage: {{ lastStepName(candidate) }}</span>
                 </span>
               </button>
-              <v-btn size="small" variant="text" @click="applicants.reopenCandidate(candidate.id)">
+              <v-btn
+                variant="outlined"
+                :height="36"
+                @click="applicants.reopenCandidate(candidate.id)"
+              >
                 Reopen
               </v-btn>
             </div>
@@ -285,7 +386,7 @@ onBeforeUnmount(() => {
               <button
                 class="closed-row__open"
                 type="button"
-                :aria-label="`Open applicant profile for ${candidate.name}`"
+                :aria-label="`Open profile for ${candidate.name}`"
                 @click="openProfile(candidate)"
               >
                 <span class="candidate-avatar candidate-avatar--small" aria-hidden="true">
@@ -293,16 +394,20 @@ onBeforeUnmount(() => {
                 </span>
                 <span class="closed-row__copy">
                   <span class="candidate-name">{{ candidate.name }}</span>
-                  <span class="candidate-source">Last step: {{ lastStepName(candidate) }}</span>
+                  <span class="candidate-source">Last stage: {{ lastStepName(candidate) }}</span>
                 </span>
               </button>
-              <v-btn size="small" variant="text" @click="applicants.reopenCandidate(candidate.id)">
+              <v-btn
+                variant="outlined"
+                :height="36"
+                @click="applicants.reopenCandidate(candidate.id)"
+              >
                 Reopen
               </v-btn>
             </div>
           </div>
         </div>
-      </details>
+      </section>
     </div>
 
     <BoardFormDialog v-model="editOpen" :board="board" @deleted="onBoardDeleted" />

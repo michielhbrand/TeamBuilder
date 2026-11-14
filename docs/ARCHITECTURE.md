@@ -44,9 +44,15 @@ rule set; the selected reference is `design/ui-directions.html#orbital`.
 - `src/components/BrandMark.vue` owns the TeamBuilder lockup. `src/components/AuthShell.vue`
   owns the shared login and password-setup layout. `src/components/AppShell.vue` owns the
   top-bar navigation for Overview, Boards, and Account.
-- `src/components/BoardList.vue`, `BoardColumn.vue`, `CandidateCard.vue`,
-  `ApplicantDrawer.vue`, and `PipelineBar.vue` implement the board UI.
-  `ApplicantDrawer.vue` is the right-side editable applicant profile opened from a card.
+- `src/components/BoardList.vue`, `BoardColumn.vue`, `CandidateCard.vue`, `StageTabs.vue`,
+  `BoardSwitcher.vue`, `ApplicantDrawer.vue`, and `PipelineBar.vue` implement the board UI.
+  `BoardView.vue` renders its header through `PageHeader` and uses
+  `useMediaQuery('(max-width: 720px)')` from `src/lib/use-media-query.ts` to swap the stage
+  grid for `StageTabs` and a single selected stage on phones. `CandidateCard.vue` moves an
+  applicant through `moveCandidate` (tray chevrons, Move to..., or drag to an adjacent stage)
+  and decides through `hireCandidate` / `rejectCandidate`, whose undo entry the shared
+  `UndoToast` shows. `ApplicantDrawer.vue` is the right-side editable applicant profile opened
+  from a card.
   `DepartmentLoadChart.vue`, `OutcomeDonut.vue`, `RolePerformanceTable.vue`, and
   `ApplicantWatchList.vue` implement the dashboard visuals and lists.
   `design/hiring-pipeline-step-columns.html` is the structural concept reference; its

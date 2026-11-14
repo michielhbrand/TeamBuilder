@@ -1,13 +1,10 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { useApplicantsStore } from '@/stores/applicants'
 import {
+  applicantActions,
   daysInStep as getDaysInStep,
-  daysSinceApplied as getDaysSinceApplied,
   initials as getInitials,
-  nextStep,
-  previousStep,
-  stepById,
 } from '@/lib/pipeline'
 import type { Board, Candidate, PipelineStep } from '@/types/pipeline'
 
@@ -25,11 +22,17 @@ const emit = defineEmits<{
 }>()
 
 const store = useApplicantsStore()
+const menuOpen = ref(false)
+const choosingStage = ref(false)
+const menuList = ref<{ $el: HTMLElement } | null>(null)
 
-const step = computed(() => stepById(props.board, props.candidate.stepId))
-const next = computed(() => nextStep(props.board, props.candidate))
-const previous = computed(() => previousStep(props.board, props.candidate))
+const actions = computed(() => applicantActions(props.board, props.candidate))
+const next = computed(() => actions.value.next)
+const previous = computed(() => actions.value.previous)
 const canDrag = computed(() => Boolean(next.value || previous.value))
+const otherSteps = computed(() =>
+  props.board.steps.filter((step) => step.id !== props.candidate.stepId),
+)
 
 const initials = computed(() => getInitials(props.candidate.name))
 
@@ -43,14 +46,10 @@ const daysLabel = computed(() => {
   return `${days} ${days === 1 ? 'day' : 'days'} in stage`
 })
 
-const appliedLabel = computed(() => {
-  const days = getDaysSinceApplied(props.candidate)
-
-  if (days === 0) {
-    return 'applied today'
+watch(menuOpen, (open) => {
+  if (!open) {
+    choosingStage.value = false
   }
-
-  return `applied ${days} ${days === 1 ? 'day' : 'days'} ago`
 })
 
 function moveTo(target: PipelineStep | undefined): void {
@@ -63,6 +62,16 @@ function openProfile(): void {
   if (!props.dragging) {
     emit('open-profile', props.candidate)
   }
+}
+
+function showStages(value: boolean): void {
+  choosingStage.value = value
+  void nextTick(() => menuList.value?.$el.querySelector<HTMLElement>('.v-list-item')?.focus())
+}
+
+function fromMenu(action: () => unknown): void {
+  menuOpen.value = false
+  void action()
 }
 
 function createDragImage(source: HTMLElement): HTMLElement {
@@ -104,86 +113,132 @@ function onDragEnd(): void {
 
 <template>
   <article
-    class="candidate-card candidate-card--clickable"
+    class="candidate-card"
     :class="{
       'candidate-card--draggable': canDrag,
       'candidate-card--dragging': dragging,
       'candidate-card--settling': settling,
+      'candidate-card--menu-open': menuOpen,
     }"
     :draggable="canDrag"
-    role="button"
-    tabindex="0"
-    :aria-label="`Open applicant profile for ${candidate.name}`"
     @click="openProfile"
-    @keydown.enter.self="openProfile"
-    @keydown.space.self.prevent="openProfile"
     @dragstart="onDragStart"
     @dragend="onDragEnd"
   >
-    <v-btn
-      class="candidate-favorite"
-      :icon="candidate.favorite ? 'mdi-star' : 'mdi-star-outline'"
-      :color="candidate.favorite ? 'primary' : undefined"
-      size="small"
-      variant="text"
-      :aria-label="candidate.favorite ? 'Remove from favorites' : 'Add to favorites'"
-      :aria-pressed="candidate.favorite"
-      @click.stop="store.toggleFavorite(candidate.id)"
-    />
+    <div class="candidate-card__top">
+      <span class="candidate-avatar" aria-hidden="true">{{ initials }}</span>
+      <button
+        class="candidate-card__open"
+        type="button"
+        :aria-label="`Open profile for ${candidate.name}`"
+        @click.stop="openProfile"
+      >
+        <span class="candidate-name">{{ candidate.name }}</span>
+        <span v-if="candidate.currentRole" class="candidate-source">
+          {{ candidate.currentRole }}
+        </span>
+      </button>
+      <v-btn
+        class="candidate-favorite"
+        :class="{ 'candidate-favorite--on': candidate.favorite }"
+        :icon="candidate.favorite ? 'mdi-star' : 'mdi-star-outline'"
+        :color="candidate.favorite ? 'primary' : undefined"
+        variant="text"
+        :aria-label="
+          candidate.favorite
+            ? `Remove ${candidate.name} from favorites`
+            : `Add ${candidate.name} to favorites`
+        "
+        :aria-pressed="candidate.favorite"
+        @click.stop="store.toggleFavorite(candidate.id)"
+      />
+    </div>
 
-    <div class="candidate-card__main">
-      <div class="candidate-card__top">
-        <span class="candidate-avatar" aria-hidden="true">{{ initials }}</span>
-        <div class="candidate-card__identity">
-          <p class="candidate-name">{{ candidate.name }}</p>
-          <p class="candidate-source">{{ candidate.currentRole || candidate.email }}</p>
-        </div>
-      </div>
+    <div class="candidate-card__foot">
+      <p class="candidate-days">
+        <v-icon icon="mdi-clock-outline" size="16" aria-hidden="true" />
+        <span>{{ daysLabel }}</span>
+      </p>
 
-      <p class="candidate-days">{{ daysLabel }}. {{ appliedLabel }}.</p>
-
-      <div class="candidate-actions-row" @click.stop>
+      <div class="candidate-tools" @click.stop>
         <v-btn
           v-if="previous"
-          class="candidate-lane-btn"
+          class="candidate-tool"
           icon="mdi-chevron-left"
-          size="small"
           variant="text"
-          :aria-label="`Move ${candidate.name} to ${previous.name}`"
+          :aria-label="`Move ${candidate.name} back to ${previous.name}`"
           @click="moveTo(previous)"
         />
-
-        <div class="candidate-actions">
-          <v-btn
-            class="candidate-action candidate-action--hire"
-            color="primary"
-            variant="outlined"
-            @click="store.hireCandidate(candidate.id)"
-          >
-            Hire
-          </v-btn>
-          <v-btn
-            class="candidate-action candidate-action--reject"
-            color="error"
-            variant="outlined"
-            @click="store.rejectCandidate(candidate.id)"
-          >
-            Reject
-          </v-btn>
-        </div>
-
         <v-btn
           v-if="next"
-          class="candidate-lane-btn"
+          class="candidate-tool"
           icon="mdi-chevron-right"
-          size="small"
           variant="text"
-          :aria-label="`Move ${candidate.name} to ${next.name}`"
+          :aria-label="`Move ${candidate.name} forward to ${next.name}`"
           @click="moveTo(next)"
         />
-      </div>
+        <v-menu
+          v-model="menuOpen"
+          :close-on-content-click="false"
+          location="bottom end"
+          :offset="4"
+        >
+          <template #activator="{ props: menuProps }">
+            <v-btn
+              v-bind="menuProps"
+              class="candidate-tool"
+              icon="mdi-dots-horizontal"
+              variant="text"
+              :aria-label="`More actions for ${candidate.name}`"
+            />
+          </template>
 
-      <p v-if="step" class="candidate-step">Stage: {{ step.name }}</p>
+          <v-list
+            v-if="!choosingStage"
+            ref="menuList"
+            class="app-menu candidate-menu"
+            density="compact"
+          >
+            <v-list-item
+              prepend-icon="mdi-open-in-new"
+              title="Open profile"
+              @click="fromMenu(openProfile)"
+            />
+            <v-list-item
+              v-if="otherSteps.length"
+              prepend-icon="mdi-arrow-right"
+              append-icon="mdi-chevron-right"
+              title="Move to..."
+              @click="showStages(true)"
+            />
+            <v-divider class="my-1" />
+            <v-list-item
+              class="candidate-menu__hire"
+              prepend-icon="mdi-check-circle-outline"
+              title="Hire"
+              @click="fromMenu(() => store.hireCandidate(candidate.id))"
+            />
+            <v-list-item
+              class="candidate-menu__reject"
+              prepend-icon="mdi-close-circle-outline"
+              title="Reject"
+              @click="fromMenu(() => store.rejectCandidate(candidate.id))"
+            />
+          </v-list>
+
+          <v-list v-else ref="menuList" class="app-menu candidate-menu" density="compact">
+            <v-list-item prepend-icon="mdi-chevron-left" title="Back" @click="showStages(false)" />
+            <v-divider class="my-1" />
+            <v-list-subheader>Move to stage</v-list-subheader>
+            <v-list-item
+              v-for="step in otherSteps"
+              :key="step.id"
+              :title="step.name"
+              @click="fromMenu(() => moveTo(step))"
+            />
+          </v-list>
+        </v-menu>
+      </div>
     </div>
   </article>
 </template>

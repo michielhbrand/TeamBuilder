@@ -5,7 +5,6 @@ import type { Board, Candidate, PipelineStep } from '@/types/pipeline'
 const props = defineProps<{
   board: Board
   step: PipelineStep
-  index: number
   candidates: Candidate[]
   dropTarget?: boolean
   draggingCandidateId?: string
@@ -50,14 +49,11 @@ function onDrop(event: DragEvent): void {
     @drop="onDrop"
   >
     <header class="board-column__head">
-      <div class="board-column__title">
-        <span class="step-index">{{ index + 1 }}</span>
-        <h3>{{ step.name }}</h3>
-      </div>
-      <p>
+      <h3>{{ step.name }}</h3>
+      <span class="board-column__count">
         {{ candidates.length }}
-        {{ candidates.length === 1 ? 'applicant' : 'applicants' }}.
-      </p>
+        <span class="d-sr-only">{{ candidates.length === 1 ? 'applicant' : 'applicants' }}</span>
+      </span>
     </header>
 
     <div class="board-column__body">

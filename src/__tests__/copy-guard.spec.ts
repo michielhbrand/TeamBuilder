@@ -21,6 +21,7 @@ const banned = [
   'Starting column',
   'Manage columns',
   'Current step',
+  'Last step',
   'Pinia',
   'JWT',
   'Orbital system',

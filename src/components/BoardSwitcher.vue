@@ -58,7 +58,7 @@ defineExpose({ open })
     v-model="menuOpen"
     :close-on-content-click="false"
     content-class="board-switcher-menu"
-    location="bottom end"
+    location="bottom start"
     :offset="8"
   >
     <template #activator="{ props: menuProps }">
@@ -66,13 +66,12 @@ defineExpose({ open })
         v-bind="menuProps"
         class="board-switcher"
         type="button"
-        :aria-label="`Switch board. Current board: ${activeBoard?.name ?? 'unknown'}`"
+        :aria-label="`Switch role. Current role: ${activeBoard?.name ?? 'unknown'}. Shortcut: /`"
+        aria-keyshortcuts="/"
       >
-        <span class="board-switcher__label">
-          <span class="meta">Switch board</span>
-          <span class="board-switcher__title">{{ activeBoard?.name }}</span>
-        </span>
-        <v-icon icon="mdi-chevron-down" size="18" />
+        <v-icon icon="mdi-unfold-more-horizontal" size="18" aria-hidden="true" />
+        <span>Switch role</span>
+        <kbd class="board-switcher__kbd" aria-hidden="true">/</kbd>
       </button>
     </template>
 
@@ -82,7 +81,7 @@ defineExpose({ open })
         v-model="query"
         class="board-search board-switcher__search"
         type="search"
-        placeholder="Search roles or teams"
+        placeholder="Search roles or teams (/)"
         aria-label="Search roles or teams"
         autocomplete="off"
       />
