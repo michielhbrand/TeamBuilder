@@ -44,7 +44,7 @@ async function submit(): Promise<void> {
   <v-dialog :model-value="auth.fullNameRequired" persistent max-width="460">
     <v-card class="full-name-dialog">
       <v-card-item>
-        <p class="mono-label">Profile</p>
+        <p class="meta">Profile</p>
         <v-card-title class="mt-1">Complete your profile</v-card-title>
         <v-card-subtitle>
           Add your full name so teammates can identify you across the workspace.

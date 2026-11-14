@@ -29,17 +29,17 @@ defineProps<{
 
         <div class="intro-readout" aria-label="Authentication details">
           <div class="readout-cell">
-            <span class="mono-label">Auth</span>
+            <span class="meta">Auth</span>
             <strong>Supabase</strong>
             <span>Publishable client</span>
           </div>
           <div class="readout-cell">
-            <span class="mono-label">Session</span>
+            <span class="meta">Session</span>
             <strong>In-memory</strong>
             <span>Pinia, auto-refreshed</span>
           </div>
           <div class="readout-cell">
-            <span class="mono-label">Access</span>
+            <span class="meta">Access</span>
             <strong>Invite only</strong>
             <span>Administrator issued</span>
           </div>

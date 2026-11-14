@@ -104,7 +104,7 @@ async function goToLogin(): Promise<void> {
   <AuthShell :eyebrow="eyebrow" :subtitle="subtitle" :title="title">
     <div class="panel-head">
       <div>
-        <p class="mono-label">{{ panelLabel }}</p>
+        <p class="meta">{{ panelLabel }}</p>
         <h2 class="panel-title mt-1">{{ panelTitle }}</h2>
       </div>
       <span class="status-badge" :class="{ 'status-badge--signal': auth.isAuthenticated }">
@@ -185,7 +185,7 @@ async function goToLogin(): Promise<void> {
     </template>
 
     <div class="auth-panel-footer">
-      <span class="mono-label">{{ footerLabel }}</span>
+      <span class="meta">{{ footerLabel }}</span>
       <v-btn color="primary" variant="text" @click="goToLogin">Sign in</v-btn>
     </div>
   </AuthShell>

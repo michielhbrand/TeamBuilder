@@ -510,7 +510,7 @@ onBeforeUnmount(() => {
           <div class="applicant-drawer__identity">
             <p class="eyebrow">Applicant profile</p>
             <h2>{{ candidate.name }}</h2>
-            <p class="mono-label">{{ candidate.currentRole || candidate.email }}</p>
+            <p class="meta">{{ candidate.currentRole || candidate.email }}</p>
           </div>
 
           <div class="applicant-drawer__actions">

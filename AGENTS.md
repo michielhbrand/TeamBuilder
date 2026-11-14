@@ -210,6 +210,9 @@ See `docs/ARCHITECTURE.md` for the auth lifecycle and deployment pipeline.
 - Use the locked Direction A / Orbital design system in `docs/DESIGN_SYSTEM.md`. Reuse its
   tokens and shared components; do not introduce colors, fonts, radii, gradients, or motifs
   from the other design directions.
+- Text is at least `0.75rem`; uppercase IBM Plex Mono is at least `0.6875rem` and is reserved for
+  data (dates, counts, IDs, badges, eyebrows). Use `.meta` for descriptive labels.
+  `tokens.spec.ts` enforces the floor.
 - Use Vuetify 4 components and MDI icon names. Do not upgrade to a non-MIT UI major without
   reviewing its license.
 - Keep light and dark mode working. The app starts in the user's saved theme, or light mode

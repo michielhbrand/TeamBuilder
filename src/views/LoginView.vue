@@ -44,7 +44,7 @@ async function submit(): Promise<void> {
   >
     <div class="panel-head">
       <div>
-        <p class="mono-label">Account access</p>
+        <p class="meta">Account access</p>
         <h2 class="panel-title mt-1">Sign in</h2>
       </div>
       <span class="status-badge">Email</span>

@@ -69,7 +69,7 @@ defineExpose({ open })
         :aria-label="`Switch board. Current board: ${activeBoard?.name ?? 'unknown'}`"
       >
         <span class="board-switcher__label">
-          <span class="mono-label">Switch board</span>
+          <span class="meta">Switch board</span>
           <span class="board-switcher__title">{{ activeBoard?.name }}</span>
         </span>
         <v-icon icon="mdi-chevron-down" size="18" />
@@ -93,7 +93,7 @@ defineExpose({ open })
           :key="group.department"
           class="board-switcher__group"
         >
-          <p class="mono-label">{{ group.department }}</p>
+          <p class="meta">{{ group.department }}</p>
           <RouterLink
             v-for="board in group.boards"
             :key="board.id"

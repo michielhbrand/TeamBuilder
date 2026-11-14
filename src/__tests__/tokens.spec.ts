@@ -89,3 +89,22 @@ describe.each(Object.entries(themes))('%s theme tokens', (_name, values) => {
     expect(contrast(warn, vars('--orbital-warn-soft'), surface)).toBeGreaterThanOrEqual(4.5)
   })
 })
+
+describe('type floor', () => {
+  it('no text is smaller than the floor', () => {
+    const offenders: string[] = []
+    for (const rule of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+      const body = rule[2] ?? ''
+      const size = body.match(/font-size:\s*([\d.]+)rem/)
+      if (!size) continue
+      const value = Number(size[1])
+      const monoUpper =
+        /font-family:[^;]*(IBM Plex Mono|--orbital-font-mono)/.test(body) &&
+        /text-transform:\s*uppercase/.test(body)
+      if (value < 0.6875 || (value < 0.75 && !monoUpper)) {
+        offenders.push(`${(rule[1] ?? '').trim().replace(/\s+/g, ' ')} { ${size[0]} }`)
+      }
+    }
+    expect(offenders).toEqual([])
+  })
+})

@@ -124,17 +124,17 @@ async function savePassword(): Promise<void> {
 
     <div class="stat-grid">
       <article class="stat-card">
-        <span class="mono-label">Session</span>
+        <span class="meta">Session</span>
         <strong class="stat-value">Active</strong>
         <span class="stat-meta">JWT held in Pinia memory</span>
       </article>
       <article class="stat-card">
-        <span class="mono-label">Provider</span>
+        <span class="meta">Provider</span>
         <strong class="stat-value">{{ provider }}</strong>
         <span class="stat-meta">Supabase Auth</span>
       </article>
       <article class="stat-card">
-        <span class="mono-label">Expires</span>
+        <span class="meta">Expires</span>
         <strong class="stat-value">{{ sessionExpiryShort }}</strong>
         <span class="stat-meta">Auto-refresh enabled</span>
       </article>
@@ -144,7 +144,7 @@ async function savePassword(): Promise<void> {
       <section class="data-panel" aria-labelledby="identity-title">
         <div class="data-panel-head">
           <div>
-            <p class="mono-label">Identity record</p>
+            <p class="meta">Identity record</p>
             <h2 id="identity-title" class="panel-title mt-1">Account details</h2>
           </div>
           <span class="status-badge">Supabase auth</span>
@@ -202,7 +202,7 @@ async function savePassword(): Promise<void> {
         <section class="data-panel" aria-labelledby="status-title">
           <div class="data-panel-head">
             <div>
-              <p class="mono-label">Connection</p>
+              <p class="meta">Connection</p>
               <h2 id="status-title" class="panel-title mt-1">Session status</h2>
             </div>
           </div>
@@ -247,7 +247,7 @@ async function savePassword(): Promise<void> {
       <section class="data-panel" aria-labelledby="profile-settings-title">
         <div class="data-panel-head">
           <div>
-            <p class="mono-label">Profile</p>
+            <p class="meta">Profile</p>
             <h2 id="profile-settings-title" class="panel-title mt-1">Full name</h2>
           </div>
           <span class="status-badge">Account</span>
@@ -278,7 +278,7 @@ async function savePassword(): Promise<void> {
       <section class="data-panel" aria-labelledby="password-settings-title">
         <div class="data-panel-head">
           <div>
-            <p class="mono-label">Security</p>
+            <p class="meta">Security</p>
             <h2 id="password-settings-title" class="panel-title mt-1">Reset password</h2>
           </div>
           <span class="status-badge">Supabase auth</span>

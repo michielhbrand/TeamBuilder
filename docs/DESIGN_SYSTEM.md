@@ -106,14 +106,19 @@ planets, glows, or gradients. Those belong to the other directions.
 | Stat value  | Manrope       | `1.55rem`                       | 700     | `-0.045em`   | 1.05        |
 | Body        | Manrope       | `1rem`                          | 400     | normal       | 1.7         |
 | Small body  | Manrope       | `0.75-0.88rem`                  | 400-600 | normal       | 1.5-1.6     |
-| Eyebrow     | IBM Plex Mono | `0.66rem`                       | 500     | `0.12em`     | 1.5         |
-| Meta label  | IBM Plex Mono | `0.62-0.68rem`                  | 500     | `0.08-0.1em` | 1.4-1.5     |
-| Field label | IBM Plex Mono | `0.68rem`                       | 500     | `0.09em`     | 1.4         |
+| Eyebrow     | IBM Plex Mono | `0.6875rem` (11px)              | 500     | `0.12em`     | 1.5         |
+| Data label  | IBM Plex Mono | `0.6875-0.75rem`                | 500     | `0.08-0.1em` | 1.4-1.5     |
+| Meta        | Manrope       | `0.75rem` (12px)                | 400-500 | normal       | 1.5         |
+| Field label | Manrope       | `0.75-0.8125rem`                | 500     | normal       | 1.4         |
 | Field value | Manrope       | `0.94rem`                       | 400     | normal       | 1.45        |
 
 Rules:
 
-- Eyebrows, labels, badges, and table-like metadata are uppercase.
+- Type floor: no text is smaller than `0.75rem` (12px); uppercase IBM Plex Mono is at least
+  `0.6875rem` (11px). `tokens.spec.ts` enforces this for `orbital.css`.
+- Mono is for data: dates, counts, IDs, badges, and eyebrows are uppercase mono. Descriptive
+  labels, card footers, and tab metadata use the sentence-case `.meta` utility instead of
+  `.mono-label`.
 - Body copy and button labels are sentence case; buttons are never uppercase.
 - Keep headings tight. Do not add letter-spacing to body copy.
 - Use at most one display-scale title per page.
