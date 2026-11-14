@@ -141,7 +141,7 @@ updates consistent.
 
 The hiring workspace is split by domain, and each store owns its own `error` state:
 
-- `src/stores/boards.ts` owns boards, columns, and the derived groups, summaries, and totals.
+- `src/stores/boards.ts` owns boards, stages (`board_columns`), and the derived groups, summaries, and totals.
 - `src/stores/applicants.ts` owns applicant lookup, applicant CRUD, moves, status changes,
   debounced autosave, and edit snapshots.
 - `src/stores/applicant-activity.ts` owns applicant events and notes plus their per-applicant
@@ -149,7 +149,8 @@ The hiring workspace is split by domain, and each store owns its own `error` sta
 - `src/stores/storage.ts` owns CV and job-spec uploads, removals, signed URLs, and blobs.
 - `src/stores/fit.ts` owns persisted CV-analysis state.
 - `src/stores/undo.ts` owns the single pending undo entry (message, action, and an 8 second
-  timer). A new entry replaces the current one; sign-out resets it.
+  timer). A new entry replaces the current one; sign-out resets it. `run()` never rejects: a
+  thrown undo action is caught and its message stored in the undo store's `error`.
 
 Components call the store for the area they are changing instead of calling Supabase
 directly. Because the errors are separate, a failed CV upload does not overwrite a board or
@@ -164,7 +165,7 @@ and typing stay responsive:
 
 - `moveCandidate` remembers the previous `stepId`, `status`, and `stepEnteredAt`, and
   `setCandidateStatus` remembers the previous `status`. If the API call fails, the store
-  restores the remembered values and sets its `error`, so the board never shows a column or
+  restores the remembered values and sets its `error`, so the board never shows a stage or
   outcome the database does not have.
 - `hireCandidate`, `rejectCandidate`, and `reopenCandidate` resolve `true` when the write
   succeeds. Hire and reject also push an undo entry (`"<name> hired"` / `"<name> rejected"`)

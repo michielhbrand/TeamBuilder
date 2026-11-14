@@ -102,7 +102,7 @@ npm run build
 - `src/lib/validation.ts` — shared email and phone validation helpers.
 - `src/lib/use-media-query.ts` — `useMediaQuery(query)` composable returning a reactive
   `matchMedia` result that removes its listener when the scope stops.
-- `src/stores/boards.ts` — persisted board and column state, derived groups/summaries/totals,
+- `src/stores/boards.ts` — persisted board and stage state, derived groups/summaries/totals,
   board actions, and the focus/visibility refresh used to keep the shared workspace current.
 - `src/stores/applicants.ts` — applicant lookup, applicant CRUD, moves, status changes,
   dirty-field debounced autosave, and edit snapshots.
@@ -110,8 +110,8 @@ npm run build
   state; derives the note author from the auth store's `actorName`.
 - `src/stores/storage.ts` — CV and job-spec uploads, removals, signed URLs, and blobs.
 - `src/stores/fit.ts` — persisted applicant CV-analysis state and actions.
-- `src/stores/undo.ts` — the single pending undo entry with an 8 second timer; reset on
-  sign-out.
+- `src/stores/undo.ts` — the single pending undo entry with an 8 second timer and an `error`
+  for an undo that throws; reset on sign-out.
 - `src/components/UndoToast.vue` — bottom-left status toast with an Undo action, mounted once
   in `AppShell.vue`.
 - `supabase/migrations/` — Postgres tables, RLS policies, indexes, and board RPC functions.
@@ -204,7 +204,7 @@ See `docs/ARCHITECTURE.md` for the auth lifecycle and deployment pipeline.
   `fit.ts`). Components read from the stores and call their actions instead of calling
   Supabase or the Edge Function directly. Each store owns its own `error` state so a failure
   in one area does not overwrite another.
-- Board and column mutations are pessimistic. Applicant moves, status changes, and the
+- Board and stage mutations are pessimistic. Applicant moves, status changes, and the
   debounced field autosave are optimistic: roll back the previous `stepId`/`status`/
   `stepEnteredAt` when a move or status write fails, and keep the not-saved flag set when an
   autosave fails. Autosave writes only profile fields that changed since the last successful
@@ -251,6 +251,11 @@ See `docs/ARCHITECTURE.md` for the auth lifecycle and deployment pipeline.
 - Text is at least `0.75rem`; uppercase IBM Plex Mono is at least `0.6875rem` and is reserved for
   data (dates, counts, IDs, badges, eyebrows). Use `.meta` for descriptive labels.
   `tokens.spec.ts` enforces the floor.
+- User-facing copy is en-US and follows the Terminology table in `docs/DESIGN_SYSTEM.md`
+  (Stage, Applicant, Boards/role, CV fit, Activity). Code identifiers such as `PipelineStep`,
+  `stepId`, and `candidates` keep their names. `copy-guard.spec.ts` rejects banned phrases.
+- The warning token is for warning alerts only. Never derive a color or label from time in
+  stage; cards show a neutral "N days in stage".
 - Use Vuetify 4 components and MDI icon names. Do not upgrade to a non-MIT UI major without
   reviewing its license.
 - Keep light and dark mode working. The app starts in the user's saved theme, or light mode
@@ -333,7 +338,7 @@ See `docs/ARCHITECTURE.md` for the auth lifecycle and deployment pipeline.
 - Board data uses `public.boards`, `public.board_columns`, `public.applicants`, and
   `public.applicant_fit_analyses`. Board
   names are unique within a department; applicant email and phone are optional and unique
-  per board only when filled. New applicants default to the `Applied` column. If you
+  per board only when filled. New applicants default to the `Applied` stage. If you
   add a table, add a migration under `supabase/migrations`, enable Row Level Security, write
   policies for the intended roles, explicitly grant table privileges to `authenticated`, and
   revoke them from `anon`. RLS does not replace table grants. Do not expose board data to
@@ -367,6 +372,8 @@ See `docs/ARCHITECTURE.md` for the auth lifecycle and deployment pipeline.
 - Do not change the deployment target, repo name assumptions, or base path without updating
   all related configuration and docs.
 - Do not force-push or rewrite shared history unless explicitly requested.
+- Do not use an edge fade or gradient to signal horizontal scroll; show a visible,
+  token-colored scrollbar instead.
 
 ## Documentation rule
 

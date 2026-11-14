@@ -7,6 +7,11 @@ it on 2026-11-04 from the five options in `design/ui-directions.html`. Orbital i
 canonical direction; the other four remain historical exploration and must not be mixed into
 new work.
 
+On 2026-11-14 the UX overhaul amended Orbital: a warning token pair (`--orbital-warn`,
+`--orbital-warn-soft`), input-line and signal-text tokens, a compact protected-page header with
+the display scale kept for auth pages, label-above fields, and the terminology below. The
+reviewed screen designs live in `design/review/` (open `design/review/index.html`).
+
 Read this file before adding or changing any UI. For auth, routing, build, or deployment
 changes, also read `AGENTS.md` and `docs/ARCHITECTURE.md`.
 
@@ -244,7 +249,9 @@ that prototype's palette, gradients, or Bricolage/Hanken fonts.
   department-grouped `BoardSwitcher` menu), meta chips for open positions, active applicants,
   and the deadline (`deadlineLabel`; danger with an alert icon only when overdue), and a
   **Job spec** text button that opens `JobSpecDialog`. Actions are a labelled **Add applicant**
-  primary and a **Board** menu (Edit board, Manage stages). The header wraps at `1024px`.
+  primary and a **Board** menu (Edit board, Manage stages); both are 48px. The secondary board
+  controls (Job spec, Show/Hide, Reopen) share one height: 36px, and 40px at `1024px` and below
+  or on touch devices. The header wraps at `1024px`.
 - Stage columns are a grid of `repeat(var(--columns), minmax(208px, 1fr))` panels with a 12px
   gap, so five stages fit in the 1180px content width. Wider boards scroll horizontally with a
   visible, token-colored scrollbar; never use an edge fade or gradient. Each column is a
@@ -357,7 +364,7 @@ class. Keep the rules attached to the field.
 
 ### Dialogs
 
-- Board create/edit, column management, and applicant creation use `v-dialog` with
+- Board create/edit, stage management, and applicant creation use `v-dialog` with
   `.orbital-dialog`: surface fill, line border, standard radius and shadow.
 - Structure each dialog with `.orbital-dialog__head`, `.orbital-dialog__body`, and
   `.orbital-dialog__actions`. Headers pair an eyebrow with a panel title and a close button;
@@ -365,7 +372,7 @@ class. Keep the rules attached to the field.
 - Use `.orbital-dialog__grid` for two-column field pairs; it collapses to one column at
   `720px`.
 - Edit-board dialogs place a destructive text button on the left of the actions. Deleting a
-  board opens `ConfirmDialog` because it also deletes its columns and applicants.
+  board opens `ConfirmDialog` because it also deletes its stages and applicants.
 - The board form uses a department combobox seeded from departments that already have
   boards, while still allowing a new department name. Deadlines are entered and displayed as
   `dd/mm/yyyy`, with a live readout of calendar and working days remaining.
@@ -436,7 +443,8 @@ class. Keep the rules attached to the field.
   check) for `saved`, and "Couldn't save · Retry" in danger for `failed`; Retry flushes the
   pending edit. It is a polite live region and is empty while `idle`.
 - Five tabs follow, in this order: **Overview**, **CV**, **Career**, **CV fit**, **Activity**.
-  Tabs use the display font, sentence case, an accent underline, and a hairline divider.
+  Tabs use the display font, sentence case, an accent underline, and a hairline divider. The tab
+  list is labelled "Applicant sections" and all five fit at 390px without scrolling.
 - **Overview** holds the profile fields two by two (Full name, Current role, Email (optional),
   Phone (optional); one column at `720px`) with a 16px gap, a compact CV card (file name and
   an **Open** button that opens the CV tab, or **Upload CV** when there is none), and
@@ -493,14 +501,15 @@ class. Keep the rules attached to the field.
   primary **Analyze CV** action.
 - Keep the result intentionally simple: an icon-only **Refresh** button above two lists under
   **Similarities** and **Gaps**. When the profile, CV, or job spec changed since the last
-  analysis, a warning alert says so and carries an inline outlined **Re-run** button. Do not add a model/timestamp header, score, gauge, verdict
+  analysis, a warning alert says so and carries an inline outlined **Re-run** button, which
+  replaces the Refresh button. Do not add a model/timestamp header, score, gauge, verdict
   pill, confidence label, or per-requirement detail.
 - Similarities use the signal marker and gaps use the danger marker. Color is never the only
   cue because the section labels carry the meaning.
 - Re-analysis always opens `FitConsentDialog` first. The dialog must explain what is sent,
   what is removed, that Kilo may log or train on free-tier requests, and that results are
   shared with the workspace. Use a warning-tonal alert for the privacy notice.
-- While analysis runs, show an indeterminate progress line or spinner with the current step
+- While analysis runs, show an indeterminate progress line or spinner with the current progress
   text. A failure stays in the tab and never hides the previous result.
 
 ### Brand, avatar, and status

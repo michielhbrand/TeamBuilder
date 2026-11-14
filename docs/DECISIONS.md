@@ -317,3 +317,80 @@ Dates use ISO 8601. Status values are proposed, accepted, superseded, or depreca
   rate limits. A failed call leaves the previous result intact. Every signed-in user sees the
   same result for an applicant. The app must keep the consent copy accurate, never expose
   `KILO_API_KEY`, and refuse any `KILO_MODEL` that is not free.
+
+## ADR-022: Retire display-scale titles on protected pages
+
+- **Date:** 2026-11-14
+- **Status:** Accepted
+- **Context:** Work screens used the `clamp(2.6rem, 5-6vw, 4.75rem)` display title, which pushed
+  the board pipeline and forms below the fold and competed with the data.
+- **Decision:** Protected pages use the shared `PageHeader` with a breadcrumb, a `2rem` title,
+  optional meta chips, and actions on the right. The display scale stays on the sign-in, forgot
+  password, and set-password pages only.
+- **Consequences:** The Overview dashboard inherits `.page-title` and the smaller scale without
+  edits to its own files. New protected pages must use `PageHeader` rather than a display title.
+
+## ADR-023: Undo instead of confirm for Hire and Reject
+
+- **Date:** 2026-11-14
+- **Status:** Accepted
+- **Context:** Hire and Reject are frequent, reversible status changes. A confirm dialog slows
+  every decision and trains people to click through it, while no protection at all made
+  misclicks costly.
+- **Decision:** Hire and Reject apply optimistically and push one entry to the `undo` store,
+  shown by `UndoToast` for 8 seconds. Running Undo reopens the applicant only if the status still
+  matches; a failing undo is recorded in the undo store's `error` instead of an unhandled
+  rejection. Deleting a board, stage, or applicant keeps its confirm dialog.
+- **Consequences:** Only the most recent decision can be undone; a new push replaces the old
+  entry. Reopen from the Closed panel remains the long-term way back.
+
+## ADR-024: A warning token with no time-in-stage colour
+
+- **Date:** 2026-11-14
+- **Status:** Accepted
+- **Context:** Warning alerts borrowed the danger or accent hue, and earlier concepts tinted
+  cards by days in stage, which implied a target the product does not define.
+- **Decision:** Add `--orbital-warn` and `--orbital-warn-soft` (light and dark values) and map
+  Vuetify `warning` to them. Use them only for warning alerts. No colour or label is derived
+  from time in stage; cards show a neutral "N days in stage".
+- **Consequences:** The Orbital palette gains one hue, documented in `docs/DESIGN_SYSTEM.md`. Any
+  future time-in-stage signal needs a product decision and per-stage targets first.
+
+## ADR-025: Forgot password through the existing recovery flow
+
+- **Date:** 2026-11-14
+- **Status:** Accepted
+- **Context:** Signed-out users who forgot their password had to ask an administrator to send a
+  recovery link.
+- **Decision:** Add `/forgot-password`, linked from the sign-in password label. It calls
+  Supabase `resetPasswordForEmail` through the auth store with a redirect to `/set-password`, and
+  always shows the same confirmation so it does not reveal whether an account exists. Sign-ups
+  stay disabled.
+- **Consequences:** The cloud Site URL and redirect URLs must keep allowing `/set-password`.
+  Recovery emails depend on the project's SMTP limits.
+
+## ADR-026: en-US spelling and a fixed product glossary
+
+- **Date:** 2026-11-14
+- **Status:** Accepted
+- **Context:** The UI mixed British and American spelling, had a misspelled tab name, and used several
+  words for the same thing (step, column, stage; candidate, applicant; Events, Activity).
+- **Decision:** User-facing copy is en-US and follows the Terminology table in
+  `docs/DESIGN_SYSTEM.md`: Stage, Applicant, Boards (nav and page) and role (prose), CV fit,
+  Activity. Code identifiers such as `PipelineStep`, `stepId`, and `candidates` are not renamed.
+  `src/__tests__/copy-guard.spec.ts` fails on banned phrases in components and views.
+- **Consequences:** Identifiers and copy differ in places, which is accepted to avoid a large
+  rename. The Overview dashboard is excluded from the guard until it is rewritten.
+
+## ADR-027: Label-above fields by restyling the Vuetify label
+
+- **Date:** 2026-11-14
+- **Status:** Accepted
+- **Context:** Floating labels hid placeholders, shrank into tiny uppercase text, and made long
+  labels such as "Phone number (optional)" hard to read.
+- **Decision:** Keep Vuetify fields and restyle `.orbital-field .v-label` in `orbital.css` as a
+  static sentence-case label above the control (Manrope 0.8125rem / 600), with 44px controls, a
+  16px gap between fields, no reserved message space, and visible muted placeholders. A wrapper
+  component was the fallback and was not needed.
+- **Consequences:** The CSS depends on Vuetify 4 field DOM; a Vuetify upgrade must re-check the
+  label rule in light and dark at desktop and 390px widths.

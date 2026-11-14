@@ -387,12 +387,15 @@ src/
   stores/applicant-activity.ts Applicant events and notes with loading state
   stores/storage.ts         CV and job-spec upload, removal, and preview actions
   stores/fit.ts             Persisted CV analysis state and actions
+  stores/undo.ts            Single pending undo entry for Hire and Reject
   types/pipeline.ts         Board, stage, applicant, and summary types
   types/fit.ts              CV analysis result and row types
   router/index.ts           Routes and authentication guard
   components/AppShell.vue   Top-bar navigation for protected pages
   components/AuthShell.vue  Shared Orbital auth layout
   components/BrandMark.vue  TeamBuilder brand lockup
+  components/PageHeader.vue Compact protected-page header: breadcrumb, title, meta, actions
+  components/UndoToast.vue  Undo toast for Hire and Reject
   components/BoardList.vue  Searchable boards grouped by department
   components/BoardFormDialog.vue Create/edit board fields
   components/ColumnDialog.vue Manage stages: drag/keyboard reorder, counts, confirmed delete
@@ -407,7 +410,7 @@ src/
   components/FitConsentDialog.vue Per-analysis consent for Kilo
   components/FullNameDialog.vue Blocking full-name capture for signed-in users
   components/ConfirmDialog.vue Shared destructive-action confirmation
-  components/PipelineBar.vue Per-step progress bar
+  components/PipelineBar.vue Per-stage progress bar
   components/ThemeToggle.vue Light/dark mode toggle
   views/LoginView.vue       Login form
   views/ForgotPasswordView.vue  Password reset request
