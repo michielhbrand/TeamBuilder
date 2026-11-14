@@ -16,7 +16,7 @@ const orbitalLight: ThemeDefinition = {
     error: '#B42318',
     info: '#1D4ED8',
     success: '#0E8F7E',
-    warning: '#B45309',
+    warning: '#9A4A06',
     'on-background': '#0A1B2E',
     'on-surface': '#0A1B2E',
     'on-primary': '#FFFFFF',

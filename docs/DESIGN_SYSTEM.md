@@ -69,6 +69,10 @@ Role names are stable. Use the CSS variable rather than the hex value in compone
 | Accent soft | `--orbital-accent-soft` | `#E6ECFF` | `rgba(96,165,250,0.16)`  | Focus rings, selected and badge fills   |
 | Signal      | `--orbital-signal`      | `#0E8F7E` | `#2DD4BF`                | Success, active session, healthy status |
 | Signal soft | `--orbital-signal-soft` | `#E0F5F1` | `rgba(45,212,191,0.13)`  | Signal badge fills and status halo      |
+| Signal text | `--orbital-signal-text` | `#0A7565` | `#2DD4BF`                | Signal-colored text, icons, badge text  |
+| Input line  | `--orbital-line-input`  | `#7B8BA0` | `#5B7390`                | Input borders (at least 3:1 on surface) |
+| Warn        | `--orbital-warn`        | `#9A4A06` | `#FBBF24`                | Warning alerts only                     |
+| Warn soft   | `--orbital-warn-soft`   | `#FEF3E2` | `rgba(251,191,36,0.12)`  | Warning alert fills                     |
 | Danger      | `--orbital-danger`      | `#B42318` | `#FDA4AF`                | Errors and destructive text             |
 | Danger soft | `--orbital-danger-soft` | `#FEECE9` | `rgba(253,164,175,0.12)` | Error fills                             |
 | Shadow      | `--orbital-shadow`      | soft navy | deep black               | Auth and app panels                     |
@@ -86,7 +90,7 @@ Exact shadows:
 --orbital-shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.18);
 ```
 
-Do not introduce purple, teal-mint, orange, serif display type, grid-paper backgrounds,
+Do not introduce purple, teal-mint, orange (except `--orbital-warn`, for warning alerts only), serif display type, grid-paper backgrounds,
 planets, glows, or gradients. Those belong to the other directions.
 
 ## Typography
