@@ -369,9 +369,14 @@ class. Keep the rules attached to the field.
 - The board form uses a department combobox seeded from departments that already have
   boards, while still allowing a new department name. Deadlines are entered and displayed as
   `dd/mm/yyyy`, with a live readout of calendar and working days remaining.
-- `ColumnDialog` uses `.column-manage__row` for ordered name fields with move up, move down,
-  and delete actions. Column names save automatically, and the first column cannot be moved
-  or deleted.
+- `ColumnDialog` ("Manage stages", subtitle "Changes save as you type." with a brief "Saved" tick
+  that fades in without shifting layout) lists `.column-manage__row` rows: drag handle, name
+  field, "N applicants", and a delete button that shows on row hover or focus (always visible at
+  max-width 1024px). The first row shows a lock and a "Default" chip with a tooltip instead of a
+  handle and delete. Rows reorder by HTML5 drag on the handle or by keyboard (focus the handle,
+  Space to pick up, Up/Down to move, Space to drop) with an `aria-live` announcement; nothing
+  moves above row 2. Delete opens `ConfirmDialog` ("N applicants will move to <first stage>.").
+  "Add stage" uses a dashed field.
 - `JobSpecDialog` is a single adaptive dialog. Without a PDF it shows the `.job-spec-empty`
   upload state. With a PDF it expands to a document preview with open-in-new-tab, print, and
   remove actions; remove opens `ConfirmDialog`. The preview reuses the CV toolbar and iframe

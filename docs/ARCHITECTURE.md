@@ -241,7 +241,7 @@ partial unique indexes so multiple applicants can leave them blank. A trigger ke
 `create_board`, `add_board_column`, `reorder_board_columns`, and `delete_board_column` make
 multi-row changes atomic.
 `delete_board_column` moves the stage's applicants to the first stage, and the first stage
-cannot be deleted. Deleting a board cascades to its columns and applicants, and deleting an
+cannot be deleted. The Manage stages dialog confirms deletes with `ConfirmDialog` and persists reorders pessimistically through `reorder_board_columns`. Deleting a board cascades to its columns and applicants, and deleting an
 applicant cascades to its events, notes, and fit analysis.
 
 Applicant CVs use the private Supabase Storage bucket `cvs`. One PDF per applicant is stored

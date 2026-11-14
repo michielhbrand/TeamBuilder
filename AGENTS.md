@@ -128,7 +128,9 @@ npm run build
 - `src/components/BrandMark.vue` — the only application brand lockup.
 - `src/components/BoardList.vue` — searchable boards grouped by department.
 - `src/components/BoardFormDialog.vue` — create and edit board fields.
-- `src/components/ColumnDialog.vue` — add, rename, reorder, and delete pipeline stages.
+- `src/components/ColumnDialog.vue` — "Manage stages": add, rename (debounced autosave with a
+  "Saved" tick), reorder by drag handle or keyboard, and delete (via `ConfirmDialog`, showing
+  applicant counts) pipeline stages.
 - `src/components/ApplicantFormDialog.vue` — create an applicant on a board, with optional
   PDF CV autofill and CV attachment.
 - `src/components/BoardSwitcher.vue` — "Switch role" button (with a `/` hint) beside the board
@@ -226,8 +228,9 @@ See `docs/ARCHITECTURE.md` for the auth lifecycle and deployment pipeline.
   role only; do not grant board access to `anon`.
 - Deleting a board cascades to its stages, applicants, events, notes, and fit analyses.
   Deleting an applicant is permanent and also deletes its events, notes, and fit analysis.
-  Deleting a column reassigns its applicants to the first stage, which cannot be deleted or
-  moved.
+  Deleting a stage reassigns its applicants to the first stage, which cannot be deleted or
+  moved. The UI confirms a stage delete with `ConfirmDialog` and shows how many applicants will
+  move; stage reorder is pessimistic and never uses `window.confirm`.
 - Reversible decisions (hire, reject) apply immediately and offer Undo through
   `useUndoStore().push`; use `ConfirmDialog` only for permanent actions such as deletes.
   `hireCandidate`, `rejectCandidate`, and `reopenCandidate` return `Promise<boolean>`.

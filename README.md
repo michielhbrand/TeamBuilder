@@ -395,7 +395,7 @@ src/
   components/BrandMark.vue  TeamBuilder brand lockup
   components/BoardList.vue  Searchable boards grouped by department
   components/BoardFormDialog.vue Create/edit board fields
-  components/ColumnDialog.vue Add, rename, reorder, and delete pipeline stages
+  components/ColumnDialog.vue Manage stages: drag/keyboard reorder, counts, confirmed delete
   components/ApplicantFormDialog.vue Create an applicant on a board
   components/BoardColumn.vue One pipeline stage column
   components/CandidateCard.vue Applicant card with tools tray and overflow menu
