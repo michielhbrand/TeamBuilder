@@ -16,6 +16,9 @@ interface CandidateContext {
 export type EditableCandidateField =
   'name' | 'email' | 'phone' | 'currentRole' | 'education' | 'experience'
 
+type SavableCandidateField = EditableCandidateField | 'favorite'
+export type PendingProfileValues = Partial<Pick<Candidate, SavableCandidateField>>
+
 type ProfileSnapshot = Pick<
   Candidate,
   | 'name'
@@ -37,6 +40,7 @@ export const useApplicantsStore = defineStore('applicants', () => {
   const unsavedCandidates = ref<Record<string, boolean>>({})
   const saveTimers = new Map<string, ReturnType<typeof setTimeout>>()
   const editSnapshots = new Map<string, ProfileSnapshot>()
+  const dirtyFields = new Map<string, Set<SavableCandidateField>>()
 
   function candidateById(id: string): Candidate | undefined {
     return candidateContext(id)?.candidate
@@ -101,6 +105,25 @@ export const useApplicantsStore = defineStore('applicants', () => {
     }
   }
 
+  function markDirty(candidateId: string, field: SavableCandidateField): void {
+    const fields = dirtyFields.get(candidateId) ?? new Set<SavableCandidateField>()
+    fields.add(field)
+    dirtyFields.set(candidateId, fields)
+  }
+
+  function pendingProfileValues(candidateId: string): PendingProfileValues | undefined {
+    const fields = dirtyFields.get(candidateId)
+    const candidate = candidateById(candidateId)
+
+    if (!fields?.size || !candidate) {
+      return undefined
+    }
+
+    return Object.fromEntries(
+      [...fields].map((field) => [field, candidate[field]]),
+    ) as PendingProfileValues
+  }
+
   async function createApplicant(
     boardId: string,
     input: ApplicantInput,
@@ -159,6 +182,7 @@ export const useApplicantsStore = defineStore('applicants', () => {
         (candidate) => candidate.id !== candidateId,
       )
       editSnapshots.delete(candidateId)
+      dirtyFields.delete(candidateId)
       setUnsaved(candidateId, false)
       useApplicantActivityStore().forgetCandidate(candidateId)
 
@@ -182,6 +206,7 @@ export const useApplicantsStore = defineStore('applicants', () => {
 
     if (context) {
       context.candidate[field] = value
+      markDirty(candidateId, field)
       scheduleSave(candidateId)
     }
   }
@@ -191,6 +216,7 @@ export const useApplicantsStore = defineStore('applicants', () => {
 
     if (context) {
       context.candidate.favorite = !context.candidate.favorite
+      markDirty(candidateId, 'favorite')
       scheduleSave(candidateId)
     }
   }
@@ -308,25 +334,45 @@ export const useApplicantsStore = defineStore('applicants', () => {
 
   async function persistCandidate(candidateId: string): Promise<boolean> {
     const candidate = candidateById(candidateId)
+    const fields = dirtyFields.get(candidateId)
 
     if (!candidate) {
       return false
     }
 
+    if (!fields?.size) {
+      error.value = null
+      return true
+    }
+
+    const savedFields = new Set(fields)
+    const patch = Object.fromEntries(
+      [...savedFields].map((field) => [field, candidate[field]]),
+    ) as PendingProfileValues
+
     try {
-      await api.updateApplicant(candidateId, {
-        name: candidate.name,
-        email: candidate.email,
-        phone: candidate.phone,
-        currentRole: candidate.currentRole,
-        education: candidate.education,
-        experience: candidate.experience,
-        favorite: candidate.favorite,
-        status: candidate.status,
-        columnId: candidate.stepId,
-      })
+      await api.updateApplicant(candidateId, patch)
+      const remaining = dirtyFields.get(candidateId)
+
+      if (remaining) {
+        savedFields.forEach((field) => {
+          if (candidate[field] === patch[field]) {
+            remaining.delete(field)
+          }
+        })
+
+        if (!remaining.size) {
+          dirtyFields.delete(candidateId)
+        }
+      }
+
       setUnsaved(candidateId, false)
       error.value = null
+
+      if (dirtyFields.has(candidateId)) {
+        scheduleSave(candidateId)
+      }
+
       return true
     } catch (caught) {
       setUnsaved(candidateId, true)
@@ -352,6 +398,7 @@ export const useApplicantsStore = defineStore('applicants', () => {
   function forgetCandidate(candidateId: string): void {
     clearSaveTimer(candidateId)
     editSnapshots.delete(candidateId)
+    dirtyFields.delete(candidateId)
     setUnsaved(candidateId, false)
   }
 
@@ -366,6 +413,7 @@ export const useApplicantsStore = defineStore('applicants', () => {
 
     saveTimers.clear()
     editSnapshots.clear()
+    dirtyFields.clear()
     unsavedCandidates.value = {}
     error.value = null
   }
@@ -374,6 +422,7 @@ export const useApplicantsStore = defineStore('applicants', () => {
     error,
     candidateById,
     hasUnsavedChanges,
+    pendingProfileValues,
     createApplicant,
     deleteApplicant,
     updateCandidateField,

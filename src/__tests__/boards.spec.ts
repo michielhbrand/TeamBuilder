@@ -93,6 +93,54 @@ describe('boards store', () => {
     expect(store.boards).toHaveLength(1)
   })
 
+  it('refreshes remote changes without dropping unsaved profile edits', async () => {
+    const store = await initializedStore()
+    const applicants = useApplicantsStore()
+    const candidate = applicants.candidateById('c1')
+
+    expect(candidate).toBeDefined()
+    if (!candidate) return
+
+    applicants.updateCandidateField(candidate.id, 'email', 'draft@example.com')
+    mocks.fetchBoards.mockResolvedValue([
+      makeBoard({
+        name: 'Senior Frontend Engineer',
+        candidates: [
+          makeCandidate({
+            name: 'Amara Okafor (remote)',
+            email: 'remote@example.com',
+            stepId: 's2',
+            status: 'hired',
+          }),
+        ],
+      }),
+    ])
+
+    await store.refresh()
+
+    expect(store.boards[0]?.name).toBe('Senior Frontend Engineer')
+    expect(candidate.name).toBe('Amara Okafor (remote)')
+    expect(candidate.stepId).toBe('s2')
+    expect(candidate.status).toBe('hired')
+    expect(candidate.email).toBe('draft@example.com')
+  })
+
+  it('adds and removes applicants when refreshing from another workspace change', async () => {
+    const store = await initializedStore()
+    const applicants = useApplicantsStore()
+
+    mocks.fetchBoards.mockResolvedValue([
+      makeBoard({
+        candidates: [makeCandidate({ id: 'c2', name: 'Noor Haddad' })],
+      }),
+    ])
+
+    await store.refresh()
+
+    expect(applicants.candidateById('c1')).toBeUndefined()
+    expect(applicants.candidateById('c2')?.name).toBe('Noor Haddad')
+  })
+
   it('moves applicants to the first column when a later column is deleted', async () => {
     const store = await initializedStore()
     const board = store.boards[0]

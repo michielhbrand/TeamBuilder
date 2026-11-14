@@ -146,14 +146,35 @@ describe('applicants store', () => {
 
     await applicants.flushCandidate(candidate.id)
 
-    expect(mocks.updateApplicant).toHaveBeenCalledExactlyOnceWith(
-      candidate.id,
-      expect.objectContaining({
-        email: 'new.address@example.com',
-        currentRole: 'Staff Engineer',
-        favorite: true,
-      }),
-    )
+    const [id, patch] = mocks.updateApplicant.mock.calls[0] as [string, Record<string, unknown>]
+
+    expect(id).toBe(candidate.id)
+    expect(patch).toEqual({
+      email: 'new.address@example.com',
+      currentRole: 'Staff Engineer',
+      favorite: true,
+    })
+    expect(patch).not.toHaveProperty('status')
+    expect(patch).not.toHaveProperty('columnId')
+  })
+
+  it('saves only fields changed since the last successful save', async () => {
+    const { applicants } = await initializedStores()
+    const candidate = applicants.candidateById('c1')
+
+    expect(candidate).toBeDefined()
+    if (!candidate) return
+
+    applicants.updateCandidateField(candidate.id, 'email', 'first@example.com')
+    await applicants.flushCandidate(candidate.id)
+
+    applicants.updateCandidateField(candidate.id, 'phone', '+1 555 010 9999')
+    await applicants.flushCandidate(candidate.id)
+
+    expect(mocks.updateApplicant).toHaveBeenCalledTimes(2)
+    expect(mocks.updateApplicant).toHaveBeenNthCalledWith(2, candidate.id, {
+      phone: '+1 555 010 9999',
+    })
   })
 
   it('records one edit event per profile session through the narrow RPC', async () => {

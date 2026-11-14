@@ -11,6 +11,7 @@ import type { Board, BoardInput, BoardSummary, PipelineStep } from '@/types/pipe
 export const useBoardsStore = defineStore('boards', () => {
   const boards = ref<Board[]>([])
   const loading = ref(false)
+  const refreshing = ref(false)
   const initialized = ref(false)
   const error = ref<string | null>(null)
 
@@ -47,6 +48,68 @@ export const useBoardsStore = defineStore('boards', () => {
       error.value = errorMessage(caught)
     } finally {
       loading.value = false
+    }
+  }
+
+  function applyRemoteBoards(remote: Board[]): void {
+    const applicants = useApplicantsStore()
+    const next: Board[] = []
+
+    for (const remoteBoard of remote) {
+      const local = boardById(remoteBoard.id)
+
+      if (!local) {
+        next.push(remoteBoard)
+        continue
+      }
+
+      local.name = remoteBoard.name
+      local.department = remoteBoard.department
+      local.openPositions = remoteBoard.openPositions
+      local.deadline = remoteBoard.deadline
+      local.jobSpecPath = remoteBoard.jobSpecPath
+      local.jobSpecName = remoteBoard.jobSpecName
+      local.steps = remoteBoard.steps
+
+      const existing = new Map(local.candidates.map((candidate) => [candidate.id, candidate]))
+      local.candidates = remoteBoard.candidates.map((remoteCandidate) => {
+        const pending = applicants.pendingProfileValues(remoteCandidate.id)
+        const candidate = existing.get(remoteCandidate.id)
+
+        if (!candidate) {
+          return pending ? { ...remoteCandidate, ...pending } : remoteCandidate
+        }
+
+        Object.assign(candidate, remoteCandidate)
+
+        if (pending) {
+          Object.assign(candidate, pending)
+        }
+
+        return candidate
+      })
+
+      next.push(local)
+    }
+
+    boards.value = next
+  }
+
+  async function refresh(): Promise<void> {
+    if (!initialized.value || refreshing.value) {
+      return
+    }
+
+    refreshing.value = true
+
+    try {
+      const remote = await api.fetchBoards()
+      applyRemoteBoards(remote)
+      error.value = null
+    } catch (caught) {
+      error.value = errorMessage(caught)
+    } finally {
+      refreshing.value = false
     }
   }
 
@@ -213,12 +276,14 @@ export const useBoardsStore = defineStore('boards', () => {
     boards.value = []
     initialized.value = false
     loading.value = false
+    refreshing.value = false
     error.value = null
   }
 
   return {
     boards,
     loading,
+    refreshing,
     initialized,
     error,
     groups,
@@ -229,6 +294,7 @@ export const useBoardsStore = defineStore('boards', () => {
     boardById,
     summaryById,
     initialize,
+    refresh,
     createBoard,
     updateBoard,
     deleteBoard,

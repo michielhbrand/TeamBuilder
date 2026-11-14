@@ -140,10 +140,22 @@ and typing stay responsive:
   `setCandidateStatus` remembers the previous `status`. If the API call fails, the store
   restores the remembered values and sets its `error`, so the board never shows a column or
   outcome the database does not have.
+- Autosave tracks the profile fields that changed since the last successful save and writes
+  only those fields. Profile saves never include `status` or `column_id`, so editing a name,
+  contact detail, role, education, experience, or favourite cannot move an applicant or
+  change their outcome. A field that changes while a save is in flight stays dirty and is
+  written by the next debounced save.
 - A failed autosave keeps the user's text instead of reverting it mid-edit.
   `persistCandidate` marks the applicant as not saved (`hasUnsavedChanges`), the applicant
   drawer shows a non-blocking "Changes not saved" alert with a Retry action, and the next
   successful save clears the flag.
+
+Because every signed-in user shares the workspace, `AppShell` re-fetches boards when the
+window regains focus and when the tab becomes visible again. `boards.refresh()` merges the
+remote result into the existing board and applicant objects, removes boards and applicants
+that no longer exist, and reapplies the applicant store's dirty profile fields so a refresh
+never discards text that is still being edited. The router guard still performs the initial
+`initialize()` load; refresh does not replace it.
 
 Components render the store `error` values; they do not roll back or retry Supabase writes on
 their own.
@@ -285,13 +297,15 @@ sharing row types, select fragments, and domain mappers through `src/lib/api-sha
 - `boards`, `loading`, `initialized`, and `error`.
 - derived `groups`, `orderedBoards`, `summaries`, `totals`, and `needsAttention` (boards past
   their deadline).
-- `initialize`, `createBoard`, `updateBoard`, `deleteBoard`, `addColumn`, `renameColumn`,
-  `reorderColumns`, `deleteColumn`, and `reset`.
+- `initialize`, `refresh`, `createBoard`, `updateBoard`, `deleteBoard`, `addColumn`,
+  `renameColumn`, `reorderColumns`, `deleteColumn`, and `reset`.
 
 `src/stores/applicants.ts` owns candidate behavior:
 
 - `candidateById` and its own `error`.
 - `createApplicant`, `deleteApplicant`, `updateCandidateField`, and `toggleFavorite`.
+- `pendingProfileValues` exposes the dirty profile fields that `boards.refresh()` must keep
+  when it merges remote data.
 - `advanceCandidate`, `moveCandidate`, `hireCandidate`, `rejectCandidate`,
   `reopenCandidate`, `flushCandidate`, and `reset`.
 - `beginCandidateEdit`, `forgetCandidate`, and `forgetCandidates` for autosave timers and

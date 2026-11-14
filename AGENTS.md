@@ -96,9 +96,9 @@ npm run build
   grouping, and dashboard candidate watch entries.
 - `src/lib/validation.ts` — shared email and phone validation helpers.
 - `src/stores/boards.ts` — persisted board and column state, derived groups/summaries/totals,
-  and board actions.
+  board actions, and the focus/visibility refresh used to keep the shared workspace current.
 - `src/stores/applicants.ts` — candidate lookup, applicant CRUD, moves, status changes,
-  debounced autosave, and edit snapshots.
+  dirty-field debounced autosave, and edit snapshots.
 - `src/stores/applicant-activity.ts` — applicant events and notes with per-applicant loading
   state.
 - `src/stores/storage.ts` — CV and job-spec uploads, removals, signed URLs, and blobs.
@@ -174,7 +174,11 @@ See `docs/ARCHITECTURE.md` for the auth lifecycle and deployment pipeline.
 - Board and column mutations are pessimistic. Applicant moves, status changes, and the
   debounced field autosave are optimistic: roll back the previous `stepId`/`status`/
   `stepEnteredAt` when a move or status write fails, and keep the not-saved flag set when an
-  autosave fails.
+  autosave fails. Autosave writes only profile fields that changed since the last successful
+  save; it must never include `status` or `column_id`.
+- The shared workspace refreshes on window focus and when the tab becomes visible. A refresh
+  merges remote boards and applicants in place and preserves dirty local profile fields, so
+  another user's move or edit appears without a full page reload.
 - Keep Supabase queries and row/domain mapping in the split API modules under `src/lib/`
   (`boards-api.ts`, `applicants-api.ts`, `activity-api.ts`, `storage-api.ts`, and
   `fit-api.ts`), sharing row mappers through `api-shared.ts`. Board data is persisted in the

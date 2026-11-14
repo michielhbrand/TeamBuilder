@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onBeforeUnmount, onMounted } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import BrandMark from '@/components/BrandMark.vue'
 import FullNameDialog from '@/components/FullNameDialog.vue'
@@ -30,6 +30,16 @@ const initials = computed(() => {
   return `${first.charAt(0)}${second.charAt(0)}`.toUpperCase()
 })
 
+function refreshWorkspace(): void {
+  void boards.refresh()
+}
+
+function onVisibilityChange(): void {
+  if (document.visibilityState === 'visible') {
+    refreshWorkspace()
+  }
+}
+
 async function signOut(): Promise<void> {
   await auth.signOut()
   boards.reset()
@@ -39,6 +49,16 @@ async function signOut(): Promise<void> {
   fit.reset()
   await router.replace('/')
 }
+
+onMounted(() => {
+  window.addEventListener('focus', refreshWorkspace)
+  document.addEventListener('visibilitychange', onVisibilityChange)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('focus', refreshWorkspace)
+  document.removeEventListener('visibilitychange', onVisibilityChange)
+})
 </script>
 
 <template>
