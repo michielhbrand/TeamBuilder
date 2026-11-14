@@ -297,6 +297,33 @@ describe('auth store', () => {
     expect(mocks.signOut).toHaveBeenCalledOnce()
   })
 
+  it('clearError drops a stale error', async () => {
+    mocks.signInWithPassword.mockResolvedValue({
+      data: { session: null },
+      error: new Error('Invalid login credentials'),
+    })
+    const auth = useAuthStore()
+    await auth.signIn('a@b.co', 'x')
+    expect(auth.error).toBe('Invalid email or password.')
+
+    auth.clearError()
+
+    expect(auth.error).toBeNull()
+  })
+
+  it('requestPasswordReset clears a prior error before validating', async () => {
+    const auth = useAuthStore()
+    auth.error = 'Invalid email or password.'
+
+    await auth.requestPasswordReset('bad')
+
+    expect(auth.error).toBe('Enter a valid email address.')
+    auth.error = 'old'
+    mocks.resetPasswordForEmail.mockResolvedValue({ data: {}, error: null })
+    await auth.requestPasswordReset('a@b.co')
+    expect(auth.error).toBeNull()
+  })
+
   it('requestPasswordReset calls resetPasswordForEmail with a redirect to the app root', async () => {
     mocks.resetPasswordForEmail.mockResolvedValue({ data: {}, error: null })
     const auth = useAuthStore()

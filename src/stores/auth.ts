@@ -155,8 +155,14 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  function clearError(): void {
+    error.value = null
+  }
+
   async function requestPasswordReset(email: string): Promise<boolean> {
     const trimmed = email.trim()
+
+    error.value = null
 
     if (!isValidEmail(trimmed)) {
       error.value = 'Enter a valid email address.'
@@ -308,6 +314,7 @@ export const useAuthStore = defineStore('auth', () => {
     actorName,
     initialize,
     signIn,
+    clearError,
     requestPasswordReset,
     verifyLink,
     setPassword,

@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import AuthShell from '@/components/AuthShell.vue'
 import { useAuthStore } from '@/stores/auth'
 
 const auth = useAuthStore()
 const router = useRouter()
+
+onMounted(() => auth.clearError())
 
 const password = ref('')
 const confirmation = ref('')

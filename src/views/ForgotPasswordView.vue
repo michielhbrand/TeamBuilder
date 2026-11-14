@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import AuthShell from '@/components/AuthShell.vue'
 import { isValidEmail } from '@/lib/validation'
 import { useAuthStore } from '@/stores/auth'
@@ -52,6 +52,7 @@ async function submit(): Promise<void> {
   await send()
 }
 
+onMounted(() => auth.clearError())
 onBeforeUnmount(() => clearInterval(timer))
 </script>
 

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AuthShell from '@/components/AuthShell.vue'
 import { isValidEmail } from '@/lib/validation'
@@ -8,6 +8,8 @@ import { useAuthStore } from '@/stores/auth'
 const auth = useAuthStore()
 const route = useRoute()
 const router = useRouter()
+
+onMounted(() => auth.clearError())
 
 const email = ref('')
 const password = ref('')
