@@ -27,22 +27,24 @@ defineProps<{
         <h1 id="auth-title" class="display-title">{{ title }}</h1>
         <p class="lede">{{ subtitle }}</p>
 
-        <div class="intro-readout" aria-label="Authentication details">
-          <div class="readout-cell">
-            <span class="meta">Auth</span>
-            <strong>Supabase</strong>
-            <span>Publishable client</span>
-          </div>
-          <div class="readout-cell">
-            <span class="meta">Session</span>
-            <strong>In-memory</strong>
-            <span>Pinia, auto-refreshed</span>
-          </div>
-          <div class="readout-cell">
-            <span class="meta">Access</span>
-            <strong>Invite only</strong>
-            <span>Administrator issued</span>
-          </div>
+        <div class="intro-readout" aria-label="About TeamBuilder">
+          <slot name="intro-cells">
+            <div class="readout-cell">
+              <v-icon icon="mdi-view-column-outline" size="20" />
+              <strong>One board per role</strong>
+              <span>Every stage in one place</span>
+            </div>
+            <div class="readout-cell">
+              <v-icon icon="mdi-account-group-outline" size="20" />
+              <strong>Shared with your team</strong>
+              <span>Moves and notes update for everyone</span>
+            </div>
+            <div class="readout-cell">
+              <v-icon icon="mdi-shield-lock-outline" size="20" />
+              <strong>Invitation only</strong>
+              <span>Accounts are issued by your admin</span>
+            </div>
+          </slot>
         </div>
       </section>
 

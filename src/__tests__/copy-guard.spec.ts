@@ -43,12 +43,6 @@ const banned = [
   '>Events<',
 ]
 
-// Strings owned by later tasks; remove each entry in the task that rewrites it.
-const PENDING: Record<string, string[]> = {
-  // Task 10 (auth shell readout)
-  'components/AuthShell.vue': ['Pinia'],
-}
-
 function vueFiles(dir: string): string[] {
   return readdirSync(dir).flatMap((name) => {
     const full = join(dir, name)
@@ -62,12 +56,11 @@ describe('copy guard', () => {
     const hits: string[] = []
     for (const file of vueFiles(srcDir)) {
       const rel = relative(srcDir, file)
-      const pending = PENDING[rel] ?? []
       readFileSync(file, 'utf8')
         .split('\n')
         .forEach((line, index) => {
           for (const phrase of banned) {
-            if (line.includes(phrase) && !pending.includes(phrase)) {
+            if (line.includes(phrase)) {
               hits.push(`${rel}:${index + 1} "${phrase}"`)
             }
           }

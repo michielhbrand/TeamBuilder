@@ -24,7 +24,7 @@ fit analyses are stored in Supabase Postgres and loaded through Pinia.
 
 ## What it demonstrates
 
-- A login screen backed by Supabase Auth
+- A login screen backed by Supabase Auth, with a forgot-password email flow
 - Admin invitations that let users choose their own password
 - In-memory session handling in Pinia with automatic token refresh
 - A router guard that protects the hiring portal
@@ -401,6 +401,7 @@ src/
   components/PipelineBar.vue Per-step progress bar
   components/ThemeToggle.vue Light/dark mode toggle
   views/LoginView.vue       Login form
+  views/ForgotPasswordView.vue  Password reset request
   views/SetPasswordView.vue Invite and password update form
   views/OverviewView.vue    Post-login hiring overview
   views/BoardsView.vue      Boards list: search, filter, sort, grouped cards

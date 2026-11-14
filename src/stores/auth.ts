@@ -3,6 +3,7 @@ import { defineStore } from 'pinia'
 import type { Session, User } from '@supabase/supabase-js'
 import { DEFAULT_ACTOR_NAME } from '@/lib/applicant-events'
 import { supabase } from '@/lib/supabase'
+import { isValidEmail } from '@/lib/validation'
 import {
   initialAuthLinkError,
   initialAuthLinkType,
@@ -36,6 +37,10 @@ function friendlyErrorMessage(message: string): string {
 
   if (normalized.includes('email not confirmed')) {
     return 'This account has not been confirmed yet. Confirm it in Supabase first.'
+  }
+
+  if (normalized.includes('rate limit') || normalized.includes('too many requests')) {
+    return 'Too many requests. Wait a minute and try again.'
   }
 
   if (normalized.includes('failed to fetch') || normalized.includes('network')) {
@@ -141,6 +146,35 @@ export const useAuthStore = defineStore('auth', () => {
       }
 
       session.value = data.session
+      return true
+    } catch (caught) {
+      error.value = friendlyErrorMessage(errorMessage(caught))
+      return false
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function requestPasswordReset(email: string): Promise<boolean> {
+    const trimmed = email.trim()
+
+    if (!isValidEmail(trimmed)) {
+      error.value = 'Enter a valid email address.'
+      return false
+    }
+
+    loading.value = true
+    error.value = null
+
+    try {
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(trimmed, {
+        redirectTo: `${window.location.origin}${import.meta.env.BASE_URL}`,
+      })
+
+      if (resetError) {
+        throw resetError
+      }
+
       return true
     } catch (caught) {
       error.value = friendlyErrorMessage(errorMessage(caught))
@@ -274,6 +308,7 @@ export const useAuthStore = defineStore('auth', () => {
     actorName,
     initialize,
     signIn,
+    requestPasswordReset,
     verifyLink,
     setPassword,
     updateFullName,

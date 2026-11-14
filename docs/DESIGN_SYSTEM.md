@@ -179,7 +179,7 @@ The implementation classes are `.orbital-orbit`, `.orbital-orbit--a`,
 
 ### Auth pages
 
-Use `AuthShell` for `/` and `/set-password`.
+Use `AuthShell` for `/`, `/forgot-password`, and `/set-password`.
 
 ```vue
 <AuthShell eyebrow="Secure access" title="Welcome back." subtitle="...">
@@ -190,13 +190,13 @@ Use `AuthShell` for `/` and `/set-password`.
 ```
 
 - Desktop: two columns, editorial intro on the left and a `460px` auth panel on the right.
-- The intro contains an eyebrow, a display title (`.display-title`, used by `AuthShell` only), one short paragraph, and a three-cell readout. There is no footer.
+- The intro contains an eyebrow, a display title (`.display-title`, used by `AuthShell` only), one short paragraph, and three plain-language cells (icon, title, sentence) supplied by the default `intro-cells` slot of `AuthShell`. There is no footer. Keep the cells free of technical terms.
 - At `720px` and below the readout is hidden so the form stays close to the top; the
   eyebrow, title, and paragraph remain. The layout becomes one column with the intro first.
-- Every auth page uses `BrandMark context="Recruitment platform"`, the `Secure access` status badge, and the `ThemeToggle`
+- Every auth page uses `BrandMark context="Recruitment platform"`, and the `ThemeToggle`
   from the shell.
-- Auth forms use a panel heading, the fields, one primary full-width submit button, and one
-  quiet note. Do not add social login, tabs, or extra actions without a product decision.
+- Auth forms use a panel title with a one-line `.panel-sub`, the fields (16px apart, labels above), one primary full-width submit button, and one
+  titled `.auth-note` help line. A link on the label row (for example Forgot password?) uses `.auth-field` / `.auth-field__aside`. Do not add social login, tabs, or extra actions without a product decision.
 
 ### Protected pages
 

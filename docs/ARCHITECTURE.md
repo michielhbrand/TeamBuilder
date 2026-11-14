@@ -98,7 +98,15 @@ rule set; the selected reference is `design/ui-directions.html#orbital`.
     does not redeem the token until the recipient clicks it; `auth.verifyLink()` then calls
     `supabase.auth.verifyOtp({ token_hash, type })`. This avoids corporate email scanners
     consuming the one-time link before the recipient opens it.
-13. `SetPasswordView.vue` validates the new password and calls
+13. `ForgotPasswordView.vue` (`/forgot-password`, linked from the sign-in password label)
+    calls `auth.requestPasswordReset(email)`, which validates the email and calls
+    `supabase.auth.resetPasswordForEmail(email, { redirectTo: <origin><BASE_URL> })`. The view
+    shows the same "If an account exists for that address..." message whether or not the
+    account exists, and disables resend for 30 seconds. The emailed link returns to the app
+    root as a `recovery` link, which the steps above route to `/set-password`. The router
+    guard treats `/forgot-password` like `/` (redirect to `/overview` when signed in, to
+    `/set-password` when password setup is pending).
+14. `SetPasswordView.vue` validates the new password and calls
     `supabase.auth.updateUser({ password })` through `auth.setPassword()`. On success the
     flag is cleared and the user continues to `/overview`. If the link is expired or
     missing, the page shows the error and points back to sign-in.
@@ -371,7 +379,7 @@ call their actions; they do not call Supabase directly.
 
 - History mode: `createWebHistory(import.meta.env.BASE_URL)`.
 - Dev base: `/`; production base: `/TeamBuilder/`.
-- Routes: `/` (login), `/set-password` (invite/recovery or password update), `/overview`
+- Routes: `/` (login), `/forgot-password`, `/set-password` (invite/recovery or password update), `/overview`
   (protected landing), `/boards` (protected), `/boards/:boardId` (protected), `/account`
   (protected), `/dashboard` (redirect to `/account`), catch-all redirect to `/`.
 - GitHub Pages does not rewrite unknown paths. `scripts/postbuild.mjs` copies the built
@@ -488,7 +496,7 @@ Function secrets are separate from the Vite build:
   only writer of `public.applicant_fit_analyses`.
 - Keep the first board stage as the fallback bucket. If stage reordering is added, update
   the atomic delete function and the `position` ordering together.
-- Password recovery links already use the same `/set-password` flow. If magic links are
+- Password recovery links (requested from `/forgot-password`) use the same `/set-password` flow. If magic links are
   added, extend the Supabase redirect allow-list for both local and Pages origins and add
   the corresponding routes.
 - If a custom domain is used, update the Vite base (possibly `/`), Supabase Site URL and

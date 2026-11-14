@@ -149,7 +149,9 @@ npm run build
 - `src/components/OutcomeDonut.vue` — active, hired, and rejected outcome chart.
 - `src/components/RolePerformanceTable.vue` — sortable role board table with pipeline bars.
 - `src/components/ApplicantWatchList.vue` — compact newest and longest-in-step applicant lists.
-- `src/views/LoginView.vue` — login form and validation.
+- `src/views/LoginView.vue` — login form and validation, with a Forgot password link.
+- `src/views/ForgotPasswordView.vue` — password reset request at `/forgot-password`; shows the
+  same confirmation whether or not the account exists and throttles resend for 30 seconds.
 - `src/views/SetPasswordView.vue` — invite and password update form.
 - `src/views/OverviewView.vue` — post-login hiring dashboard with KPI cards, department
   workload chart, outcome donut, sortable role table, deadline watch, applicant lists, and
@@ -201,6 +203,8 @@ See `docs/ARCHITECTURE.md` for the auth lifecycle and deployment pipeline.
   Deleting a column reassigns its applicants to the first stage, which cannot be deleted or
   moved.
 - Keep the Supabase client singleton in `src/lib/supabase.ts`.
+- Password reset requests go through `auth.requestPasswordReset`; never reveal whether an
+  account exists. The reset email returns to the app root as a recovery link.
 - Invite and recovery links arrive with a `type` in the URL hash or query. Preserve the
   detection in `src/lib/auth-link.ts`; do not let the login redirect bypass
   `/set-password`.

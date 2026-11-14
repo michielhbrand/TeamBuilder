@@ -32,14 +32,16 @@ const title = computed(() => {
 const subtitle = computed(() =>
   auth.isAuthenticated
     ? `Choose a password for ${auth.user?.email ?? 'your account'}.`
-    : 'Complete the invitation from your email to continue to your workspace.',
+    : 'Open the link from your email to continue to your workspace.',
 )
-const panelLabel = computed(() => {
+const panelSub = computed(() => {
   if (isInvite.value) {
-    return 'Invite access'
+    return 'Welcome. Choose a password to finish setting up your account.'
   }
 
-  return auth.isAuthenticated ? 'Password reset' : 'Secure link'
+  return auth.isAuthenticated
+    ? 'Choose a new password for your account.'
+    : 'Open the link from your email to continue.'
 })
 const panelTitle = computed(() => {
   if (isInvite.value) {
@@ -104,12 +106,9 @@ async function goToLogin(): Promise<void> {
   <AuthShell :eyebrow="eyebrow" :subtitle="subtitle" :title="title">
     <div class="panel-head">
       <div>
-        <p class="meta">{{ panelLabel }}</p>
-        <h2 class="panel-title mt-1">{{ panelTitle }}</h2>
+        <h2 class="panel-title">{{ panelTitle }}</h2>
+        <p class="panel-sub">{{ panelSub }}</p>
       </div>
-      <span class="status-badge" :class="{ 'status-badge--signal': auth.isAuthenticated }">
-        {{ isInvite ? 'Invite link' : 'Secure link' }}
-      </span>
     </div>
 
     <template v-if="needsLinkConfirmation">
@@ -134,13 +133,13 @@ async function goToLogin(): Promise<void> {
     <v-alert v-else-if="!auth.isAuthenticated" class="mb-5" type="error">
       {{
         auth.linkError ??
-        'This invitation link is invalid or has expired. Ask an administrator to send a new invitation.'
+        'This link is invalid or has expired. Ask your administrator for a new invitation, or use Forgot password on the sign-in page.'
       }}
     </v-alert>
 
     <template v-else>
       <v-alert v-if="success" class="mb-5" type="success">
-        Password saved. Taking you to your hiring overview...
+        Password saved. Taking you to your overview...
       </v-alert>
 
       <v-alert v-else-if="auth.error" class="mb-5" type="error">
@@ -151,7 +150,6 @@ async function goToLogin(): Promise<void> {
         <v-text-field
           v-model="password"
           autocomplete="new-password"
-          class="mb-3"
           label="New password"
           prepend-inner-icon="mdi-lock-outline"
           required
@@ -164,7 +162,6 @@ async function goToLogin(): Promise<void> {
         <v-text-field
           v-model="confirmation"
           autocomplete="new-password"
-          class="mb-3"
           label="Confirm password"
           prepend-inner-icon="mdi-lock-check-outline"
           required
@@ -180,7 +177,7 @@ async function goToLogin(): Promise<void> {
 
       <div v-if="!success" class="auth-note">
         <v-icon icon="mdi-shield-lock-outline" size="18" />
-        <p>Use at least 8 characters. Your password is sent directly to Supabase Auth.</p>
+        <p>Use at least 8 characters. Pick something you do not use anywhere else.</p>
       </div>
     </template>
 

@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   signInWithPassword: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
   verifyOtp: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
   updateUser: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
+  resetPasswordForEmail: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
   signOut: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
   fetchApplicantEvents: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
   fetchApplicantNotes: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
@@ -294,5 +295,58 @@ describe('auth store', () => {
     expect(auth.isAuthenticated).toBe(false)
     expect(auth.user).toBeNull()
     expect(mocks.signOut).toHaveBeenCalledOnce()
+  })
+
+  it('requestPasswordReset calls resetPasswordForEmail with a redirect to the app root', async () => {
+    mocks.resetPasswordForEmail.mockResolvedValue({ data: {}, error: null })
+    const auth = useAuthStore()
+
+    const sent = await auth.requestPasswordReset('a@b.co')
+
+    expect(sent).toBe(true)
+    expect(mocks.resetPasswordForEmail).toHaveBeenCalledWith('a@b.co', {
+      redirectTo: `${window.location.origin}${import.meta.env.BASE_URL}`,
+    })
+  })
+
+  it('requestPasswordReset trims the email and rejects a malformed one without calling Supabase', async () => {
+    mocks.resetPasswordForEmail.mockResolvedValue({ data: {}, error: null })
+    const auth = useAuthStore()
+
+    expect(await auth.requestPasswordReset('not-an-email')).toBe(false)
+    expect(auth.error).toBe('Enter a valid email address.')
+    expect(mocks.resetPasswordForEmail).not.toHaveBeenCalled()
+
+    expect(await auth.requestPasswordReset('  a@b.co  ')).toBe(true)
+    expect(mocks.resetPasswordForEmail).toHaveBeenCalledWith('a@b.co', expect.anything())
+  })
+
+  it('requestPasswordReset returns true for any address Supabase accepts', async () => {
+    mocks.resetPasswordForEmail.mockResolvedValue({ data: {}, error: null })
+    const auth = useAuthStore()
+
+    expect(await auth.requestPasswordReset('nobody@example.com')).toBe(true)
+    expect(auth.error).toBeNull()
+  })
+
+  it('requestPasswordReset maps rate-limit errors', async () => {
+    mocks.resetPasswordForEmail.mockResolvedValue({
+      data: null,
+      error: new Error('email rate limit exceeded'),
+    })
+    const auth = useAuthStore()
+
+    expect(await auth.requestPasswordReset('a@b.co')).toBe(false)
+    expect(auth.error).toBe('Too many requests. Wait a minute and try again.')
+  })
+
+  it('requestPasswordReset maps network failure', async () => {
+    mocks.resetPasswordForEmail.mockRejectedValue(new Error('Failed to fetch'))
+    const auth = useAuthStore()
+
+    expect(await auth.requestPasswordReset('a@b.co')).toBe(false)
+    expect(auth.error).toBe(
+      'Could not reach Supabase. Check your connection and environment values.',
+    )
   })
 })

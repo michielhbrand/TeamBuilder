@@ -397,9 +397,14 @@ body {
   border-right: 0;
 }
 
+.readout-cell > .v-icon {
+  display: block;
+  color: var(--orbital-accent-text);
+}
+
 .readout-cell strong {
   display: block;
-  margin: 7px 0 4px;
+  margin: 10px 0 4px;
   color: var(--orbital-ink);
   font-family: var(--orbital-font-display);
   font-size: 0.92rem;
@@ -434,10 +439,41 @@ body {
   line-height: 1.2;
 }
 
+.panel-sub {
+  margin: 6px 0 0;
+  color: var(--orbital-muted);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
 .auth-form {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 16px;
+}
+
+.auth-field {
+  position: relative;
+  display: flow-root;
+}
+
+.auth-field__aside {
+  position: absolute;
+  top: -7px;
+  right: 0;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  color: var(--orbital-accent-text);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.auth-field__aside:hover,
+.auth-field__aside:focus-visible {
+  text-decoration: underline;
 }
 
 .auth-note {
@@ -461,8 +497,12 @@ body {
 
 .auth-note p {
   margin: 0;
-  font-size: 0.78rem;
+  font-size: 0.8125rem;
   line-height: 1.6;
+}
+
+.auth-note strong {
+  color: var(--orbital-ink);
 }
 
 .auth-panel-footer {
