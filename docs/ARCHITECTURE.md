@@ -179,8 +179,10 @@ The schema lives in `supabase/migrations/`:
 - `public.boards` — free-text department, name unique per department, open positions,
   deadline, job spec path and filename, timestamps.
 - `public.board_columns` — board, unique name per board, ordered `position`.
-- `public.applicants` — board, assigned column, contact details, current role, free-text
-  education and work experience, favourite flag, status, CV path and filename, `applied_at`,
+- `public.applicants` — board, assigned column, contact details, current role, structured
+  education and work experience (jsonb arrays of entries with `id`, `title`, `organization`,
+  `start` and `end` as `YYYY-MM`, `current`, and `description`; a check constraint requires
+  arrays), favourite flag, status, CV path and filename, `applied_at`,
   and `step_entered_at`. Email and phone are optional; when present they are unique per
   board.
 - `public.applicant_events` — board and applicant scope, actor id and name, action, rendered
@@ -232,11 +234,14 @@ or Edge Function.
 `src/lib/resume-import.ts` fills the add-applicant form locally; no CV data is sent to a
 third party. It extracts each PDF page's text layer with `pdfjs-dist`, then applies
 heuristics for name, email, phone, current role, education, and work experience. Names are
-title-cased and emails are lowercased. Education and experience are grouped into entries
-with a title, date range, and details, separated by blank lines, plus a short summary of the
-highest qualification or total industry experience. Section headings such as achievements,
-certifications, and skills stop education and experience extraction. Extracted values
-populate the form immediately but remain editable and are marked as auto-filled.
+title-cased and emails are lowercased. Education and experience are returned as structured
+entries: the title line becomes the qualification or job title, an `at`/comma split or an
+institution-looking line becomes the institution or company, date ranges become start and end
+months (year-only dates use January and December, `Present`/`Ongoing` sets the current flag),
+and the remaining lines become the description. Section headings such as achievements,
+certifications, and skills stop education and experience extraction. Extracted entries
+populate the create dialog's timelines immediately but remain editable and are marked as
+filled from the CV.
 
 Pages with little or no text are treated as scanned. When key fields are still missing, the
 importer lazy-loads Tesseract.js (`eng`) and OCRs at most the first three scanned pages,
@@ -277,7 +282,12 @@ The UI requires consent before invoking the function. The Edge Function performs
 model call and writes the row; the browser never validates model output or receives the Kilo
 key.
 
-The Edge Function sends only the job spec and redacted education/work experience to Kilo. It
+The Edge Function reads the structured entries, formats them with `formatCareerEntries`
+(`supabase/functions/fit-analysis/career.ts`, mirrored by `formatEntriesText` in
+`src/lib/career.ts`) into a heading, period, and description per entry, and fingerprints that
+text. Legacy free text migrated into a single description-only entry formats to the same text,
+so existing analyses stay current. It sends only the job spec and redacted education/work
+experience to Kilo. It
 removes names, email, phone, URLs, address, date of birth, nationality, gender, age, marital
 status, and similar sensitive lines while keeping employers, institutions, and date ranges.
 Every analysis requires explicit consent because Kilo may log or train on free-tier requests.

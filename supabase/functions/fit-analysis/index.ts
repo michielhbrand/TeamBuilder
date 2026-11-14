@@ -1,4 +1,5 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
+import { formatCareerEntries } from './career.ts'
 import { buildUserPrompt, PROMPT_VERSION, SYSTEM_PROMPT } from './prompt.ts'
 import { prepareCandidateText, prepareJobSpecText } from './redact.ts'
 import { ModelResultError, validateModelResult } from './validate.ts'
@@ -21,8 +22,8 @@ interface ApplicantRow {
   full_name: string
   email: string
   phone: string
-  education: string
-  experience: string
+  education: unknown
+  experience: unknown
   boards: { name: string; department: string } | { name: string; department: string }[] | null
 }
 
@@ -320,15 +321,13 @@ Deno.serve(async (request) => {
       throw new HttpError(404, 'The applicant could not be found.')
     }
 
-    const candidateText = prepareCandidateText(
-      applicant.education ?? '',
-      applicant.experience ?? '',
-      {
-        full_name: applicant.full_name ?? '',
-        email: applicant.email ?? '',
-        phone: applicant.phone ?? '',
-      },
-    )
+    const educationText = formatCareerEntries(applicant.education)
+    const experienceText = formatCareerEntries(applicant.experience)
+    const candidateText = prepareCandidateText(educationText, experienceText, {
+      full_name: applicant.full_name ?? '',
+      email: applicant.email ?? '',
+      phone: applicant.phone ?? '',
+    })
 
     if (candidateText.replace(/\s/g, '').length < 40) {
       throw new HttpError(400, 'Add education or work experience before comparing this applicant.')
@@ -362,10 +361,7 @@ Deno.serve(async (request) => {
       validated = validateModelResult(content)
     }
 
-    const profileHash = await profileFingerprint(
-      applicant.education ?? '',
-      applicant.experience ?? '',
-    )
+    const profileHash = await profileFingerprint(educationText, experienceText)
     const { data: saved, error: saveError } = await admin
       .from('applicant_fit_analyses')
       .upsert(

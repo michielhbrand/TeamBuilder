@@ -40,8 +40,8 @@ function makeCandidate(overrides: Partial<Candidate> = {}): Candidate {
     status: 'active',
     appliedAt: '2026-11-01T00:00:00Z',
     stepEnteredAt: '2026-11-03T00:00:00Z',
-    education: '',
-    experience: '',
+    education: [],
+    experience: [],
     ...overrides,
   }
 }

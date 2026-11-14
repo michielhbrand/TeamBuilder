@@ -18,6 +18,18 @@ export interface PipelineStep {
   position: number
 }
 
+export type CareerKind = 'education' | 'experience'
+
+export interface CareerEntry {
+  id: string
+  title: string
+  organization: string
+  start: string
+  end: string
+  current: boolean
+  description: string
+}
+
 export interface Candidate {
   id: string
   boardId: string
@@ -30,8 +42,8 @@ export interface Candidate {
   status: CandidateStatus
   appliedAt: string
   stepEnteredAt: string
-  education: string
-  experience: string
+  education: CareerEntry[]
+  experience: CareerEntry[]
   cvPath?: string | null
   cvName?: string | null
 }
@@ -96,8 +108,8 @@ export interface ApplicantInput {
   email: string
   phone: string
   currentRole?: string
-  education?: string
-  experience?: string
+  education?: CareerEntry[]
+  experience?: CareerEntry[]
   stepId?: string
 }
 

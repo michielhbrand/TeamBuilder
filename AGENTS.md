@@ -78,6 +78,9 @@ npm run build
   session becomes `null`.
 - `src/types/pipeline.ts` — board, step, candidate, applicant event, and summary types.
 - `src/types/fit.ts` — applicant CV/job-spec analysis types.
+- `src/lib/career.ts` — structured education/work entries: normalising, serialising, month and
+  duration formatting, total experience, employment gaps, the career-strip layout, and the
+  plain-text formatter used for fit analysis fingerprints.
 - `src/lib/api-shared.ts` — shared row types, select fragments, and board/applicant/event/note
   mappers.
 - `src/lib/boards-api.ts` — Supabase reads and writes for boards and columns.
@@ -124,8 +127,13 @@ npm run build
 - `src/components/BoardColumn.vue` — one pipeline step column.
 - `src/components/CandidateCard.vue` — candidate summary and pipeline actions.
 - `src/components/ApplicantDrawer.vue` — right-side editable applicant profile with Details,
-  Analize, and Events tabs, favourite, education, work-experience notes, and free-text applicant
-  notes.
+  Career, Analize, and Events tabs, favourite, a career summary, and free-text applicant notes.
+- `src/components/CareerTimeline.vue` — editable vertical timeline of education or work
+  entries with inline add, edit, and delete; used in the drawer Career tab and the create dialog.
+- `src/components/CareerEntryEditor.vue` — the title, organisation, start/end month, current,
+  and description fields for one career entry.
+- `src/components/CareerStrip.vue` — the pinned horizontal career strip with work and education
+  lanes, employment-gap boxes, and a hover readout; linked to the timelines.
 - `src/components/FitConsentDialog.vue` — per-analysis consent dialog for sending redacted CV
   data to the hosted model.
 - `src/components/JobSpecDialog.vue` — upload, preview, print, open, and remove a board's PDF
@@ -194,6 +202,11 @@ See `docs/ARCHITECTURE.md` for the auth lifecycle and deployment pipeline.
 - Invite and recovery links arrive with a `type` in the URL hash or query. Preserve the
   detection in `src/lib/auth-link.ts`; do not let the login redirect bypass
   `/set-password`.
+- Education and work experience are structured `CareerEntry` arrays (`title`, `organization`,
+  `start`/`end` as `YYYY-MM`, `current`, `description`) stored as jsonb in
+  `applicants.education` and `applicants.experience`. Always replace the array immutably through
+  `useApplicantsStore().updateCandidateEntries`; the autosave dirty-field logic compares by
+  reference. Never store or send free-text education or experience.
 - Use the locked Direction A / Orbital design system in `docs/DESIGN_SYSTEM.md`. Reuse its
   tokens and shared components; do not introduce colors, fonts, radii, gradients, or motifs
   from the other design directions.
@@ -251,8 +264,8 @@ See `docs/ARCHITECTURE.md` for the auth lifecycle and deployment pipeline.
 - Applicant CV autofill is entirely local. `src/lib/resume-import.ts` extracts the PDF text
   layer first, then lazy-loads Tesseract OCR for scanned pages. OCR runs in a Web Worker,
   processes at most three pages, is cancellable, and caches page text in IndexedDB. Parsed
-  names are title-cased, emails are lowercased, and education/experience entries are
-  formatted as title, date range, and details with blank lines and a summary. Stop those
+  names are title-cased, emails are lowercased, and education/experience are returned as
+  structured entries (title, organisation, start and end month, current flag, description). Stop those
   sections at achievements, certifications, skills, and other headings. OCR assets are
   generated into `public/ocr/` by `scripts/copy-ocr-assets.mjs` from `predev`/`prebuild`; do
   not commit them.
@@ -268,6 +281,9 @@ See `docs/ARCHITECTURE.md` for the auth lifecycle and deployment pipeline.
 - Fit analysis is English-only, has no local or paid fallback, and must keep the previous
   result when Kilo is unavailable or rate-limited. Refuse any `KILO_MODEL` that is not a free
   model. Do not expose the Kilo key to the browser.
+- Keep `src/lib/career.ts` `formatEntriesText` and
+  `supabase/functions/fit-analysis/career.ts` `formatCareerEntries` identical: the browser and
+  the Edge Function both fingerprint the formatted text, and `career.spec.ts` asserts parity.
 - Do not add LinkedIn or other third-party profile scraping. LinkedIn blocks automated
   requests and prohibits scraping, and no free API is reliable. Profile data may only enter
   through user-provided text or files.

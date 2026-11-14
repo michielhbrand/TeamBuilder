@@ -7,6 +7,10 @@ import {
   type PdfPageText,
   type PdfTextProgress,
 } from '@/lib/pdf-text'
+import { createCareerEntry, entriesEqual, isEntryEmpty } from '@/lib/career'
+import type { CareerEntry } from '@/types/pipeline'
+
+const MAX_IMPORTED_ENTRIES = 12
 
 export type { PdfPageText }
 
@@ -18,8 +22,17 @@ export interface ApplicantDraft {
   email: string
   phone: string
   currentRole: string
-  education: string
-  experience: string
+  education: CareerEntry[]
+  experience: CareerEntry[]
+}
+
+export interface ApplicantFormValues {
+  name: string
+  email: string
+  phone: string
+  currentRole: string
+  education: CareerEntry[]
+  experience: CareerEntry[]
 }
 
 export type ApplicantImportProgress = PdfTextProgress
@@ -62,31 +75,6 @@ const EDUCATION_TITLE_RE =
 
 const INSTITUTION_RE =
   /\b(?:university|college|school|academy|institute|polytechnic|faculty|department)\b/i
-
-const QUALIFICATION_LEVELS = [
-  { re: /\b(?:ph\.?\s?d|doctorate|doctoral)\b/i, rank: 6, label: 'Doctorate' },
-  { re: /\bmba\b/i, rank: 5, label: 'MBA' },
-  {
-    re: /\b(?:m\.?\s?s\.?c?|m\.?\s?eng|master(?:'s)?|magister)\b/i,
-    rank: 4,
-    label: "Master's degree",
-  },
-  {
-    re: /\b(?:b\.?\s?s\.?c?|b\.?\s?eng|bachelor(?:'s)?|undergraduate|honou?rs)\b/i,
-    rank: 3,
-    label: "Bachelor's degree",
-  },
-  {
-    re: /\b(?:diploma|advanced diploma|postgraduate|graduate certificate|higher certificate)\b/i,
-    rank: 2,
-    label: 'Diploma',
-  },
-  {
-    re: /\b(?:high school|secondary|matric|a-level|abitur)\b/i,
-    rank: 1,
-    label: 'Secondary education',
-  },
-] as const
 
 function cleanLine(line: string): string {
   return line
@@ -313,6 +301,9 @@ interface ResumeDateRange {
   label: string
   startYear: number | null
   endYear: number | null
+  startMonth: string
+  endMonth: string
+  current: boolean
 }
 
 interface DatedResumeLine {
@@ -328,6 +319,9 @@ interface ResumeEntry {
   details: string[]
   startYear: number | null
   endYear: number | null
+  startMonth: string
+  endMonth: string
+  current: boolean
 }
 
 type ResumeSectionKind = 'education' | 'experience'
@@ -358,6 +352,48 @@ function dateYear(value: string): number | null {
   return match ? Number(match[0]) : null
 }
 
+const MONTH_NAMES = [
+  'jan',
+  'feb',
+  'mar',
+  'apr',
+  'may',
+  'jun',
+  'jul',
+  'aug',
+  'sep',
+  'oct',
+  'nov',
+  'dec',
+]
+
+function toMonthValue(token: string, edge: 'start' | 'end'): string {
+  const cleaned = token.trim()
+
+  if (!cleaned || isCurrentDateToken(cleaned)) {
+    return ''
+  }
+
+  const numeric = cleaned.match(/^(0?[1-9]|1[0-2])[/.](\d{2,4})$/)
+
+  if (numeric?.[1] && numeric[2]) {
+    const raw = Number(numeric[2])
+    const year = numeric[2].length === 2 ? (raw > 50 ? 1900 : 2000) + raw : raw
+    return `${year}-${numeric[1].padStart(2, '0')}`
+  }
+
+  const year = dateYear(cleaned)
+
+  if (year === null) {
+    return ''
+  }
+
+  const named = MONTH_NAMES.findIndex((name) => new RegExp(`\\b${name}`, 'i').test(cleaned))
+  const month = named >= 0 ? named + 1 : edge === 'start' ? 1 : 12
+
+  return `${year}-${String(month).padStart(2, '0')}`
+}
+
 function parseDateRange(line: string): ResumeDateRange | null {
   const match = line.match(DATE_RANGE_RE)
 
@@ -372,12 +408,19 @@ function parseDateRange(line: string): ResumeDateRange | null {
     return null
   }
 
+  const current = isCurrentDateToken(match[2] ?? '')
+  const startMonth = toMonthValue(match[1] ?? '', 'start')
+  const parsedEnd = current ? '' : toMonthValue(match[2] ?? '', 'end')
+
   return {
     start,
     end,
     label: `${start} – ${end}`,
     startYear: dateYear(start),
-    endYear: dateYear(end) ?? (isCurrentDateToken(end) ? new Date().getFullYear() : null),
+    endYear: dateYear(end) ?? (current ? new Date().getFullYear() : null),
+    startMonth,
+    endMonth: parsedEnd && startMonth && parsedEnd < startMonth ? '' : parsedEnd,
+    current,
   }
 }
 
@@ -534,6 +577,9 @@ function parseDatedResumeEntries(
       details,
       startYear: item.range.startYear,
       endYear: item.range.endYear,
+      startMonth: item.range.startMonth,
+      endMonth: item.range.endMonth,
+      current: item.range.current,
     }
   })
 }
@@ -585,6 +631,9 @@ function parseUndatedResumeEntries(lines: string[], kind: ResumeSectionKind): Re
       details: chunk.filter((_line, index) => index !== titleIndex),
       startYear: null,
       endYear: null,
+      startMonth: '',
+      endMonth: '',
+      current: false,
     }
   })
 }
@@ -600,100 +649,68 @@ function parseResumeEntries(lines: string[], kind: ResumeSectionKind): ResumeEnt
   return parseUndatedResumeEntries(cleaned, kind)
 }
 
-function qualificationLevel(title: string): (typeof QUALIFICATION_LEVELS)[number] | null {
-  return QUALIFICATION_LEVELS.find((level) => level.re.test(title)) ?? null
-}
+function splitOrganization(
+  title: string,
+  kind: ResumeSectionKind,
+): { title: string; organization: string } {
+  if (kind === 'experience') {
+    const at = title.match(/^(.+?)\s+(?:at|@)\s+(.+)$/i)
 
-function qualificationRank(title: string): number {
-  return qualificationLevel(title)?.rank ?? 0
-}
-
-function educationSummary(entries: ResumeEntry[]): string {
-  const highest = [...entries].sort(
-    (left, right) => qualificationRank(right.title) - qualificationRank(left.title),
-  )[0]
-
-  if (!highest) {
-    return ''
-  }
-
-  const level = qualificationLevel(highest.title)
-  const detail = [highest.title, highest.dates].filter(Boolean).join(', ')
-  const count = `${entries.length} qualification${entries.length === 1 ? '' : 's'}`
-
-  if (!detail) {
-    return ''
-  }
-
-  return `Highest qualification: ${level ? `${level.label} (${detail})` : detail} · ${count}`
-}
-
-function totalExperienceYears(entries: ResumeEntry[]): number {
-  const intervals: Array<[number, number]> = []
-
-  for (const entry of entries) {
-    if (entry.startYear === null || entry.endYear === null || entry.endYear < entry.startYear) {
-      continue
-    }
-
-    intervals.push([entry.startYear, entry.endYear])
-  }
-
-  if (!intervals.length) {
-    return 0
-  }
-
-  intervals.sort((left, right) => left[0] - right[0])
-  let total = 0
-  let [start, end] = intervals[0] ?? [0, 0]
-
-  for (const [nextStart, nextEnd] of intervals.slice(1)) {
-    if (nextStart <= end) {
-      end = Math.max(end, nextEnd)
-    } else {
-      total += end - start
-      start = nextStart
-      end = nextEnd
+    if (at?.[1] && at[2]) {
+      return { title: at[1].trim(), organization: at[2].trim() }
     }
   }
 
-  return total + end - start
-}
+  const comma = title.indexOf(',')
 
-function experienceSummary(entries: ResumeEntry[]): string {
-  if (!entries.length) {
-    return ''
+  if (comma > 0) {
+    const left = title.slice(0, comma).trim()
+    const right = title.slice(comma + 1).trim()
+    const rightIsOrganization =
+      kind === 'education' ? looksLikeInstitution(right) : looksLikeRole(left) && right.length <= 60
+
+    if (left && right && rightIsOrganization) {
+      return { title: left, organization: right }
+    }
   }
 
-  const years = totalExperienceYears(entries)
-  const dated = entries.filter((entry) => entry.startYear !== null && entry.endYear !== null).length
-  const roles = entries.length === 1 ? '1 role' : `${entries.length} roles`
-
-  if (years > 0) {
-    const suffix = dated < entries.length ? '+' : ''
-    const placement = entries.length === 1 ? 'in 1 role' : `across ${roles}`
-    return `Industry experience: ${years}${suffix} year${years === 1 ? '' : 's'} ${placement}`
-  }
-
-  return `Industry experience: ${roles}`
+  return { title, organization: '' }
 }
 
-function formatResumeEntries(entries: ResumeEntry[], summary: string): string {
-  const blocks = entries
-    .map((entry) => [entry.title, entry.dates, ...entry.details].filter(Boolean).join('\n'))
-    .filter(Boolean)
+function toCareerEntries(entries: ResumeEntry[], kind: ResumeSectionKind): CareerEntry[] {
+  return entries
+    .map((entry) => {
+      const split = splitOrganization(entry.title, kind)
+      const details = [...entry.details]
+      let organization = split.organization
 
-  return [summary, ...blocks].filter(Boolean).join('\n\n').slice(0, 5000).trim()
+      if (!organization && kind === 'education') {
+        const index = details.findIndex((line) => looksLikeInstitution(line) && line.length <= 120)
+
+        if (index >= 0) {
+          organization = details.splice(index, 1)[0] ?? ''
+        }
+      }
+
+      return createCareerEntry({
+        title: split.title,
+        organization,
+        start: entry.startMonth,
+        end: entry.current ? '' : entry.endMonth,
+        current: entry.current,
+        description: details.join('\n').trim().slice(0, 2000),
+      })
+    })
+    .filter((entry) => !isEntryEmpty(entry))
+    .slice(0, MAX_IMPORTED_ENTRIES)
 }
 
-function formatEducationSection(lines: string[]): string {
-  const entries = parseResumeEntries(lines, 'education')
-  return entries.length ? formatResumeEntries(entries, educationSummary(entries)) : ''
+function formatEducationSection(lines: string[]): CareerEntry[] {
+  return toCareerEntries(parseResumeEntries(lines, 'education'), 'education')
 }
 
-function formatExperienceSection(lines: string[]): string {
-  const entries = parseResumeEntries(lines, 'experience')
-  return entries.length ? formatResumeEntries(entries, experienceSummary(entries)) : ''
+function formatExperienceSection(lines: string[]): CareerEntry[] {
+  return toCareerEntries(parseResumeEntries(lines, 'experience'), 'experience')
 }
 
 function cleanRole(value: string): string {
@@ -769,7 +786,7 @@ export function extractApplicantDraft(text: string, filename = ''): ApplicantDra
     name: formatPersonName(extractName(lines, filename)),
     email: extractEmail(normalized).toLowerCase(),
     phone: extractPhone(normalized),
-    currentRole: extractCurrentRole(lines, experienceSource || experience),
+    currentRole: extractCurrentRole(lines, experienceSource),
     education,
     experience,
   }
@@ -780,21 +797,19 @@ export function missingKeyFields(draft: ApplicantDraft): boolean {
 }
 
 export function mergeApplicantDraft(
-  current: Record<ApplicantDraftField, string>,
+  current: ApplicantFormValues,
   draft: ApplicantDraft,
   edited: ReadonlySet<ApplicantDraftField>,
   autoFilled: Set<ApplicantDraftField>,
 ): void {
-  const fields: ApplicantDraftField[] = [
+  const textFields: Array<'name' | 'email' | 'phone' | 'currentRole'> = [
     'name',
     'email',
     'phone',
     'currentRole',
-    'education',
-    'experience',
   ]
 
-  for (const field of fields) {
+  for (const field of textFields) {
     const value = draft[field].trim()
 
     if (!value || edited.has(field)) {
@@ -807,6 +822,24 @@ export function mergeApplicantDraft(
 
     if (current[field] !== value) {
       current[field] = value
+    }
+
+    autoFilled.add(field)
+  }
+
+  for (const field of ['education', 'experience'] as const) {
+    const entries = draft[field]
+
+    if (!entries.length || edited.has(field)) {
+      continue
+    }
+
+    if (current[field].length && !autoFilled.has(field)) {
+      continue
+    }
+
+    if (!entriesEqual(current[field], entries)) {
+      current[field] = entries.map((entry) => ({ ...entry }))
     }
 
     autoFilled.add(field)

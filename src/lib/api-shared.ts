@@ -4,12 +4,14 @@ import type {
   ApplicantNote,
   Board,
   BoardInput,
+  CareerEntry,
   Candidate,
   CandidateStatus,
   Department,
   PipelineStep,
 } from '@/types/pipeline'
 import type { FitAnalysis, FitAnalysisResult, FitAnalysisRow } from '@/types/fit'
+import { normalizeEntries, serializeEntries } from '@/lib/career'
 
 export interface BoardRow {
   id: string
@@ -38,8 +40,8 @@ export interface ApplicantRow {
   email: string
   phone: string
   job_title: string
-  education: string
-  experience: string
+  education: unknown
+  experience: unknown
   favorite: boolean
   status: string
   applied_at: string
@@ -72,8 +74,8 @@ export interface ApplicantPatch {
   email?: string
   phone?: string
   currentRole?: string
-  education?: string
-  experience?: string
+  education?: CareerEntry[]
+  experience?: CareerEntry[]
   favorite?: boolean
   status?: CandidateStatus
   columnId?: string
@@ -192,8 +194,8 @@ export function mapApplicant(row: ApplicantRow): Candidate {
     status: row.status as CandidateStatus,
     appliedAt: row.applied_at,
     stepEnteredAt: row.step_entered_at,
-    education: row.education,
-    experience: row.experience,
+    education: normalizeEntries(row.education),
+    experience: normalizeEntries(row.experience),
     cvPath: row.cv_path,
     cvName: row.cv_name,
   }
@@ -297,8 +299,8 @@ export function applicantPatch(input: ApplicantPatch): Record<string, unknown> {
   if (input.email !== undefined) patch.email = input.email
   if (input.phone !== undefined) patch.phone = input.phone
   if (input.currentRole !== undefined) patch.job_title = input.currentRole
-  if (input.education !== undefined) patch.education = input.education
-  if (input.experience !== undefined) patch.experience = input.experience
+  if (input.education !== undefined) patch.education = serializeEntries(input.education)
+  if (input.experience !== undefined) patch.experience = serializeEntries(input.experience)
   if (input.favorite !== undefined) patch.favorite = input.favorite
   if (input.status !== undefined) patch.status = input.status
   if (input.columnId !== undefined) patch.column_id = input.columnId

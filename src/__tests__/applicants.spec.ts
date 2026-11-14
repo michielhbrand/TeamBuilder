@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
+import { createCareerEntry } from '@/lib/career'
 import type { Board, Candidate } from '@/types/pipeline'
 
 const mocks = vi.hoisted(() => ({
@@ -53,8 +54,8 @@ function makeCandidate(overrides: Partial<Candidate> = {}): Candidate {
     status: 'active',
     appliedAt: '2026-11-01T00:00:00Z',
     stepEnteredAt: '2026-11-03T00:00:00Z',
-    education: '',
-    experience: '',
+    education: [],
+    experience: [],
     ...overrides,
   }
 }
@@ -175,6 +176,47 @@ describe('applicants store', () => {
     expect(mocks.updateApplicant).toHaveBeenNthCalledWith(2, candidate.id, {
       phone: '+1 555 010 9999',
     })
+  })
+
+  it('saves career entries as a changed field and records one edit event', async () => {
+    const { applicants } = await initializedStores()
+    const candidate = applicants.candidateById('c1')
+
+    expect(candidate).toBeDefined()
+    if (!candidate) return
+
+    const entry = createCareerEntry({
+      title: 'Product Designer',
+      organization: 'Acme',
+      start: '2020-01',
+      current: true,
+    })
+
+    applicants.beginCandidateEdit(candidate.id)
+    applicants.updateCandidateEntries(candidate.id, 'experience', [entry])
+
+    expect(candidate.experience).toEqual([entry])
+
+    await applicants.flushCandidate(candidate.id)
+
+    expect(mocks.updateApplicant).toHaveBeenCalledExactlyOnceWith(candidate.id, {
+      experience: [entry],
+    })
+    expect(mocks.recordApplicantEditEvent).toHaveBeenCalledExactlyOnceWith(candidate.id)
+  })
+
+  it('does not record an edit event when entries are replaced with identical content', async () => {
+    const entry = createCareerEntry({ title: 'Analyst', start: '2019-03', end: '2020-03' })
+    mocks.fetchBoards.mockResolvedValue([
+      makeBoard({ candidates: [makeCandidate({ experience: [entry] })] }),
+    ])
+    const { applicants } = await initializedStores()
+
+    applicants.beginCandidateEdit('c1')
+    applicants.updateCandidateEntries('c1', 'experience', [{ ...entry }])
+    await applicants.flushCandidate('c1')
+
+    expect(mocks.recordApplicantEditEvent).not.toHaveBeenCalled()
   })
 
   it('records one edit event per profile session through the narrow RPC', async () => {

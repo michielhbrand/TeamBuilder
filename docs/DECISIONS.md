@@ -280,6 +280,24 @@ Dates use ISO 8601. Status values are proposed, accepted, superseded, or depreca
   first column, and the first column cannot be deleted. Local and cloud projects must apply
   the migration before the portal can load data. The dummy data source is removed.
 
+## ADR-021: Store education and work experience as structured jsonb entries
+
+- **Date:** 2026-11-14
+- **Status:** Accepted
+- **Context:** Education and work experience were two free-text columns, edited as textareas.
+  Recruiters could not scan roles or qualifications, see gaps, or compare time spans, and the
+  CV importer had to flatten structure into text.
+- **Decision:** Convert `applicants.education` and `applicants.experience` to jsonb arrays of
+  entries (`id`, `title`, `organization`, `start`, `end`, `current`, `description`), migrate
+  existing text into one description-only entry, and edit them through a vertical timeline plus
+  a pinned career strip on a new drawer Career tab. The create dialog uses the same timeline.
+  The importer returns entries. The Edge Function formats entries to text and fingerprints
+  them; the browser mirrors the formatter and a test asserts parity.
+- **Consequences:** Entries are not queryable per row, which is acceptable for a shared small
+  workspace; child tables remain an option if reporting is needed. The two formatters must
+  stay in sync. Autosave saves a whole array per change, so concurrent edits to the same list
+  by two users still last-writer-win.
+
 ## ADR-020: Compare CVs with a free hosted model through an Edge Function
 
 - **Date:** 2026-11-10

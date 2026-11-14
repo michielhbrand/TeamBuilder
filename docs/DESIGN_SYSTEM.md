@@ -210,8 +210,8 @@ that prototype's palette, gradients, or Bricolage/Hanken fonts.
   candidate one column without opening the profile.
 - Clicking a candidate card opens a right-side applicant drawer at roughly half the viewport
   width. It uses the surface, hairline, and field tokens, with an editable basic-information
-  form, a star favourite toggle, separate auto-growing textareas for career and work
-  experience, and a single PDF CV document. The drawer becomes full width at `720px`.
+  form, a star favourite toggle, a **Career** tab with a pinned career strip and vertical
+  timelines for work and education, and a single PDF CV document. The drawer becomes full width at `720px`.
 - Candidate cards can be dragged one step left or right. While a card is held, only the
   adjacent columns highlight with the accent token and accept the drop. The card in flight
   keeps full opacity and uses an accent border ring. Cards in the first and final steps can
@@ -334,11 +334,11 @@ class. Keep the rules attached to the field.
 - The header keeps the initials avatar, applicant name, current role metadata, a star
   favourite button (`mdi-star` / `mdi-star-outline` with `aria-pressed`), and a close button.
 - Editable basic fields use the standard `orbital-field` treatment. Education and work
-  experience each use one auto-growing `v-textarea` with the same field treatment rather
-  than structured timeline items.
+  experience are structured entries shown as a vertical timeline (see Career timeline).
 - Email is optional and must be valid when present. Phone is optional and accepts digits
   only. Invalid values show a field error and are not persisted.
-- The drawer has three tabs below the header: **Details** for the editable profile, **Analize**
+- The drawer has four tabs below the header: **Details** for the editable profile with a career
+  summary card that opens the Career tab, **Career** for the strip and timelines, **Analize**
   for the job-spec analysis, and **Events** for the applicant audit trail. Tabs use the
   display font, sentence case, an accent underline, and the standard hairline divider. Events
   render newest first as a vertical timeline with an accent dot, the event message, and an
@@ -357,6 +357,26 @@ class. Keep the rules attached to the field.
 - Every PDF upload passes through the browser compressor in `src/lib/pdf.ts` before it
   reaches Supabase. It re-encodes embedded images, preserves selectable text, and never
   returns a larger file.
+
+### Career timeline and strip
+
+- Entries have four visible parts: title (job title or qualification), organisation (company
+  or institution), time span, and description. Time spans are month pickers with a
+  "Currently working here" / "Still studying" checkbox that disables the end month.
+- `CareerTimeline` renders entries newest first as a vertical rail. A mono date column on the
+  left shows the end month (or **Present**), start month, and duration; the rail carries a dot
+  per entry, and the current entry uses the signal token with a soft halo. Cards use the
+  standard 12 px radius and hairline border. The pencil swaps a card for the inline editor
+  with **Save**, **Cancel**, and **Delete** (through `ConfirmDialog`); the add button is a
+  dashed outline. Below `540px` of container width the date column narrows to `76px`.
+- `CareerStrip` is a horizontal strip on a shared time axis with a Work lane (filled accent
+  bars, signal for the current role) and an Education lane (outlined bars). Overlapping
+  entries stack on extra rows, employment gaps longer than three months are dashed boxes, and
+  one mono readout line shows the hovered entry or the gap summary. Hovering a bar or an entry
+  highlights the other; clicking a bar scrolls to and flashes its entry.
+- The strip is pinned under the drawer header on the Career tab. The create dialog shows the
+  timelines only, without the strip.
+- Use only Orbital tokens for bars, dots, and highlights, and keep both themes working.
 
 ### CV analysis
 

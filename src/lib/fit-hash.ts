@@ -1,3 +1,6 @@
+import { formatEntriesText } from '@/lib/career'
+import type { CareerEntry } from '@/types/pipeline'
+
 function fallbackHash(bytes: Uint8Array): string {
   let hash = 0x811c9dc5
 
@@ -31,6 +34,9 @@ export function sha256Bytes(value: Uint8Array): Promise<string> {
   return digestBytes(value)
 }
 
-export function profileFingerprint(education: string, experience: string): Promise<string> {
-  return sha256Text(`${education.trim()}\n\n${experience.trim()}`)
+export function profileFingerprint(
+  education: CareerEntry[],
+  experience: CareerEntry[],
+): Promise<string> {
+  return sha256Text(`${formatEntriesText(education)}\n\n${formatEntriesText(experience)}`)
 }

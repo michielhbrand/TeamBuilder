@@ -5,6 +5,7 @@ import {
   missingKeyFields,
   type ApplicantDraft,
   type ApplicantDraftField,
+  type ApplicantFormValues,
 } from '@/lib/resume-import'
 
 const CV = `
@@ -34,9 +35,22 @@ describe('resume import', () => {
     expect(draft.email).toBe('amara@example.com')
     expect(draft.phone).toBe('15550102000')
     expect(draft.currentRole).toContain('Senior Product Designer')
-    expect(draft.experience).toContain('Led the design system')
-    expect(draft.education).toContain('BSc Interaction Design')
-    expect(draft.education).not.toContain('Figma')
+    expect(draft.experience).toHaveLength(1)
+    expect(draft.experience[0]).toMatchObject({
+      title: 'Senior Product Designer',
+      organization: 'Northwind',
+      start: '2021-01',
+      current: true,
+    })
+    expect(draft.experience[0]?.description).toContain('Led the design system')
+    expect(draft.education).toHaveLength(1)
+    expect(draft.education[0]).toMatchObject({
+      title: 'BSc Interaction Design',
+      organization: 'University of Cape Town',
+      start: '2014-01',
+      end: '2018-12',
+    })
+    expect(JSON.stringify(draft.education)).not.toContain('Figma')
   })
 
   it('normalizes name and email casing', () => {
@@ -75,16 +89,24 @@ Commercial Pilot License
 Private Pilot License
 `)
 
-    expect(draft.education).toContain("Highest qualification: Master's degree")
-    expect(draft.education).toContain('M.S. Software Engineering\n2025 – Ongoing')
-    expect(draft.education).toContain('Quantic School of Business & Technology')
-    expect(draft.education).toContain('\n\nM.Eng. Electronic Engineering\n2020 – 2023')
-    expect(draft.education).toContain(
-      'B.Eng. Electrical and Electronic Engineering (Robotics)\n2014 – 2019',
+    expect(draft.education).toHaveLength(3)
+    expect(draft.education[0]).toMatchObject({
+      title: 'M.S. Software Engineering',
+      organization: 'Quantic School of Business & Technology',
+      start: '2025-01',
+      current: true,
+    })
+    expect(draft.education[1]).toMatchObject({
+      title: 'M.Eng. Electronic Engineering',
+      organization: 'Stellenbosch University',
+      start: '2020-01',
+      end: '2023-12',
+    })
+    expect(draft.education[2]?.title).toBe(
+      'B.Eng. Electrical and Electronic Engineering (Robotics)',
     )
-    expect(draft.education).toContain('3 qualifications')
-    expect(draft.education).not.toContain('ACHIEVEMENTS')
-    expect(draft.education).not.toContain('Commercial Pilot License')
+    expect(JSON.stringify(draft.education)).not.toContain('ACHIEVEMENTS')
+    expect(JSON.stringify(draft.education)).not.toContain('Commercial Pilot License')
   })
 
   it('formats experience into title, dates, details and totals years', () => {
@@ -98,13 +120,20 @@ Product Designer, Beta
 Built the hiring workspace.
 `)
 
-    expect(draft.experience).toContain('Industry experience: 4 years across 2 roles')
-    expect(draft.experience).toContain(
-      'Senior Product Designer, Acme\n2019 – 2021\nLed the design system.',
-    )
-    expect(draft.experience).toContain(
-      '\n\nProduct Designer, Beta\n2021 – 2023\nBuilt the hiring workspace.',
-    )
+    expect(draft.experience).toHaveLength(2)
+    expect(draft.experience[0]).toMatchObject({
+      title: 'Senior Product Designer',
+      organization: 'Acme',
+      start: '2019-01',
+      end: '2021-12',
+      description: 'Led the design system.',
+    })
+    expect(draft.experience[1]).toMatchObject({
+      title: 'Product Designer',
+      organization: 'Beta',
+      start: '2021-01',
+      end: '2023-12',
+    })
     expect(draft.currentRole).toBe('Senior Product Designer, Acme')
   })
 
@@ -151,20 +180,20 @@ describe('applicant draft merge', () => {
       email: '',
       phone: '',
       currentRole: '',
-      education: '',
-      experience: '',
+      education: [],
+      experience: [],
       ...overrides,
     }
   }
 
-  function form(): Record<ApplicantDraftField, string> {
+  function form(): ApplicantFormValues {
     return {
       name: '',
       email: '',
       phone: '',
       currentRole: '',
-      education: '',
-      experience: '',
+      education: [],
+      experience: [],
     }
   }
 

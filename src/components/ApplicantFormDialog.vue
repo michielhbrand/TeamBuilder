@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
+import CareerTimeline from '@/components/CareerTimeline.vue'
 import { PDF_MAX_BYTES, isPdfFile } from '@/lib/pdf'
 import { defaultApplicantStep } from '@/lib/pipeline'
 import {
@@ -7,11 +8,12 @@ import {
   mergeApplicantDraft,
   type ApplicantDraft,
   type ApplicantDraftField,
+  type ApplicantFormValues,
 } from '@/lib/resume-import'
 import { isValidEmail, isValidPhone } from '@/lib/validation'
 import { useApplicantsStore } from '@/stores/applicants'
 import { useStorageStore } from '@/stores/storage'
-import type { Board, Candidate } from '@/types/pipeline'
+import type { Board, Candidate, CareerEntry, CareerKind } from '@/types/pipeline'
 
 const props = defineProps<{
   modelValue: boolean
@@ -36,13 +38,13 @@ const importProgress = ref(0)
 const importError = ref('')
 const autoFilled = reactive(new Set<ApplicantDraftField>())
 const editedFields = reactive(new Set<ApplicantDraftField>())
-const form = reactive<Record<ApplicantDraftField, string>>({
+const form = reactive<ApplicantFormValues>({
   name: '',
   email: '',
   phone: '',
   currentRole: '',
-  education: '',
-  experience: '',
+  education: [],
+  experience: [],
 })
 
 let importController: AbortController | null = null
@@ -60,8 +62,8 @@ function syncForm(): void {
   form.email = ''
   form.phone = ''
   form.currentRole = ''
-  form.education = ''
-  form.experience = ''
+  form.education = []
+  form.experience = []
   stepId.value = (props.board ? defaultApplicantStep(props.board)?.id : undefined) ?? ''
   localError.value = ''
   autoFilled.clear()
@@ -92,8 +94,14 @@ function applyDraft(draft: ApplicantDraft): void {
   mergeApplicantDraft(form, draft, editedFields, autoFilled)
 }
 
-function setField(field: ApplicantDraftField, value: unknown): void {
+function setField(field: 'name' | 'email' | 'phone' | 'currentRole', value: unknown): void {
   form[field] = String(value ?? '')
+  editedFields.add(field)
+  autoFilled.delete(field)
+}
+
+function setEntries(field: CareerKind, entries: CareerEntry[]): void {
+  form[field] = entries
   editedFields.add(field)
   autoFilled.delete(field)
 }
@@ -283,7 +291,7 @@ onBeforeUnmount(() => resetImport(true))
 </script>
 
 <template>
-  <v-dialog v-model="open" max-width="680">
+  <v-dialog v-model="open" max-width="720">
     <v-card class="orbital-dialog">
       <form @submit.prevent="submit">
         <div class="orbital-dialog__head">
@@ -404,27 +412,33 @@ onBeforeUnmount(() => resetImport(true))
             variant="outlined"
           />
 
-          <v-textarea
-            class="orbital-field"
-            :class="{ 'orbital-field--autofilled': autoFilled.has('education') }"
-            label="Education"
-            variant="outlined"
-            rows="3"
-            auto-grow
-            :model-value="form.education"
-            @update:model-value="setField('education', $event)"
-          />
+          <section class="applicant-section">
+            <div class="career-section__head">
+              <p class="eyebrow">Work experience</p>
+              <span v-if="autoFilled.has('experience')" class="career-section__badge">
+                Filled from CV
+              </span>
+            </div>
+            <CareerTimeline
+              kind="experience"
+              :entries="form.experience"
+              @update:entries="setEntries('experience', $event)"
+            />
+          </section>
 
-          <v-textarea
-            class="orbital-field"
-            :class="{ 'orbital-field--autofilled': autoFilled.has('experience') }"
-            label="Work experience"
-            variant="outlined"
-            rows="3"
-            auto-grow
-            :model-value="form.experience"
-            @update:model-value="setField('experience', $event)"
-          />
+          <section class="applicant-section">
+            <div class="career-section__head">
+              <p class="eyebrow">Education</p>
+              <span v-if="autoFilled.has('education')" class="career-section__badge">
+                Filled from CV
+              </span>
+            </div>
+            <CareerTimeline
+              kind="education"
+              :entries="form.education"
+              @update:entries="setEntries('education', $event)"
+            />
+          </section>
         </div>
 
         <div class="orbital-dialog__actions">

@@ -1,5 +1,6 @@
 import { ref } from 'vue'
 import { defineStore } from 'pinia'
+import { hasCareerContent } from '@/lib/career'
 import * as api from '@/lib/fit-api'
 import { profileFingerprint, sha256Bytes, sha256Text } from '@/lib/fit-hash'
 import { extractJobSpecText } from '@/lib/job-spec'
@@ -196,7 +197,7 @@ export const useFitStore = defineStore('fit', () => {
       return null
     }
 
-    if (!candidate.education.trim() && !candidate.experience.trim()) {
+    if (!hasCareerContent(candidate.education, candidate.experience)) {
       setError(applicantId, 'Add education or work experience before comparing this applicant.')
       return null
     }

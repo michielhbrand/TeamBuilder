@@ -1,8 +1,11 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
+import CareerStrip from '@/components/CareerStrip.vue'
+import CareerTimeline from '@/components/CareerTimeline.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import FitConsentDialog from '@/components/FitConsentDialog.vue'
 import { formatEventTime } from '@/lib/applicant-events'
+import { employmentGaps, formatMonths, hasCareerContent, totalMonths } from '@/lib/career'
 import { printPdfBlob } from '@/lib/pdf'
 import { initials as getInitials } from '@/lib/pipeline'
 import { isValidEmail, isValidPhone } from '@/lib/validation'
@@ -11,6 +14,7 @@ import { useApplicantsStore, type EditableCandidateField } from '@/stores/applic
 import { useBoardsStore } from '@/stores/boards'
 import { useFitStore } from '@/stores/fit'
 import { useStorageStore } from '@/stores/storage'
+import type { CareerEntry, CareerKind } from '@/types/pipeline'
 
 const props = defineProps<{
   modelValue: boolean
@@ -44,7 +48,7 @@ const notes = computed(() => (props.candidateId ? activity.notesFor(props.candid
 const notesLoading = computed(() =>
   props.candidateId ? activity.notesLoadingFor(props.candidateId) : false,
 )
-const activeTab = ref<'details' | 'events' | 'fit'>('details')
+const activeTab = ref<'details' | 'career' | 'events' | 'fit'>('details')
 const fitConsentOpen = ref(false)
 const noteDraft = ref('')
 const noteSaving = ref(false)
@@ -65,8 +69,6 @@ const form = reactive<Record<EditableCandidateField, string>>({
   email: '',
   phone: '',
   currentRole: '',
-  education: '',
-  experience: '',
 })
 const fieldErrors = reactive({
   email: '',
@@ -101,7 +103,7 @@ const fitPrerequisites = computed(() => {
     issues.push('Upload a PDF CV for this applicant.')
   }
 
-  if (!current?.education.trim() && !current?.experience.trim()) {
+  if (!current || !hasCareerContent(current.education, current.experience)) {
     issues.push('Add education or work experience.')
   }
 
@@ -113,14 +115,47 @@ const deleteMessage = computed(
   () => `Delete ${candidate.value?.name ?? 'this applicant'}? This cannot be undone.`,
 )
 
-const textSections = [
-  { key: 'education' as const, title: 'Education', fieldLabel: 'Education details' },
-  {
-    key: 'experience' as const,
-    title: 'Work experience',
-    fieldLabel: 'Work experience details',
-  },
-]
+const hoverId = ref<string | null>(null)
+const experienceTimeline = ref<InstanceType<typeof CareerTimeline> | null>(null)
+const educationTimeline = ref<InstanceType<typeof CareerTimeline> | null>(null)
+const headRef = ref<HTMLElement | null>(null)
+const stickyTop = ref(0)
+let headObserver: ResizeObserver | null = null
+
+const careerSummary = computed(() => {
+  const current = candidate.value
+
+  if (!current) {
+    return ''
+  }
+
+  const roles = current.experience.length
+  const qualifications = current.education.length
+  const months = totalMonths(current.experience)
+  const gaps = employmentGaps(current.experience).length
+
+  return [
+    months ? `${formatMonths(months)} experience` : '',
+    `${roles} ${roles === 1 ? 'role' : 'roles'}`,
+    `${qualifications} ${qualifications === 1 ? 'qualification' : 'qualifications'}`,
+    gaps ? `${gaps} ${gaps === 1 ? 'gap' : 'gaps'}` : '',
+  ]
+    .filter(Boolean)
+    .join(' · ')
+})
+
+watch(headRef, (element) => {
+  headObserver?.disconnect()
+  headObserver = null
+
+  if (element && typeof ResizeObserver !== 'undefined') {
+    stickyTop.value = element.offsetHeight
+    headObserver = new ResizeObserver(() => {
+      stickyTop.value = element.offsetHeight
+    })
+    headObserver.observe(element)
+  }
+})
 
 function syncForm(): void {
   const current = candidate.value
@@ -129,8 +164,6 @@ function syncForm(): void {
   form.email = current?.email ?? ''
   form.phone = current?.phone ?? ''
   form.currentRole = current?.currentRole ?? ''
-  form.education = current?.education ?? ''
-  form.experience = current?.experience ?? ''
   fieldErrors.email = ''
   fieldErrors.phone = ''
 }
@@ -162,10 +195,22 @@ function updateField(field: EditableCandidateField, value: unknown): void {
   }
 
   store.updateCandidateField(current.id, field, next)
+}
 
-  if (field === 'education' || field === 'experience') {
-    void fit.refreshProfileStale(current.id)
+function updateEntries(kind: CareerKind, entries: CareerEntry[]): void {
+  const current = candidate.value
+
+  if (!current) {
+    return
   }
+
+  store.updateCandidateEntries(current.id, kind, entries)
+  void fit.refreshProfileStale(current.id)
+}
+
+function selectBar(kind: CareerKind, id: string): void {
+  const timeline = kind === 'experience' ? experienceTimeline.value : educationTimeline.value
+  void timeline?.focusEntry(id)
 }
 
 function retrySave(): void {
@@ -394,6 +439,7 @@ watch([() => props.modelValue, () => props.candidateId], ([value, candidateId]) 
     noteDraft.value = ''
     fitConsentOpen.value = false
     activeTab.value = 'details'
+    hoverId.value = null
     store.beginCandidateEdit(candidateId)
     void activity.loadEvents(candidateId)
     void activity.loadNotes(candidateId)
@@ -418,7 +464,10 @@ watch(
   },
 )
 
-onBeforeUnmount(() => setPageScrollLocked(false))
+onBeforeUnmount(() => {
+  setPageScrollLocked(false)
+  headObserver?.disconnect()
+})
 </script>
 
 <template>
@@ -432,7 +481,7 @@ onBeforeUnmount(() => setPageScrollLocked(false))
       aria-label="Applicant profile"
     >
       <div v-if="candidate" class="applicant-drawer__inner">
-        <header class="applicant-drawer__head">
+        <header ref="headRef" class="applicant-drawer__head">
           <span class="candidate-avatar applicant-drawer__avatar" aria-hidden="true">
             {{ initials }}
           </span>
@@ -463,6 +512,7 @@ onBeforeUnmount(() => setPageScrollLocked(false))
 
         <v-tabs v-if="!cvPreviewOpen" v-model="activeTab" class="applicant-tabs" grow>
           <v-tab value="details">Details</v-tab>
+          <v-tab value="career">Career</v-tab>
           <v-tab value="fit">Analize</v-tab>
           <v-tab value="events">Events</v-tab>
         </v-tabs>
@@ -551,17 +601,14 @@ onBeforeUnmount(() => setPageScrollLocked(false))
             </div>
           </section>
 
-          <section v-for="section in textSections" :key="section.key" class="applicant-section">
-            <p class="eyebrow">{{ section.title }}</p>
-            <v-textarea
-              class="applicant-notes-field"
-              :label="section.fieldLabel"
-              :model-value="form[section.key]"
-              auto-grow
-              hide-details
-              rows="4"
-              @update:model-value="updateField(section.key, $event)"
-            />
+          <section class="applicant-section">
+            <p class="eyebrow">Career</p>
+            <div class="career-summary">
+              <p class="career-summary__text">{{ careerSummary }}</p>
+              <v-btn variant="outlined" append-icon="mdi-arrow-right" @click="activeTab = 'career'">
+                Open career
+              </v-btn>
+            </div>
           </section>
 
           <section class="applicant-section">
@@ -670,6 +717,48 @@ onBeforeUnmount(() => setPageScrollLocked(false))
           >
             Delete applicant
           </v-btn>
+        </div>
+
+        <div v-else-if="activeTab === 'career'" class="applicant-career">
+          <v-alert v-if="detailsError" class="orbital-alert" type="error" density="compact">
+            {{ detailsError }}
+          </v-alert>
+
+          <div class="applicant-career__sticky" :style="{ top: `${stickyTop}px` }">
+            <CareerStrip
+              :experience="candidate.experience"
+              :education="candidate.education"
+              :highlight-id="hoverId"
+              @hover="hoverId = $event"
+              @select="selectBar"
+            />
+          </div>
+
+          <div class="applicant-career__body">
+            <section class="applicant-section">
+              <p class="eyebrow">Work experience</p>
+              <CareerTimeline
+                ref="experienceTimeline"
+                kind="experience"
+                :entries="candidate.experience"
+                :highlight-id="hoverId"
+                @hover="hoverId = $event"
+                @update:entries="updateEntries('experience', $event)"
+              />
+            </section>
+
+            <section class="applicant-section">
+              <p class="eyebrow">Education</p>
+              <CareerTimeline
+                ref="educationTimeline"
+                kind="education"
+                :entries="candidate.education"
+                :highlight-id="hoverId"
+                @hover="hoverId = $event"
+                @update:entries="updateEntries('education', $event)"
+              />
+            </section>
+          </div>
         </div>
 
         <div v-else-if="activeTab === 'events'" class="applicant-events">

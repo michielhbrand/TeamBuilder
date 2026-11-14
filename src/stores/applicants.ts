@@ -1,22 +1,29 @@
 import { ref } from 'vue'
 import { defineStore } from 'pinia'
 import * as api from '@/lib/applicants-api'
+import { entriesEqual } from '@/lib/career'
 import { defaultApplicantStep, nextStep } from '@/lib/pipeline'
 import { errorMessage } from '@/lib/store-errors'
 import { useApplicantActivityStore } from '@/stores/applicant-activity'
 import { useBoardsStore } from '@/stores/boards'
 import { useStorageStore } from '@/stores/storage'
-import type { ApplicantInput, Board, Candidate, CandidateStatus } from '@/types/pipeline'
+import type {
+  ApplicantInput,
+  Board,
+  Candidate,
+  CandidateStatus,
+  CareerEntry,
+  CareerKind,
+} from '@/types/pipeline'
 
 interface CandidateContext {
   board: Board
   candidate: Candidate
 }
 
-export type EditableCandidateField =
-  'name' | 'email' | 'phone' | 'currentRole' | 'education' | 'experience'
+export type EditableCandidateField = 'name' | 'email' | 'phone' | 'currentRole'
 
-type SavableCandidateField = EditableCandidateField | 'favorite'
+type SavableCandidateField = EditableCandidateField | CareerKind | 'favorite'
 export type PendingProfileValues = Partial<Pick<Candidate, SavableCandidateField>>
 
 type ProfileSnapshot = Pick<
@@ -74,9 +81,14 @@ export const useApplicantsStore = defineStore('applicants', () => {
 
   function profileChanged(snapshot: ProfileSnapshot, candidate: Candidate): boolean {
     const current = profileSnapshot(candidate)
-    return (Object.keys(current) as Array<keyof ProfileSnapshot>).some(
-      (key) => current[key] !== snapshot[key],
-    )
+    return (Object.keys(current) as Array<keyof ProfileSnapshot>).some((key) => {
+      const before = snapshot[key]
+      const after = current[key]
+
+      return Array.isArray(before) && Array.isArray(after)
+        ? !entriesEqual(before, after)
+        : before !== after
+    })
   }
 
   function hasUnsavedChanges(candidateId: string): boolean {
@@ -149,8 +161,8 @@ export const useApplicantsStore = defineStore('applicants', () => {
         email: input.email.trim(),
         phone: input.phone.trim(),
         currentRole: input.currentRole?.trim() ?? '',
-        education: input.education ?? '',
-        experience: input.experience ?? '',
+        education: input.education ?? [],
+        experience: input.experience ?? [],
       })
       board.candidates = [...board.candidates, candidate]
 
@@ -206,6 +218,20 @@ export const useApplicantsStore = defineStore('applicants', () => {
 
     if (context) {
       context.candidate[field] = value
+      markDirty(candidateId, field)
+      scheduleSave(candidateId)
+    }
+  }
+
+  function updateCandidateEntries(
+    candidateId: string,
+    field: CareerKind,
+    entries: CareerEntry[],
+  ): void {
+    const context = candidateContext(candidateId)
+
+    if (context) {
+      context.candidate[field] = entries
       markDirty(candidateId, field)
       scheduleSave(candidateId)
     }
@@ -426,6 +452,7 @@ export const useApplicantsStore = defineStore('applicants', () => {
     createApplicant,
     deleteApplicant,
     updateCandidateField,
+    updateCandidateEntries,
     toggleFavorite,
     advanceCandidate,
     moveCandidate,

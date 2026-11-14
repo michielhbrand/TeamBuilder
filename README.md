@@ -33,8 +33,8 @@ fit analyses are stored in Supabase Postgres and loaded through Pinia.
 - Role boards grouped by department at `/boards`
 - A step-column pipeline for each role with candidate cards and deadline indicators
 - Board creation and editing, including ordered pipeline columns
-- Applicant creation per board with a right-side editable profile, favourite toggle, and
-  career / work-experience notes
+- Applicant creation per board with a right-side editable profile, favourite toggle, and a
+  Career tab that shows education and work experience as editable timelines with a career strip
 - A consent-gated **Analize** tab that compares redacted education and work experience with
   the board's job spec using a free Kilo model and lists similarities and gaps
 - An applicant Events tab with a timestamped audit trail for creation, profile edits, moves,
@@ -392,7 +392,9 @@ src/
   components/ApplicantFormDialog.vue Create an applicant on a board
   components/BoardColumn.vue One pipeline step column
   components/CandidateCard.vue Candidate summary and actions
-  components/ApplicantDrawer.vue Editable applicant profile, Analize, events, and notes
+  components/ApplicantDrawer.vue Editable applicant profile, Career, Analize, events, and notes
+  components/CareerTimeline.vue Editable education / work timeline
+  components/CareerStrip.vue Career strip with work and education lanes
   components/FitConsentDialog.vue Per-analysis consent for Kilo
   components/FullNameDialog.vue Blocking full-name capture for signed-in users
   components/ConfirmDialog.vue Shared destructive-action confirmation
