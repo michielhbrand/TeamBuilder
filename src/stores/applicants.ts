@@ -130,6 +130,8 @@ export const useApplicantsStore = defineStore('applicants', () => {
   function beginCandidateEdit(candidateId: string): void {
     const context = candidateContext(candidateId)
 
+    setSaveStatus(candidateId, 'idle')
+
     if (context) {
       editSnapshots.set(candidateId, profileSnapshot(context.candidate))
     } else {
@@ -360,14 +362,39 @@ export const useApplicantsStore = defineStore('applicants', () => {
     const candidate = candidateById(candidateId)
 
     if (saved && candidate) {
-      useUndoStore().push(`${candidate.name} ${status}`, async () => {
-        if (candidateById(candidateId)?.status === status) {
-          await reopenCandidate(candidateId)
-        }
-      })
+      useUndoStore().push(`${candidate.name} ${status}`, () => undoDecision(candidateId, status))
     }
 
     return saved
+  }
+
+  async function undoDecision(candidateId: string, status: 'hired' | 'rejected'): Promise<void> {
+    const context = candidateContext(candidateId)
+
+    if (!context || context.candidate.status !== status) {
+      return
+    }
+
+    error.value = null
+    context.candidate.status = 'active'
+
+    try {
+      const changed = await api.reopenApplicantIfStatus(candidateId, status)
+
+      if (!changed) {
+        if (context.candidate.status === 'active') {
+          context.candidate.status = status
+        }
+
+        void useBoardsStore().refresh()
+      }
+    } catch (caught) {
+      if (context.candidate.status === 'active') {
+        context.candidate.status = status
+      }
+
+      error.value = errorMessage(caught)
+    }
   }
 
   function hireCandidate(candidateId: string): Promise<boolean> {
@@ -457,6 +484,11 @@ export const useApplicantsStore = defineStore('applicants', () => {
     }
   }
 
+  function retryCandidateSave(candidateId: string): Promise<boolean> {
+    clearSaveTimer(candidateId)
+    return persistCandidate(candidateId)
+  }
+
   async function flushCandidate(candidateId: string): Promise<void> {
     clearSaveTimer(candidateId)
     const context = candidateContext(candidateId)
@@ -513,6 +545,7 @@ export const useApplicantsStore = defineStore('applicants', () => {
     rejectCandidate,
     reopenCandidate,
     flushCandidate,
+    retryCandidateSave,
     beginCandidateEdit,
     forgetCandidate,
     forgetCandidates,

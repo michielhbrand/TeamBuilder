@@ -53,3 +53,18 @@ export async function deleteApplicant(id: string): Promise<void> {
   const { error } = await supabase.from('applicants').delete().eq('id', id)
   fail(error)
 }
+
+export async function reopenApplicantIfStatus(
+  id: string,
+  expectedStatus: 'hired' | 'rejected',
+): Promise<boolean> {
+  const { data, error } = await supabase
+    .from('applicants')
+    .update({ status: 'active' })
+    .eq('id', id)
+    .eq('status', expectedStatus)
+    .select('id')
+  fail(error)
+
+  return (data?.length ?? 0) > 0
+}

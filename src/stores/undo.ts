@@ -1,6 +1,5 @@
 import { ref } from 'vue'
 import { defineStore } from 'pinia'
-import { errorMessage } from '@/lib/store-errors'
 
 const DEFAULT_TTL_MS = 8000
 
@@ -11,7 +10,6 @@ export interface UndoEntry {
 
 export const useUndoStore = defineStore('undo', () => {
   const entry = ref<UndoEntry | null>(null)
-  const error = ref<string | null>(null)
   let action: (() => Promise<void>) | null = null
   let timer: ReturnType<typeof setTimeout> | undefined
   let nextId = 1
@@ -25,7 +23,6 @@ export const useUndoStore = defineStore('undo', () => {
 
   function push(message: string, undo: () => Promise<void>, ttlMs = DEFAULT_TTL_MS): void {
     clear()
-    error.value = null
     action = undo
     entry.value = { id: nextId++, message }
     timer = setTimeout(clear, ttlMs)
@@ -34,19 +31,12 @@ export const useUndoStore = defineStore('undo', () => {
   async function run(): Promise<void> {
     const pending = action
     clear()
-    error.value = null
-
-    try {
-      await pending?.()
-    } catch (caught) {
-      error.value = errorMessage(caught)
-    }
+    await pending?.()
   }
 
   function reset(): void {
     clear()
-    error.value = null
   }
 
-  return { entry, error, push, run, dismiss: clear, reset }
+  return { entry, push, run, dismiss: clear, reset }
 })

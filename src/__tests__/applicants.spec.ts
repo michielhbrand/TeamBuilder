@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   createApplicant: vi.fn<(...args: unknown[]) => unknown>(),
   updateApplicant: vi.fn<(...args: unknown[]) => unknown>(),
   deleteApplicant: vi.fn<(...args: unknown[]) => unknown>(),
+  reopenApplicantIfStatus: vi.fn<(...args: unknown[]) => Promise<boolean>>(),
   recordApplicantEditEvent: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
   fetchApplicantEvents: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
   uploadApplicantCv: vi.fn<(...args: unknown[]) => unknown>(),
@@ -28,6 +29,7 @@ vi.mock('@/lib/applicants-api', () => ({
   createApplicant: mocks.createApplicant,
   updateApplicant: mocks.updateApplicant,
   deleteApplicant: mocks.deleteApplicant,
+  reopenApplicantIfStatus: mocks.reopenApplicantIfStatus,
 }))
 vi.mock('@/lib/activity-api', () => ({
   recordApplicantEditEvent: mocks.recordApplicantEditEvent,
@@ -91,6 +93,7 @@ describe('applicants store', () => {
     mocks.fetchBoards.mockResolvedValue([makeBoard()])
     mocks.updateApplicant.mockResolvedValue(undefined)
     mocks.deleteApplicant.mockResolvedValue(undefined)
+    mocks.reopenApplicantIfStatus.mockResolvedValue(true)
     mocks.recordApplicantEditEvent.mockResolvedValue(undefined)
     mocks.fetchApplicantEvents.mockResolvedValue([])
     mocks.uploadApplicantCv.mockResolvedValue({ path: 'c3/cv.pdf', name: 'noor-cv.pdf' })
@@ -146,7 +149,29 @@ describe('applicants store', () => {
     await useUndoStore().run()
 
     expect(applicants.candidateById('c1')?.status).toBe('active')
-    expect(mocks.updateApplicant).toHaveBeenLastCalledWith('c1', { status: 'active' })
+    expect(mocks.reopenApplicantIfStatus).toHaveBeenCalledExactlyOnceWith('c1', 'hired')
+  })
+
+  it('undo is a no-op locally when the server reports zero rows changed', async () => {
+    const { applicants } = await initializedStores()
+    await applicants.hireCandidate('c1')
+    mocks.reopenApplicantIfStatus.mockResolvedValue(false)
+
+    await useUndoStore().run()
+
+    expect(applicants.candidateById('c1')?.status).toBe('hired')
+    expect(applicants.error).toBeNull()
+  })
+
+  it('a failing undo write rolls back and surfaces on applicants.error', async () => {
+    const { applicants } = await initializedStores()
+    await applicants.hireCandidate('c1')
+    mocks.reopenApplicantIfStatus.mockRejectedValue(new Error('offline'))
+
+    await useUndoStore().run()
+
+    expect(applicants.candidateById('c1')?.status).toBe('hired')
+    expect(applicants.error).toBe('offline')
   })
 
   it('undo does nothing when the status has changed since', async () => {
@@ -155,11 +180,9 @@ describe('applicants store', () => {
     const candidate = applicants.candidateById('c1')
     if (!candidate) return
     candidate.status = 'hired'
-    mocks.updateApplicant.mockClear()
-
     await useUndoStore().run()
 
-    expect(mocks.updateApplicant).not.toHaveBeenCalled()
+    expect(mocks.reopenApplicantIfStatus).not.toHaveBeenCalled()
     expect(candidate.status).toBe('hired')
   })
 
@@ -392,6 +415,53 @@ describe('applicants store', () => {
 
     expect(applicants.hasUnsavedChanges(candidate.id)).toBe(false)
     expect(applicants.error).toBeNull()
+  })
+
+  it('retryCandidateSave keeps the edit snapshot so the event is recorded once on close', async () => {
+    const { applicants } = await initializedStores()
+    const candidate = applicants.candidateById('c1')
+    if (!candidate) return
+
+    applicants.beginCandidateEdit(candidate.id)
+    applicants.updateCandidateField(candidate.id, 'email', 'retry@example.com')
+    mocks.updateApplicant.mockRejectedValueOnce(new Error('offline'))
+
+    expect(await applicants.retryCandidateSave(candidate.id)).toBe(false)
+    expect(mocks.recordApplicantEditEvent).not.toHaveBeenCalled()
+
+    await applicants.flushCandidate(candidate.id)
+
+    expect(mocks.recordApplicantEditEvent).toHaveBeenCalledTimes(1)
+  })
+
+  it('a successful retryCandidateSave does not record the edit event early', async () => {
+    const { applicants } = await initializedStores()
+    const candidate = applicants.candidateById('c1')
+    if (!candidate) return
+
+    applicants.beginCandidateEdit(candidate.id)
+    applicants.updateCandidateField(candidate.id, 'email', 'retry@example.com')
+
+    expect(await applicants.retryCandidateSave(candidate.id)).toBe(true)
+    expect(mocks.recordApplicantEditEvent).not.toHaveBeenCalled()
+
+    await applicants.flushCandidate(candidate.id)
+
+    expect(mocks.recordApplicantEditEvent).toHaveBeenCalledTimes(1)
+  })
+
+  it('beginCandidateEdit resets a stale saved status', async () => {
+    const { applicants } = await initializedStores()
+    const candidate = applicants.candidateById('c1')
+    if (!candidate) return
+
+    applicants.updateCandidateField(candidate.id, 'email', 'saved@example.com')
+    await applicants.flushCandidate(candidate.id)
+    expect(applicants.saveStatusFor(candidate.id)).toBe('saved')
+
+    applicants.beginCandidateEdit(candidate.id)
+
+    expect(applicants.saveStatusFor(candidate.id)).toBe('idle')
   })
 
   it('persists hire, reject, and reopen status changes', async () => {

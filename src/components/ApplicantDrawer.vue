@@ -209,7 +209,7 @@ function selectBar(kind: CareerKind, id: string): void {
 
 function retrySave(): void {
   if (candidate.value) {
-    void store.flushCandidate(candidate.value.id)
+    void store.retryCandidateSave(candidate.value.id)
   }
 }
 
