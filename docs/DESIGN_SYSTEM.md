@@ -51,6 +51,26 @@ scale, Orbital can read as a generic SaaS theme. Use the motif and the tokens de
 The prototype is a reference, not an application dependency. Production styling lives in the
 files above. Change the tokens there first; do not copy one-off hex values into views.
 
+## Terminology
+
+Use one noun per concept in all user-facing copy, aria-labels, and docs. User-facing spelling is
+en-US.
+
+| Use                                 | Not                             |
+| ----------------------------------- | ------------------------------- |
+| Stage                               | step, column                    |
+| Applicant                           | candidate                       |
+| Role (prose), Boards (nav and page) | position, pipeline (as a title) |
+| CV fit                              | Analize, analysis tab           |
+| Activity                            | Events                          |
+| N days in stage                     | N days in step                  |
+| N days overdue, Due in N days       | other deadline phrasings        |
+| favorite, organization              | favourite, organisation         |
+
+Identifiers are not renamed: `PipelineStep`, `stepId`, `steps`, `candidates`, `summariseBoard`,
+and the `fit` and `events` tab values keep their names. `src/__tests__/copy-guard.spec.ts` fails
+on banned user-facing phrases in `src/**/*.vue`.
+
 ## Color tokens
 
 Role names are stable. Use the CSS variable rather than the hex value in components.
@@ -204,22 +224,22 @@ that prototype's palette, gradients, or Bricolage/Hanken fonts.
 
 - `/boards` uses a search field, All roles / Past deadline filter chips, department
   headings, and a responsive grid of board cards. Each card shows the role, open positions,
-  active candidates, deadline, and a pipeline bar.
-- `/boards/:boardId` gives the step-column pipeline the full content width. A compact
+  active applicants, deadline, and a pipeline bar.
+- `/boards/:boardId` gives the stage-column pipeline the full content width. A compact
   board-switcher button in the page header opens a searchable, department-grouped menu for
   changing roles. At `1024px` the header stacks and the switcher spans the available width.
   Edit, Columns, Job spec, and Add applicant are equal-sized icon-only buttons. The Job spec
   button opens the upload state when the board has no PDF and the preview state when it does.
-- Step columns are a horizontal grid with a numbered step header, candidate count, and
-  candidate cards. Columns use the surface-2 fill and hairline dividers. There are no
+- Stage columns are a horizontal grid with a numbered stage header, applicant count, and
+  applicant cards. Columns use the surface-2 fill and hairline dividers. There are no
   per-step target days.
-- Candidate cards use a 12 px radius, a token-only initials avatar, current role, time in
-  step, a favourite star in the top-right corner, and persistent Hire and Reject actions.
+- Applicant cards use a 12 px radius, a token-only initials avatar, current role, time in
+  step, a favorite star in the top-right corner, and persistent Hire and Reject actions.
   Chevron-left and chevron-right buttons beside the Hire and Reject actions move the
-  candidate one column without opening the profile.
-- Clicking a candidate card opens a right-side applicant drawer at roughly half the viewport
+  applicant one stage without opening the profile.
+- Clicking an applicant card opens a right-side applicant drawer at roughly half the viewport
   width. It uses the surface, hairline, and field tokens, with an editable basic-information
-  form, a star favourite toggle, a **Career** tab with a pinned career strip and vertical
+  form, a star favorite toggle, a **Career** tab with a pinned career strip and vertical
   timelines for work and education, and a single PDF CV document. The drawer becomes full width at `720px`.
 - Candidate cards can be dragged one step left or right. While a card is held, only the
   adjacent columns highlight with the accent token and accept the drop. The card in flight
@@ -228,8 +248,8 @@ that prototype's palette, gradients, or Bricolage/Hanken fonts.
 - Boards past their deadline use the danger token on the card label and in overview
   attention rows. Never rely on color alone; the copy says "Past deadline".
 - The closed-candidates disclosure uses two columns for hired and rejected, with a reopen
-  action. It stacks at `720px`. Hiring or rejecting a candidate removes the card from the
-  step columns and adds the name to the matching closed column.
+  action. It stacks at `720px`. Hiring or rejecting an applicant removes the card from the
+  stage columns and adds the name to the matching closed column.
 - Keyboard support mirrors the concept: `/` focuses board search. The applicant drawer CV
   preview and the job spec preview support open in a new tab, print, and remove controls.
 
@@ -341,13 +361,13 @@ class. Keep the rules attached to the field.
 - Use `ApplicantDrawer.vue` from `BoardView`; it is a temporary `v-navigation-drawer` on the
   right at `50vw` desktop.
 - The header keeps the initials avatar, applicant name, current role metadata, a star
-  favourite button (`mdi-star` / `mdi-star-outline` with `aria-pressed`), and a close button.
+  favorite button (`mdi-star` / `mdi-star-outline` with `aria-pressed`), and a close button.
 - Editable basic fields use the standard `orbital-field` treatment. Education and work
   experience are structured entries shown as a vertical timeline (see Career timeline).
 - Email is optional and must be valid when present. Phone is optional and accepts digits
   only. Invalid values show a field error and are not persisted.
 - The drawer has four tabs below the header: **Details** for the editable profile with a career
-  summary card that opens the Career tab, **Career** for the strip and timelines, **Analize**
+  summary card that opens the Career tab, **Career** for the strip and timelines, **CV fit**
   for the job-spec analysis, and **Events** for the applicant audit trail. Tabs use the
   display font, sentence case, an accent underline, and the standard hairline divider. Events
   render newest first as a vertical timeline with an accent dot, the event message, and an
@@ -369,7 +389,7 @@ class. Keep the rules attached to the field.
 
 ### Career timeline and strip
 
-- Entries have four visible parts: title (job title or qualification), organisation (company
+- Entries have four visible parts: title (job title or qualification), organization (company
   or institution), time span, and description. Time spans use "Start date" and "End date"
   fields with a `YYYY-MM` placeholder (for example, `2024-06`), inline validation while the
   user types or leaves a field, and a "Currently working here" / "Still studying" checkbox
@@ -394,7 +414,7 @@ class. Keep the rules attached to the field.
 
 ### CV analysis
 
-- The **Analize** tab uses the same drawer surface, spacing, and hairline rhythm. Keep the
+- The **CV fit** tab uses the same drawer surface, spacing, and hairline rhythm. Keep the
   empty state quiet: one muted icon, a short title, the missing prerequisites, and a single
   primary **Analyze CV** action.
 - Keep the result intentionally simple: an icon-only **Refresh** button above two lists under

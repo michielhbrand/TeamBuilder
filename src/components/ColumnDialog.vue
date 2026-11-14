@@ -155,7 +155,7 @@ async function add(): Promise<void> {
 async function remove(step: PipelineStep): Promise<void> {
   if (
     !props.board ||
-    !window.confirm(`Delete "${step.name}"? Applicants will move to the first column.`)
+    !window.confirm(`Delete "${step.name}"? Applicants will move to the first stage.`)
   ) {
     return
   }
@@ -176,7 +176,7 @@ onBeforeUnmount(clearRenameTimers)
       <div class="orbital-dialog__head">
         <div>
           <p class="eyebrow">Pipeline</p>
-          <h2 class="panel-title">Manage columns</h2>
+          <h2 class="panel-title">Manage stages</h2>
         </div>
         <v-btn icon="mdi-close" variant="text" aria-label="Close" @click="open = false" />
       </div>
@@ -187,8 +187,8 @@ onBeforeUnmount(clearRenameTimers)
         </v-alert>
 
         <p class="column-manage__hint">
-          Column names save automatically. The first column is fixed as the fallback for applicants
-          whose column is deleted. Deleting a column moves its applicants to the first column.
+          Stage names save automatically. The first stage is fixed as the fallback for applicants
+          whose stage is deleted. Deleting a stage moves its applicants to the first stage.
         </p>
 
         <div class="column-manage">
@@ -207,7 +207,7 @@ onBeforeUnmount(clearRenameTimers)
             <v-btn
               icon="mdi-arrow-up"
               variant="text"
-              aria-label="Move column up"
+              aria-label="Move stage up"
               :loading="movingId === step.id"
               :disabled="index <= 1"
               @click="move(step, -1)"
@@ -215,7 +215,7 @@ onBeforeUnmount(clearRenameTimers)
             <v-btn
               icon="mdi-arrow-down"
               variant="text"
-              aria-label="Move column down"
+              aria-label="Move stage down"
               :loading="movingId === step.id"
               :disabled="index === 0 || index === steps.length - 1"
               @click="move(step, 1)"
@@ -224,7 +224,7 @@ onBeforeUnmount(clearRenameTimers)
               icon="mdi-delete-outline"
               variant="text"
               color="error"
-              aria-label="Delete column"
+              aria-label="Delete stage"
               :disabled="index === 0"
               @click="remove(step)"
             />
@@ -235,7 +235,7 @@ onBeforeUnmount(clearRenameTimers)
           <v-text-field
             v-model="newColumn"
             class="orbital-field"
-            label="New column name"
+            label="New stage name"
             variant="outlined"
             hide-details
             @keyup.enter="add"

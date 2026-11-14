@@ -196,6 +196,6 @@ describe('storage store', () => {
     await boards.deleteColumn(board.id, 's1')
 
     expect(storage.error).toBe('upload failed')
-    expect(boards.error).toBe('The first column cannot be deleted.')
+    expect(boards.error).toBe('The first stage cannot be deleted.')
   })
 })

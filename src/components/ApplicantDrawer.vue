@@ -517,7 +517,7 @@ onBeforeUnmount(() => {
             <v-btn
               :icon="candidate.favorite ? 'mdi-star' : 'mdi-star-outline'"
               :color="candidate.favorite ? 'primary' : undefined"
-              :aria-label="candidate.favorite ? 'Remove from favourites' : 'Add to favourites'"
+              :aria-label="candidate.favorite ? 'Remove from favorites' : 'Add to favorites'"
               :aria-pressed="candidate.favorite"
               variant="text"
               @click="store.toggleFavorite(candidate.id)"
@@ -549,8 +549,8 @@ onBeforeUnmount(() => {
         <v-tabs v-if="!cvPreviewOpen" v-model="activeTab" class="applicant-tabs" grow>
           <v-tab value="details">Details</v-tab>
           <v-tab value="career">Career</v-tab>
-          <v-tab value="fit">Analize</v-tab>
-          <v-tab value="events">Events</v-tab>
+          <v-tab value="fit">CV fit</v-tab>
+          <v-tab value="events">Activity</v-tab>
         </v-tabs>
 
         <div v-if="cvPreviewOpen" class="applicant-cv-preview">
@@ -784,9 +784,9 @@ onBeforeUnmount(() => {
             {{ eventsError }}
           </v-alert>
 
-          <div v-if="eventsLoading" class="applicant-events__status">Loading events...</div>
+          <div v-if="eventsLoading" class="applicant-events__status">Loading activity...</div>
           <p v-else-if="!events.length" class="applicant-events__empty">
-            No events recorded for this applicant yet.
+            No activity recorded for this applicant yet.
           </p>
           <ol v-else class="applicant-event-list">
             <li v-for="event in events" :key="event.id" class="applicant-event">

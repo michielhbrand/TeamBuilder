@@ -251,7 +251,7 @@ export const useBoardsStore = defineStore('boards', () => {
     const first = board?.steps[0]
 
     if (!board || !step || !first || first.id === stepId) {
-      error.value = 'The first column cannot be deleted.'
+      error.value = 'The first stage cannot be deleted.'
       return false
     }
 

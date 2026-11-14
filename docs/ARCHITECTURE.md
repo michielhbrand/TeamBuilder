@@ -9,8 +9,8 @@ requests to a free hosted model for CV analysis. Administrators provision users 
 Supabase and can invite them by email; invited users choose their own password.
 
 The protected hiring portal is a board-based workspace. A board represents one open role,
-boards are grouped by department, and each board has its own ordered columns and applicants.
-Boards, columns, applicants, their audit events, notes, and fit analyses are stored in
+boards are grouped by department, and each board has its own ordered stages and applicants.
+Boards, stages, applicants, their audit events, notes, and fit analyses are stored in
 Supabase Postgres and loaded through Pinia. Every signed-in user shares the same workspace;
 Row Level Security allows the `authenticated` role only.
 
@@ -21,7 +21,7 @@ Browser
   v
 Supabase Auth  <---- session JWT issued to the browser
   |
-  +--> PostgREST / Postgres (RLS: authenticated only)  <---- boards, columns, applicants, events
+  +--> PostgREST / Postgres (RLS: authenticated only)  <---- boards, stages, applicants, events
 
 Build time:
 GitHub Actions secrets -> Vite env -> bundled publishable key + URL -> GitHub Pages
@@ -46,7 +46,7 @@ rule set; the selected reference is `design/ui-directions.html#orbital`.
   top-bar navigation for Overview, Boards, and Account.
 - `src/components/BoardList.vue`, `BoardColumn.vue`, `CandidateCard.vue`,
   `ApplicantDrawer.vue`, and `PipelineBar.vue` implement the board UI.
-  `ApplicantDrawer.vue` is the right-side editable candidate profile opened from a card.
+  `ApplicantDrawer.vue` is the right-side editable applicant profile opened from a card.
   `DepartmentLoadChart.vue`, `OutcomeDonut.vue`, `RolePerformanceTable.vue`, and
   `ApplicantWatchList.vue` implement the dashboard visuals and lists.
   `design/hiring-pipeline-step-columns.html` is the structural concept reference; its
@@ -77,7 +77,7 @@ rule set; the selected reference is `design/ui-directions.html#orbital`.
 8. `OverviewView.vue` is the post-login hiring dashboard. It summarizes open demand, active
    candidates, outcomes, deadlines, role performance, and applicant watch lists, with a
    department filter and drill-downs into boards and applicant profiles. `BoardsView.vue`
-   lists boards grouped by department, `BoardView.vue` renders one board's step columns, and
+   lists boards grouped by department, `BoardView.vue` renders one board's stage columns, and
    `AccountView.vue` shows non-sensitive session details, full-name editing, and password
    reset. Sign-out calls `auth.signOut()`, which clears the session and resets the dependent
    workspace stores; `App.vue` watches `auth.isAuthenticated` and redirects a protected route
@@ -124,7 +124,7 @@ updates consistent.
 The hiring workspace is split by domain, and each store owns its own `error` state:
 
 - `src/stores/boards.ts` owns boards, columns, and the derived groups, summaries, and totals.
-- `src/stores/applicants.ts` owns candidate lookup, applicant CRUD, moves, status changes,
+- `src/stores/applicants.ts` owns applicant lookup, applicant CRUD, moves, status changes,
   debounced autosave, and edit snapshots.
 - `src/stores/applicant-activity.ts` owns applicant events and notes plus their per-applicant
   loading state.
@@ -137,7 +137,7 @@ applicant error.
 
 ## Update strategy
 
-Board and column mutations (`updateBoard`, `addColumn`, `renameColumn`, `reorderColumns`, and
+Board and stage mutations (`updateBoard`, `addColumn`, `renameColumn`, `reorderColumns`, and
 `deleteColumn`) are pessimistic: local state changes only after Supabase accepts the write.
 Applicant moves, status changes, and debounced field autosave are optimistic so drag-and-drop
 and typing stay responsive:
@@ -148,7 +148,7 @@ and typing stay responsive:
   outcome the database does not have.
 - Autosave tracks the profile fields that changed since the last successful save and writes
   only those fields. Profile saves never include `status` or `column_id`, so editing a name,
-  contact detail, role, education, experience, or favourite cannot move an applicant or
+  contact detail, role, education, experience, or favorite cannot move an applicant or
   change their outcome. A field that changes while a save is in flight stays dirty and is
   written by the next debounced save.
 - A failed autosave keeps the user's text instead of reverting it mid-edit.
@@ -179,10 +179,10 @@ The schema lives in `supabase/migrations/`:
 - `public.boards` — free-text department, name unique per department, open positions,
   deadline, job spec path and filename, timestamps.
 - `public.board_columns` — board, unique name per board, ordered `position`.
-- `public.applicants` — board, assigned column, contact details, current role, structured
+- `public.applicants` — board, assigned stage, contact details, current role, structured
   education and work experience (jsonb arrays of entries with `id`, `title`, `organization`,
   `start` and `end` as `YYYY-MM`, `current`, and `description`; a check constraint requires
-  arrays), favourite flag, status, CV path and filename, `applied_at`, and `step_entered_at`.
+  arrays), favorite flag, status, CV path and filename, `applied_at`, and `step_entered_at`.
   Entries are validated as valid month/year values and kept sorted newest first before they
   are written. Email and phone are optional; when present they are unique per board.
 - `public.applicant_events` — board and applicant scope, actor id and name, action, rendered
@@ -205,14 +205,14 @@ The schema lives in `supabase/migrations/`:
   users can select; only the Edge Function with the service role writes.
 
 The composite applicant foreign key `(board_id, column_id)` guarantees that an applicant is
-assigned to a column on the same board. New boards start with `Applied`, `Interview`, and
-`Offer` columns. New applicants default to the column named `Applied`, falling back to the
-first column when it has been renamed. Email and phone use
+assigned to a stage on the same board. New boards start with `Applied`, `Interview`, and
+`Offer` stages. New applicants default to the stage named `Applied`, falling back to the
+first stage when it has been renamed. Email and phone use
 partial unique indexes so multiple applicants can leave them blank. A trigger keeps
 `updated_at` current. SQL functions
 `create_board`, `add_board_column`, `reorder_board_columns`, and `delete_board_column` make
 multi-row changes atomic.
-`delete_board_column` moves the column's applicants to the first column, and the first column
+`delete_board_column` moves the stage's applicants to the first stage, and the first stage
 cannot be deleted. Deleting a board cascades to its columns and applicants, and deleting an
 applicant cascades to its events, notes, and fit analysis.
 
@@ -264,11 +264,11 @@ LinkedIn blocks automated access, prohibits scraping, and has no free reliable p
 
 ### CV analysis
 
-The applicant drawer has an **Analize** tab. It compares the applicant's education and work
+The applicant drawer has a **CV fit** tab. It compares the applicant's education and work
 experience with the board's PDF job spec and shows two lists: similarities and gaps. The flow is:
 
 ```text
-Analize tab, CV upload, or refresh
+CV fit tab, CV upload, or refresh
   -> consent dialog (every analysis, including re-evaluation)
   -> browser extracts job-spec text locally (pdfjs-dist + OCR fallback)
   -> supabase.functions.invoke('fit-analysis')
@@ -313,7 +313,7 @@ because PostgREST also requires the underlying table grants. RPC execution is re
 sharing row types, select fragments, and domain mappers through `src/lib/api-shared.ts`.
 `src/lib/store-errors.ts` holds the shared friendly constraint messages.
 
-`src/stores/boards.ts` is the source of truth for boards and columns:
+`src/stores/boards.ts` is the source of truth for boards and stages:
 
 - `boards`, `loading`, `initialized`, and `error`.
 - derived `groups`, `orderedBoards`, `summaries`, `totals`, and `needsAttention` (boards past
@@ -321,7 +321,7 @@ sharing row types, select fragments, and domain mappers through `src/lib/api-sha
 - `initialize`, `refresh`, `createBoard`, `updateBoard`, `deleteBoard`, `addColumn`,
   `renameColumn`, `reorderColumns`, `deleteColumn`, and `reset`.
 
-`src/stores/applicants.ts` owns candidate behavior:
+`src/stores/applicants.ts` owns applicant behavior:
 
 - `candidateById` and its own `error`.
 - `createApplicant`, `deleteApplicant`, `updateCandidateField`, and `toggleFavorite`.
@@ -354,7 +354,7 @@ The router guard awaits `boards.initialize()` before entering a protected route.
 edits update Pinia immediately and are debounced before the applicant row is written;
 `flushCandidate` writes any pending edit when the drawer closes. The drawer snapshots the
 profile when it opens; on close, `flushCandidate` compares the snapshot and records one
-`edited` event only when a name, contact, role, education, experience, favourite, or CV value
+`edited` event only when a name, contact, role, education, experience, favorite, or CV value
 changed. This avoids one event per keystroke; the narrow `record_applicant_edit_event` RPC
 derives the actor and message from the session and applicant. Database triggers record
 creation, moves, and hire/reject/reopen events in the same transaction as the applicant
@@ -483,7 +483,7 @@ Function secrets are separate from the Vite build:
 - To change fit analysis, update the prompt/validation/redaction in
   `supabase/functions/fit-analysis`, bump `PROMPT_VERSION`, and keep the Edge Function as the
   only writer of `public.applicant_fit_analyses`.
-- Keep the first board column as the fallback bucket. If column reordering is added, update
+- Keep the first board stage as the fallback bucket. If stage reordering is added, update
   the atomic delete function and the `position` ordering together.
 - Password recovery links already use the same `/set-password` flow. If magic links are
   added, extend the Supabase redirect allow-list for both local and Pages origins and add

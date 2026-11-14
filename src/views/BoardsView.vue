@@ -26,7 +26,7 @@ function onCreated(board: Board): void {
     <div class="page-heading">
       <div>
         <p class="eyebrow">Boards</p>
-        <h1 class="page-title">Hiring pipelines.</h1>
+        <h1 class="page-title">Boards</h1>
         <p class="lede">
           One board per open role, grouped by department. Search or filter to find the pipeline that
           needs attention.

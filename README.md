@@ -2,9 +2,9 @@
 
 A Vue 3 + Supabase hiring pipeline workspace: email/password sign-in, invited users who
 choose their own password, in-memory sessions, a protected hiring portal, and sign-out. The
-portal has a hiring dashboard, role boards grouped by department, a step-column board for
+portal has a hiring dashboard, role boards grouped by department, a stage-column board for
 each role, a consent-gated CV analysis that lists similarities and gaps, and an account page. The frontend is deployed
-to GitHub Pages with GitHub Actions. Boards, pipeline columns, applicants, events, notes, and
+to GitHub Pages with GitHub Actions. Boards, pipeline stages, applicants, activity, notes, and
 fit analyses are stored in Supabase Postgres and loaded through Pinia.
 
 - **Live demo:** https://michielhbrand.github.io/TeamBuilder/
@@ -31,15 +31,15 @@ fit analyses are stored in Supabase Postgres and loaded through Pinia.
 - A hiring dashboard at `/overview` with workload, outcomes, role performance, deadlines, and
   applicant watch lists
 - Role boards grouped by department at `/boards`
-- A step-column pipeline for each role with candidate cards and deadline indicators
-- Board creation and editing, including ordered pipeline columns
-- Applicant creation per board with a right-side editable profile, favourite toggle, and a
+- A stage-column pipeline for each role with applicant cards and deadline indicators
+- Board creation and editing, including ordered pipeline stages
+- Applicant creation per board with a right-side editable profile, favorite toggle, and a
   Career tab that shows education and work experience as editable timelines with a career strip
-- A consent-gated **Analize** tab that compares redacted education and work experience with
+- A consent-gated **CV fit** tab that compares redacted education and work experience with
   the board's job spec using a free Kilo model and lists similarities and gaps
-- An applicant Events tab with a timestamped audit trail for creation, profile edits, moves,
+- An applicant Activity tab with a timestamped audit trail for creation, profile edits, moves,
   CV analyses, and hire/reject/reopen actions
-- Persisted candidate actions: advance, move, reject, hire, reopen, and delete
+- Persisted applicant actions: advance, move, reject, hire, reopen, and delete
 - An account page with non-sensitive session details, full-name editing, and password reset
 - A blocking full-name prompt after sign-in when the profile has no name yet
 - Sign-out and redirect back to the login screen
@@ -347,7 +347,7 @@ Examples:
 
 ```text
 fix(auth): handle expired invite links
-feat(boards): show candidate time in step
+feat(boards): show applicant time in stage
 feat(auth)!: require email confirmation
 ```
 
@@ -367,7 +367,7 @@ src/
   lib/job-spec.ts           Job-spec PDF text extraction and cleanup
   lib/fit-hash.ts           CV, job-spec, and profile fingerprints
   lib/validation.ts         Email and phone validation helpers
-  lib/boards-api.ts         Supabase reads/writes for boards and columns
+  lib/boards-api.ts         Supabase reads/writes for boards and stages
   lib/applicants-api.ts     Supabase create, update, and delete for applicants
   lib/activity-api.ts       Supabase reads/writes for applicant events and notes
   lib/storage-api.ts        Supabase Storage for CVs and job specs
@@ -375,12 +375,12 @@ src/
   lib/api-shared.ts         Shared row types, selects, and domain mappers
   lib/store-errors.ts       Shared friendly store error messages
   stores/auth.ts            Session state, sign-in, sign-out, full name, password setup
-  stores/boards.ts          Boards, columns, and derived summaries
+  stores/boards.ts          Boards, stages, and derived summaries
   stores/applicants.ts      Applicant CRUD, moves, autosave, and edit snapshots
   stores/applicant-activity.ts Applicant events and notes with loading state
   stores/storage.ts         CV and job-spec upload, removal, and preview actions
   stores/fit.ts             Persisted CV analysis state and actions
-  types/pipeline.ts         Board, step, candidate, and summary types
+  types/pipeline.ts         Board, stage, applicant, and summary types
   types/fit.ts              CV analysis result and row types
   router/index.ts           Routes and authentication guard
   components/AppShell.vue   Top-bar navigation for protected pages
@@ -388,11 +388,11 @@ src/
   components/BrandMark.vue  TeamBuilder brand lockup
   components/BoardList.vue  Searchable boards grouped by department
   components/BoardFormDialog.vue Create/edit board fields
-  components/ColumnDialog.vue Add, rename, reorder, and delete pipeline columns
+  components/ColumnDialog.vue Add, rename, reorder, and delete pipeline stages
   components/ApplicantFormDialog.vue Create an applicant on a board
-  components/BoardColumn.vue One pipeline step column
+  components/BoardColumn.vue One pipeline stage column
   components/CandidateCard.vue Candidate summary and actions
-  components/ApplicantDrawer.vue Editable applicant profile, Career, Analize, events, and notes
+  components/ApplicantDrawer.vue Editable applicant profile, Career, CV fit, activity, and notes
   components/CareerTimeline.vue Editable education / work timeline
   components/CareerStrip.vue Career strip with work and education lanes
   components/FitConsentDialog.vue Per-analysis consent for Kilo
@@ -404,7 +404,7 @@ src/
   views/SetPasswordView.vue Invite and password update form
   views/OverviewView.vue    Post-login hiring overview
   views/BoardsView.vue      All boards grouped by department
-  views/BoardView.vue       Step-column pipeline for one role
+  views/BoardView.vue       Stage-column pipeline for one role
   views/AccountView.vue     Session details, full name, and password reset
   styles/orbital.css        Orbital tokens and shared page styles
   plugins/vuetify.ts        Vuetify themes and component defaults
@@ -437,10 +437,9 @@ docs/                       Architecture, design system, and decision records
   clients have select-only access. The function redacts identity and sensitive fields before
   calling Kilo. Kilo's free tier may log or train on requests, so every analysis requires
   consent and the UI discloses this. There is no fallback engine.
-- Delete operations are permanent. Deleting a board cascades to its columns, applicants,
+- Delete operations are permanent. Deleting a board cascades to its stages, applicants,
   events, notes, and fit analyses; deleting an applicant removes the row and its events, notes,
-  and fit analysis; deleting a column reassigns its applicants to the first column. The first
-  column cannot be deleted or moved.
+  and fit analysis; deleting a stage reassigns its applicants to the first stage. The first stage cannot be deleted or moved.
 - Sign-ups are disabled. Administrators create accounts or send invitations from the
   Supabase dashboard or local Studio.
 

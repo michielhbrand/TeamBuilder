@@ -437,7 +437,7 @@ onBeforeUnmount(() => resetImport(true))
           <v-select
             v-model="stepId"
             class="orbital-field"
-            label="Starting column"
+            label="Stage"
             :items="steps"
             item-title="name"
             item-value="id"

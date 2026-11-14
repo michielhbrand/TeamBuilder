@@ -477,7 +477,7 @@ describe('applicants store', () => {
       phone: '',
     })
 
-    expect(boards.error).toBe('The first column cannot be deleted.')
+    expect(boards.error).toBe('The first stage cannot be deleted.')
     expect(applicants.error).toBe('Add a column to this board before creating an applicant.')
   })
 

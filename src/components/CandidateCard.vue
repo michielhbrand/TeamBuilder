@@ -37,10 +37,10 @@ const daysLabel = computed(() => {
   const days = getDaysInStep(props.candidate)
 
   if (days === 0) {
-    return 'Entered this step today'
+    return 'Entered this stage today'
   }
 
-  return `${days} ${days === 1 ? 'day' : 'days'} in step`
+  return `${days} ${days === 1 ? 'day' : 'days'} in stage`
 })
 
 const appliedLabel = computed(() => {
@@ -126,7 +126,7 @@ function onDragEnd(): void {
       :color="candidate.favorite ? 'primary' : undefined"
       size="small"
       variant="text"
-      :aria-label="candidate.favorite ? 'Remove from favourites' : 'Add to favourites'"
+      :aria-label="candidate.favorite ? 'Remove from favorites' : 'Add to favorites'"
       :aria-pressed="candidate.favorite"
       @click.stop="store.toggleFavorite(candidate.id)"
     />
@@ -183,7 +183,7 @@ function onDragEnd(): void {
         />
       </div>
 
-      <p v-if="step" class="candidate-step">Current step: {{ step.name }}</p>
+      <p v-if="step" class="candidate-step">Stage: {{ step.name }}</p>
     </div>
   </article>
 </template>

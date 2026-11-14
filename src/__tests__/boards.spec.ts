@@ -176,7 +176,7 @@ describe('boards store', () => {
 
     expect(deleted).toBe(false)
     expect(mocks.deleteBoardColumn).not.toHaveBeenCalled()
-    expect(store.error).toBe('The first column cannot be deleted.')
+    expect(store.error).toBe('The first stage cannot be deleted.')
   })
 
   it('restores the previous step and status when a move fails', async () => {

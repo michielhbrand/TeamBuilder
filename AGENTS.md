@@ -9,9 +9,9 @@ deployment, or UI behavior.
 TeamBuilder is a Vue 3 + Supabase hiring pipeline workspace. It is hosted on GitHub Pages
 and exists to demonstrate a login screen, admin invitations that let users choose a
 password, in-memory sessions, a protected hiring portal, and sign-out. The portal has a
-dashboard overview, role boards grouped by department, a step-column pipeline for each role,
+dashboard overview, role boards grouped by department, a stage-column pipeline for each role,
 a consent-gated CV analysis that lists similarities and gaps, an applicant audit trail, and an account page. Boards,
-pipeline columns, applicants, events, notes, and fit analyses are stored in Supabase Postgres
+pipeline stages, applicants, events, notes, and fit analyses are stored in Supabase Postgres
 and loaded through Pinia. Keep it focused; do not add unrelated product features.
 
 ## Commands
@@ -76,14 +76,14 @@ npm run build
 - `src/stores/auth.ts` — owns session state, initialization, sign-in, full-name capture,
   actor-name derivation, password setup, sign-out, and dependent-store resets when the
   session becomes `null`.
-- `src/types/pipeline.ts` — board, step, candidate, applicant event, and summary types.
+- `src/types/pipeline.ts` — board, stage, applicant, applicant event, and summary types.
 - `src/types/fit.ts` — applicant CV/job-spec analysis types.
 - `src/lib/career.ts` — structured education/work entries: normalising, serialising, month and
   duration formatting, total experience, employment gaps, the career-strip layout, and the
   plain-text formatter used for fit analysis fingerprints.
 - `src/lib/api-shared.ts` — shared row types, select fragments, and board/applicant/event/note
   mappers.
-- `src/lib/boards-api.ts` — Supabase reads and writes for boards and columns.
+- `src/lib/boards-api.ts` — Supabase reads and writes for boards and stages.
 - `src/lib/applicants-api.ts` — Supabase create, update, and delete for applicants.
 - `src/lib/activity-api.ts` — Supabase reads and writes for applicant events and notes.
 - `src/lib/storage-api.ts` — Supabase Storage uploads, downloads, signed URLs, and object
@@ -97,11 +97,11 @@ npm run build
 - `src/lib/job-spec.ts` — job-spec PDF text extraction and cleanup.
 - `src/lib/fit-hash.ts` — CV, job-spec, and profile fingerprint helpers.
 - `src/lib/pipeline.ts` — pure pipeline helpers for steps, deadlines, summaries, department
-  grouping, and dashboard candidate watch entries.
+  grouping, and dashboard applicant watch entries.
 - `src/lib/validation.ts` — shared email and phone validation helpers.
 - `src/stores/boards.ts` — persisted board and column state, derived groups/summaries/totals,
   board actions, and the focus/visibility refresh used to keep the shared workspace current.
-- `src/stores/applicants.ts` — candidate lookup, applicant CRUD, moves, status changes,
+- `src/stores/applicants.ts` — applicant lookup, applicant CRUD, moves, status changes,
   dirty-field debounced autosave, and edit snapshots.
 - `src/stores/applicant-activity.ts` — applicant events and notes with per-applicant loading
   state; derives the note author from the auth store's `actorName`.
@@ -120,17 +120,17 @@ npm run build
 - `src/components/BrandMark.vue` — the only application brand lockup.
 - `src/components/BoardList.vue` — searchable boards grouped by department.
 - `src/components/BoardFormDialog.vue` — create and edit board fields.
-- `src/components/ColumnDialog.vue` — add, rename, reorder, and delete pipeline columns.
+- `src/components/ColumnDialog.vue` — add, rename, reorder, and delete pipeline stages.
 - `src/components/ApplicantFormDialog.vue` — create an applicant on a board, with optional
   PDF CV autofill and CV attachment.
 - `src/components/BoardSwitcher.vue` — compact header menu for switching between role boards.
 - `src/components/BoardColumn.vue` — one pipeline step column.
-- `src/components/CandidateCard.vue` — candidate summary and pipeline actions.
+- `src/components/CandidateCard.vue` — applicant summary and pipeline actions.
 - `src/components/ApplicantDrawer.vue` — right-side editable applicant profile with Details,
-  Career, Analize, and Events tabs, favourite, a career summary, and free-text applicant notes.
+  Career, CV fit, and Activity tabs, favorite, a career summary, and free-text applicant notes.
 - `src/components/CareerTimeline.vue` — editable vertical timeline of education or work
   entries with inline add, edit, and delete; used in the drawer Career tab and the create dialog.
-- `src/components/CareerEntryEditor.vue` — the title, organisation, start/end month, current,
+- `src/components/CareerEntryEditor.vue` — the title, organization, start/end month, current,
   and description fields for one career entry.
 - `src/components/CareerStrip.vue` — the pinned horizontal career strip with work and education
   lanes, employment-gap boxes, and a hover readout; linked to the timelines.
@@ -142,7 +142,7 @@ npm run build
 - `src/lib/pdf.ts` — shared PDF validation, client-side compression, and print helpers.
 - `src/lib/resume-import.ts` — local PDF text extraction, applicant heuristics, and lazy
   Tesseract OCR for scanned pages.
-- `src/components/PipelineBar.vue` — per-step candidate progress bar.
+- `src/components/PipelineBar.vue` — per-stage applicant progress bar.
 - `src/components/DepartmentLoadChart.vue` — interactive department workload bars.
 - `src/components/OutcomeDonut.vue` — active, hired, and rejected outcome chart.
 - `src/components/RolePerformanceTable.vue` — sortable role board table with pipeline bars.
@@ -153,7 +153,7 @@ npm run build
   workload chart, outcome donut, sortable role table, deadline watch, applicant lists, and
   department filtering.
 - `src/views/BoardsView.vue` — all role boards grouped by department.
-- `src/views/BoardView.vue` — step-column pipeline for one role.
+- `src/views/BoardView.vue` — stage-column pipeline for one role.
 - `src/views/AccountView.vue` — protected session, identity, full-name editing, and password
   reset.
 - `src/styles/orbital.css` — locked design tokens, layout primitives, board styling, and
@@ -194,9 +194,9 @@ See `docs/ARCHITECTURE.md` for the auth lifecycle and deployment pipeline.
   tables created by `supabase/migrations/`.
 - Every signed-in user shares the same workspace. RLS policies allow the `authenticated`
   role only; do not grant board access to `anon`.
-- Deleting a board cascades to its columns, applicants, events, notes, and fit analyses.
+- Deleting a board cascades to its stages, applicants, events, notes, and fit analyses.
   Deleting an applicant is permanent and also deletes its events, notes, and fit analysis.
-  Deleting a column reassigns its applicants to the first column, which cannot be deleted or
+  Deleting a column reassigns its applicants to the first stage, which cannot be deleted or
   moved.
 - Keep the Supabase client singleton in `src/lib/supabase.ts`.
 - Invite and recovery links arrive with a `type` in the URL hash or query. Preserve the

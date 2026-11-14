@@ -110,7 +110,7 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
     </div>
 
     <p class="board-list__hint">
-      Bars show active candidates by step. Darker segments are further along the process.
+      Bars show active applicants by stage. Darker segments are further along the process.
       {{ visibleCount }} {{ visibleCount === 1 ? 'role' : 'roles' }} shown.
     </p>
 

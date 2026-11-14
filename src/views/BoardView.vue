@@ -169,7 +169,7 @@ onBeforeUnmount(() => {
             {{ board.openPositions }}
             {{ board.openPositions === 1 ? 'open position' : 'open positions' }}.
             {{ summary?.active ?? 0 }} active
-            {{ summary?.active === 1 ? 'candidate' : 'candidates' }}. Deadline
+            {{ summary?.active === 1 ? 'applicant' : 'applicants' }}. Deadline
             {{ formatDeadline(board.deadline) }}.
             <template v-if="isOverdue(board)"> Past deadline. </template>
           </p>
@@ -191,8 +191,8 @@ onBeforeUnmount(() => {
               class="board-icon-btn"
               icon="mdi-view-column-outline"
               variant="outlined"
-              aria-label="Manage columns"
-              title="Manage columns"
+              aria-label="Manage stages"
+              title="Manage stages"
               @click="columnsOpen = true"
             />
             <v-btn
@@ -246,7 +246,7 @@ onBeforeUnmount(() => {
 
       <details class="closed-panel" open>
         <summary>
-          Closed candidates. {{ hired.length }} hired, {{ rejected.length }} rejected.
+          Closed applicants. {{ hired.length }} hired, {{ rejected.length }} rejected.
         </summary>
 
         <div class="closed-grid">

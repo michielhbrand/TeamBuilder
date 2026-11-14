@@ -56,7 +56,7 @@ function onDrop(event: DragEvent): void {
       </div>
       <p>
         {{ candidates.length }}
-        {{ candidates.length === 1 ? 'candidate' : 'candidates' }}.
+        {{ candidates.length === 1 ? 'applicant' : 'applicants' }}.
       </p>
     </header>
 
@@ -72,7 +72,7 @@ function onDrop(event: DragEvent): void {
         @drag-end="emit('drag-end')"
         @open-profile="emit('open-profile', $event)"
       />
-      <p v-if="!candidates.length" class="board-column__empty">No one in this step.</p>
+      <p v-if="!candidates.length" class="board-column__empty">No one in this stage.</p>
     </div>
   </section>
 </template>

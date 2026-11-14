@@ -18,11 +18,11 @@ export function friendlyDataError(message: string): string {
   }
 
   if (normalized.includes('board_columns_board_name_lower_key')) {
-    return 'A column with that name already exists on this board.'
+    return 'A stage with that name already exists on this board.'
   }
 
   if (normalized.includes('first board column')) {
-    return 'The first column cannot be deleted.'
+    return 'The first stage cannot be deleted.'
   }
 
   return message

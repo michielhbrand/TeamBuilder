@@ -40,7 +40,7 @@ async function submit(): Promise<void> {
   <AuthShell
     eyebrow="Secure access"
     title="Welcome back."
-    subtitle="Sign in to manage open roles, candidate pipelines, and interview steps."
+    subtitle="Sign in to manage open roles, applicant pipelines, and interview stages."
   >
     <div class="panel-head">
       <div>

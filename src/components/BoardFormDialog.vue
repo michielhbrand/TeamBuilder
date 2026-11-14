@@ -77,7 +77,7 @@ const deadlineHint = computed(() => {
 
 const deleteMessage = computed(
   () =>
-    `Delete "${props.board?.name ?? 'this board'}"? All columns and applicants will be permanently deleted. This cannot be undone.`,
+    `Delete "${props.board?.name ?? 'this board'}"? All stages and applicants will be permanently deleted. This cannot be undone.`,
 )
 
 function defaultDeadline(): string {
