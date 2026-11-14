@@ -292,6 +292,17 @@ gh secret set SUPABASE_ACCESS_TOKEN --repo michielhbrand/TeamBuilder
 gh secret set SUPABASE_PROJECT_ID --repo michielhbrand/TeamBuilder
 ```
 
+`SUPABASE_ACCESS_TOKEN` must be a **scoped** personal access token for the project, not a
+legacy full-access token. In the Supabase token dialog choose **Project** resource access,
+select the TeamBuilder project, then set:
+
+- **Application services → Edge Functions**: Read-write
+- **Application services → Edge Function Secrets**: Read-write
+- **Project → Project Settings**: Read
+
+The deploy job only runs `supabase secrets set` and `supabase functions deploy`, so no
+Database, Storage, or organization permissions are needed.
+
 `KILO_MODEL` must be a free model. The deploy workflow refuses paid models. Paste values at
 the prompts; avoid putting them in shell history. Verify with:
 

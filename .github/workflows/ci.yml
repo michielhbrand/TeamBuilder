@@ -40,6 +40,9 @@ jobs:
 
       - name: Test
         run: npm test
+        env:
+          VITE_SUPABASE_URL: https://example.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_placeholder
 
       - name: Build with placeholder values
         run: npm run build

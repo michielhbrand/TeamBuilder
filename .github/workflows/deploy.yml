@@ -39,6 +39,9 @@ jobs:
 
       - name: Test
         run: npm test
+        env:
+          VITE_SUPABASE_URL: https://example.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_placeholder
 
       - name: Validate Supabase environment
         run: npm run validate:env
@@ -80,10 +83,15 @@ jobs:
         env:
           KILO_MODEL: ${{ secrets.KILO_MODEL }}
         run: |
-          case "$KILO_MODEL" in
+          model="$(printf '%s' "$KILO_MODEL" | tr -d '[:space:]')"
+          if [ -z "$model" ]; then
+            echo "KILO_MODEL repository secret is not set. Add it under Settings > Secrets and variables > Actions."
+            exit 1
+          fi
+          case "$model" in
             *:free|kilo-auto/free) ;;
             *)
-              echo "KILO_MODEL must name a free Kilo model."
+              echo "KILO_MODEL must name a free Kilo model (kilo-auto/free or a model id ending in :free), got '$model'."
               exit 1
               ;;
           esac
@@ -94,13 +102,15 @@ jobs:
           KILO_MODEL: ${{ secrets.KILO_MODEL }}
         run: |
           if [ -z "$KILO_API_KEY" ]; then
-            echo "KILO_API_KEY is not set."
+            echo "KILO_API_KEY repository secret is not set. Add it under Settings > Secrets and variables > Actions."
             exit 1
           fi
 
+          model="$(printf '%s' "$KILO_MODEL" | tr -d '[:space:]')"
+
           supabase secrets set \
             KILO_API_KEY="$KILO_API_KEY" \
-            KILO_MODEL="$KILO_MODEL" \
+            KILO_MODEL="$model" \
             --project-ref "$SUPABASE_PROJECT_ID"
 
       - name: Deploy fit-analysis
