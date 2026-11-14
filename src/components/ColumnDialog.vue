@@ -114,6 +114,10 @@ async function rename(step: PipelineStep): Promise<void> {
   }
 }
 
+async function flushRenames(): Promise<void> {
+  await Promise.all(steps.value.map((step) => rename(step)))
+}
+
 const grabbedId = ref<string | null>(null)
 const dragId = ref<string | null>(null)
 const dropIndex = ref<number | null>(null)
@@ -149,6 +153,7 @@ async function reorder(from: number, to: number): Promise<boolean> {
   }
 
   movingId.value = ids[from] ?? null
+  await flushRenames()
   const saved = await store.reorderColumns(props.board.id, reordered)
   movingId.value = null
 
@@ -177,6 +182,11 @@ function toggleGrab(step: PipelineStep): void {
 }
 
 async function handleKey(event: KeyboardEvent, step: PipelineStep): Promise<void> {
+  if (movingId.value) {
+    event.preventDefault()
+    return
+  }
+
   if (event.key === ' ' || event.key === 'Enter') {
     event.preventDefault()
     toggleGrab(step)
@@ -266,6 +276,7 @@ async function add(): Promise<void> {
     return
   }
 
+  await flushRenames()
   const saved = await store.addColumn(props.board.id, name)
 
   if (saved) {
@@ -281,6 +292,7 @@ async function confirmRemove(): Promise<void> {
   }
 
   deleteBusy.value = true
+  await flushRenames()
   const saved = await store.deleteColumn(props.board.id, step.id)
   deleteBusy.value = false
   deleting.value = null
@@ -358,7 +370,7 @@ onBeforeUnmount(() => {
               draggable="true"
               :aria-label="`Reorder ${step.name}, position ${index + 1} of ${steps.length}`"
               :aria-pressed="grabbedId === step.id"
-              :disabled="movingId !== null"
+              :aria-disabled="movingId !== null"
               @keydown="handleKey($event, step)"
               @blur="onHandleBlur"
               @dragstart="onDragStart($event, step)"
