@@ -139,8 +139,13 @@ npm run build
   menu (Open profile, Move to..., Hire, Reject).
 - `src/components/StageTabs.vue` — `role="tablist"` stage pills with counts; the phone (up to
   720px) board shows one stage at a time.
-- `src/components/ApplicantDrawer.vue` — right-side editable applicant profile with Details,
-  Career, CV fit, and Activity tabs, favorite, a career summary, and free-text applicant notes.
+- `src/components/ApplicantDrawer.vue` — right-side applicant profile: header (avatar, name,
+  "role · applied N days ago", favorite, overflow menu with Delete applicant, close) over
+  Overview (profile fields, CV card, notes), CV (inline viewer), Career, CV fit, and Activity
+  tabs.
+- `src/components/ApplicantStageBar.vue` — the drawer's stage stepper, Move to <next>, Hire,
+  Reject, save indicator (Saving..., Saved, Couldn't save · Retry), and the outcome chip with
+  Reopen for closed applicants.
 - `src/components/CareerTimeline.vue` — editable vertical timeline of education or work
   entries with inline add, edit, and delete; used in the drawer Career tab and the create dialog.
 - `src/components/CareerEntryEditor.vue` — the title, organization, start/end month, current,

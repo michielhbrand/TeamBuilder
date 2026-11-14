@@ -114,6 +114,7 @@ function setCurrent(value: unknown): void {
         class="orbital-field"
         label="Start date"
         placeholder="YYYY-MM"
+        persistent-placeholder
         variant="outlined"
         density="compact"
         hide-details="auto"
@@ -127,6 +128,7 @@ function setCurrent(value: unknown): void {
         class="orbital-field"
         label="End date"
         placeholder="YYYY-MM"
+        persistent-placeholder
         variant="outlined"
         density="compact"
         hide-details="auto"

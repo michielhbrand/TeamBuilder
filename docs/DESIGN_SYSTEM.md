@@ -38,6 +38,7 @@ scale, Orbital can read as a generic SaaS theme. Use the motif and the tokens de
 | Candidate card      | `src/components/CandidateCard.vue`         |
 | Stage tabs          | `src/components/StageTabs.vue`             |
 | Applicant drawer    | `src/components/ApplicantDrawer.vue`       |
+| Drawer stage bar    | `src/components/ApplicantStageBar.vue`     |
 | Job spec dialog     | `src/components/JobSpecDialog.vue`         |
 | Confirmation dialog | `src/components/ConfirmDialog.vue`         |
 | Progress bar        | `src/components/PipelineBar.vue`           |
@@ -262,9 +263,7 @@ that prototype's palette, gradients, or Bricolage/Hanken fonts.
   Open profile, Move to... (a list of the other stages), Hire (signal icon, ink text), and
   Reject (danger). Hire and Reject never confirm; they show the 8 second Undo toast.
 - Clicking an applicant card opens a right-side applicant drawer at roughly half the viewport
-  width. It uses the surface, hairline, and field tokens, with an editable basic-information
-  form, a star favorite toggle, a **Career** tab with a pinned career strip and vertical
-  timelines for work and education, and a single PDF CV document. The drawer becomes full width at `720px`.
+  width (see Applicant drawer). The drawer becomes full width at `720px`.
 - Applicant cards can be dragged one stage left or right. While a card is held, only the
   adjacent columns highlight with the accent token and accept the drop. The card in flight
   keeps full opacity and uses an accent border ring. Moves are optimistic and roll back when
@@ -280,7 +279,7 @@ that prototype's palette, gradients, or Bricolage/Hanken fonts.
 - Keyboard support: `/` opens the role switcher with its search focused (and focuses the board
   search on `/boards`). Tab order on a card is name, star, move back, move forward, overflow;
   Enter or Space opens the overflow menu, arrows move through it, and Escape returns focus to
-  the overflow button. The applicant drawer CV preview and the job spec preview support open
+  the overflow button. The applicant drawer CV tab and the job spec preview support open
   in a new tab, print, and remove controls.
 
 ## Components
@@ -326,6 +325,8 @@ class. Keep the rules attached to the field.
   radius; `16px` visual gap between fields. No message space is reserved: a message appears
   below the control only when there is one.
 - Focus: accent outline plus a `3px` accent-soft ring. Values are Manrope at `0.94rem`.
+- Placeholders are always visible in the muted token at full opacity, because the label sits
+  above the control. Pass `persistent-placeholder` with any `placeholder` on a labelled field.
 - Mark optional fields with "(optional)" in the label (applicant Email and Phone number).
 - Icons are muted; the focused icon becomes accent text.
 - Errors use the danger token. Never rely on color alone; keep the validation message.
@@ -397,30 +398,51 @@ class. Keep the rules attached to the field.
 ### Applicant drawer
 
 - Use `ApplicantDrawer.vue` from `BoardView`; it is a temporary `v-navigation-drawer` on the
-  right at `50vw` desktop.
-- The header keeps the initials avatar, applicant name, current role metadata, a star
-  favorite button (`mdi-star` / `mdi-star-outline` with `aria-pressed`), and a close button.
-- Editable basic fields use the standard `orbital-field` treatment. Education and work
-  experience are structured entries shown as a vertical timeline (see Career timeline).
-- Email is optional and must be valid when present. Phone is optional and accepts digits
-  only. Invalid values show a field error and are not persisted.
-- The drawer has four tabs below the header: **Details** for the editable profile with a career
-  summary card that opens the Career tab, **Career** for the strip and timelines, **CV fit**
-  for the job-spec analysis, and **Events** for the applicant audit trail. Tabs use the
-  display font, sentence case, an accent underline, and the standard hairline divider. Events
-  render newest first as a vertical timeline with an accent dot, the event message, and an
-  uppercase mono timestamp. Show a quiet loading line or empty state when there are no events.
-- The Details tab ends with a **Notes** section. A free-text field and **Add note** button
-  append a note for the current user; notes render newest first with the author name and a
-  mono timestamp. Keep notes inside the standard drawer section rhythm and show a quiet
-  loading line or empty state when none exist.
-- The drawer is backed by Postgres. The note at the end tells the user that changes save
-  automatically, and a destructive text button opens `ConfirmDialog` before deleting the
-  applicant.
+  right at `50vw` desktop, `min(640px, 100vw)` at `1024px`, and full width at `720px`.
+- The header is the decision surface. Row one: the initials avatar, the applicant name, a
+  muted "<current role> · applied N days ago" line (`daysSinceApplied`; "applied today" on
+  day 0), a star favorite button (`mdi-star` / `mdi-star-outline` with `aria-pressed`), an
+  overflow menu (`mdi-dots-horizontal`) whose only item is **Delete applicant** (danger,
+  opens `ConfirmDialog`), and close. The header is sticky above `720px` and scrolls with the
+  body below it.
+- `ApplicantStageBar.vue` sits under row one. It shows every stage as a pill button joined by
+  chevrons: done stages use `surface-2`, the current stage is accent-filled with
+  `aria-current="step"`, later stages are outlined. Clicking a stage moves the applicant
+  there. The pills wrap on desktop and scroll horizontally in one row at `720px` and below,
+  with the current stage scrolled into view. Below the stepper: a primary **Move to <next
+  stage>** (hidden in the last stage), **Hire** (outlined, signal icon), and **Reject**
+  (outlined, danger text and icon). Hire and Reject never confirm; they push the same 8
+  second Undo toast as the board. On phones Move to takes the full row and Hire and Reject
+  share the next one.
+- Closed applicants show an outcome chip ("Hired" with a signal icon or "Rejected" with a
+  danger icon) and an outlined **Reopen** instead of the decision buttons, and the stepper is
+  disabled. Time in stage never changes a color.
+- The save indicator sits at the end of the action row and never moves the layout. It reads
+  `saveStatusFor`: "Saving..." (`mdi-sync`, muted) for `pending` and `saving`, "Saved" (signal
+  check) for `saved`, and "Couldn't save · Retry" in danger for `failed`; Retry flushes the
+  pending edit. It is a polite live region and is empty while `idle`.
+- Five tabs follow, in this order: **Overview**, **CV**, **Career**, **CV fit**, **Activity**.
+  Tabs use the display font, sentence case, an accent underline, and a hairline divider.
+- **Overview** holds the profile fields two by two (Full name, Current role, Email (optional),
+  Phone (optional); one column at `720px`) with a 16px gap, a compact CV card (file name and
+  an **Open** button that opens the CV tab, or **Upload CV** when there is none), and
+  **Notes**. Email must be valid when present and phone accepts digits only; invalid values
+  show a field error and are not persisted.
+- The note composer is a bordered box (`line-input`, accent focus ring) with a borderless
+  textarea, the helper "Visible to everyone in the workspace", and an **Add note** primary
+  that is disabled until there is text. Notes render below it, newest first, with the author
+  and a relative time ("2 days ago"); the absolute time is in the `title`.
+- **CV** hosts the inline viewer: a toolbar with the file name, open in a new tab, print, and an
+  overflow menu with **Remove CV**, then the PDF iframe. Without a CV it shows a quiet empty
+  state with **Upload CV**.
+- **Activity** renders events as a vertical timeline with an accent dot, the message, and the
+  actor name with a relative time (absolute time in the `title`).
+- The drawer is backed by Postgres and saves automatically; there is no footer sentence or
+  in-body delete button.
 - Each applicant can have one PDF CV stored in the private `cvs` Supabase Storage bucket.
-  Upload is limited to PDF files up to `10 MB`; remove is available from the profile. The
-  inline preview replaces the profile body with a back button, an open-in-new-tab button,
-  and a print button. Deleting the applicant or its board removes the stored CV.
+  Upload is limited to PDF files up to `10 MB`. Uploading a CV marks the analysis stale, opens
+  the **CV fit** tab, and asks for consent when the prerequisites are met. Deleting the
+  applicant or its board removes the stored CV.
 - Every PDF upload passes through the browser compressor in `src/lib/pdf.ts` before it
   reaches Supabase. It re-encodes embedded images, preserves selectable text, and never
   returns a larger file.
@@ -456,7 +478,8 @@ class. Keep the rules attached to the field.
   empty state quiet: one muted icon, a short title, the missing prerequisites, and a single
   primary **Analyze CV** action.
 - Keep the result intentionally simple: an icon-only **Refresh** button above two lists under
-  **Similarities** and **Gaps**. Do not add a model/timestamp header, score, gauge, verdict
+  **Similarities** and **Gaps**. When the profile, CV, or job spec changed since the last
+  analysis, a warning alert says so and carries an inline outlined **Re-run** button. Do not add a model/timestamp header, score, gauge, verdict
   pill, confidence label, or per-requirement detail.
 - Similarities use the signal marker and gaps use the danger marker. Color is never the only
   cue because the section labels carry the meaning.

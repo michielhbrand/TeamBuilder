@@ -35,12 +35,15 @@ fit analyses are stored in Supabase Postgres and loaded through Pinia.
   keyboard actions, Hire and Reject with Undo), drag to an adjacent stage, deadline chips, and
   stage tabs on phones
 - Board creation and editing, including ordered pipeline stages
-- Applicant creation per board with a right-side editable profile, favorite toggle, and a
-  Career tab that shows education and work experience as editable timelines with a career strip
+- Applicant creation per board with a right-side profile drawer: a decision header (stage
+  stepper, Move to the next stage, Hire, Reject, a Saving/Saved/Couldn't save indicator, and
+  Reopen for closed applicants) over Overview, CV, Career, CV fit, and Activity tabs, with an
+  inline CV viewer and a Career tab that shows education and work experience as editable
+  timelines with a career strip
 - A consent-gated **CV fit** tab that compares redacted education and work experience with
   the board's job spec using a free Kilo model and lists similarities and gaps
-- An applicant Activity tab with a timestamped audit trail for creation, profile edits, moves,
-  CV analyses, and hire/reject/reopen actions
+- An applicant Activity tab with an audit trail (who and a relative time) for creation,
+  profile edits, moves, CV analyses, and hire/reject/reopen actions
 - Persisted applicant actions: advance, move, reject, hire, reopen, and delete
 - An account page with full-name editing, password reset, a light/dark appearance setting, and sign-out
 - A blocking full-name prompt after sign-in when the profile has no name yet
@@ -396,7 +399,8 @@ src/
   components/BoardColumn.vue One pipeline stage column
   components/CandidateCard.vue Applicant card with tools tray and overflow menu
   components/StageTabs.vue  Phone stage tabs with counts
-  components/ApplicantDrawer.vue Editable applicant profile, Career, CV fit, activity, and notes
+  components/ApplicantDrawer.vue Applicant profile: Overview, CV, Career, CV fit, Activity tabs
+  components/ApplicantStageBar.vue Drawer stage stepper, decisions, and save indicator
   components/CareerTimeline.vue Editable education / work timeline
   components/CareerStrip.vue Career strip with work and education lanes
   components/FitConsentDialog.vue Per-analysis consent for Kilo

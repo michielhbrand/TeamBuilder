@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
+import ApplicantStageBar from '@/components/ApplicantStageBar.vue'
 import CareerStrip from '@/components/CareerStrip.vue'
 import CareerTimeline from '@/components/CareerTimeline.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import FitConsentDialog from '@/components/FitConsentDialog.vue'
-import { formatEventTime } from '@/lib/applicant-events'
+import { formatEventTime, formatRelativeTime } from '@/lib/applicant-events'
 import { hasCareerContent } from '@/lib/career'
 import { isPdfFile, printPdfBlob } from '@/lib/pdf'
-import { initials as getInitials } from '@/lib/pipeline'
+import { daysSinceApplied, initials as getInitials } from '@/lib/pipeline'
 import { isValidEmail, isValidPhone } from '@/lib/validation'
 import { useApplicantActivityStore } from '@/stores/applicant-activity'
 import { useApplicantsStore, type EditableCandidateField } from '@/stores/applicants'
@@ -40,6 +41,19 @@ const board = computed(() =>
   candidate.value ? boards.boardById(candidate.value.boardId) : undefined,
 )
 const initials = computed(() => (candidate.value ? getInitials(candidate.value.name) : ''))
+const appliedLine = computed(() => {
+  const current = candidate.value
+
+  if (!current) {
+    return ''
+  }
+
+  const days = daysSinceApplied(current)
+  const applied =
+    days === 0 ? 'applied today' : `applied ${days} ${days === 1 ? 'day' : 'days'} ago`
+
+  return current.currentRole ? `${current.currentRole} · ${applied}` : `A${applied.slice(1)}`
+})
 const events = computed(() => (props.candidateId ? activity.eventsFor(props.candidateId) : []))
 const eventsLoading = computed(() =>
   props.candidateId ? activity.eventsLoadingFor(props.candidateId) : false,
@@ -48,7 +62,7 @@ const notes = computed(() => (props.candidateId ? activity.notesFor(props.candid
 const notesLoading = computed(() =>
   props.candidateId ? activity.notesLoadingFor(props.candidateId) : false,
 )
-const activeTab = ref<'details' | 'career' | 'events' | 'fit'>('details')
+const activeTab = ref<'overview' | 'cv' | 'career' | 'fit' | 'events'>('overview')
 const fitConsentOpen = ref(false)
 const noteDraft = ref('')
 const noteSaving = ref(false)
@@ -60,7 +74,6 @@ const confirmDeleteOpen = ref(false)
 const deleting = ref(false)
 const cvBusy = ref(false)
 const cvError = ref('')
-const cvPreviewOpen = ref(false)
 const cvLoading = ref(false)
 const cvUrl = ref('')
 const cvFileInput = ref<HTMLInputElement | null>(null)
@@ -86,9 +99,6 @@ const fitAnalyzing = computed(() =>
   props.candidateId ? fit.isAnalyzingFor(props.candidateId) : false,
 )
 const fitError = computed(() => (props.candidateId ? fit.errorFor(props.candidateId) : null))
-const saveFailed = computed(() =>
-  props.candidateId ? store.hasUnsavedChanges(props.candidateId) : false,
-)
 const fitProgress = computed(() => (props.candidateId ? fit.progressFor(props.candidateId) : ''))
 const fitStale = computed(() =>
   props.candidateId && fitAnalysis.value ? fit.isStaleFor(props.candidateId) : false,
@@ -323,6 +333,7 @@ async function onCvSelected(event: Event): Promise<void> {
     return
   }
 
+  resetCvPreview()
   openFitAfterUpload()
 }
 
@@ -371,27 +382,30 @@ async function removeCv(): Promise<void> {
 
   if (removed) {
     fit.markStale(current.id)
-    closeCvPreview()
+    resetCvPreview()
     return
   }
 
   cvError.value = storage.error ?? 'The CV could not be removed.'
 }
 
-async function openCvPreview(): Promise<void> {
+async function loadCvPreview(): Promise<void> {
   const path = candidate.value?.cvPath
 
-  if (!path) {
+  if (!path || cvLoading.value || cvUrl.value) {
     return
   }
 
-  cvPreviewOpen.value = true
   cvLoading.value = true
   cvError.value = ''
   cvUrl.value = ''
 
   const url = await storage.cvSignedUrl(path)
   cvLoading.value = false
+
+  if (candidate.value?.cvPath !== path) {
+    return
+  }
 
   if (!url) {
     cvError.value = storage.error ?? 'The CV could not be opened.'
@@ -401,12 +415,21 @@ async function openCvPreview(): Promise<void> {
   cvUrl.value = url
 }
 
-function closeCvPreview(): void {
-  cvPreviewOpen.value = false
+function resetCvPreview(): void {
   cvLoading.value = false
   cvUrl.value = ''
   cvError.value = ''
 }
+
+watch([activeTab, () => candidate.value?.cvPath], ([tab, path], [, previousPath]) => {
+  if (path !== previousPath) {
+    resetCvPreview()
+  }
+
+  if (tab === 'cv' && path) {
+    void loadCvPreview()
+  }
+})
 
 function openCvFullscreen(): void {
   if (cvUrl.value) {
@@ -455,11 +478,11 @@ function setPageScrollLocked(locked: boolean): void {
 watch([() => props.modelValue, () => props.candidateId], ([value, candidateId]) => {
   if (value && candidateId) {
     syncForm()
-    closeCvPreview()
+    resetCvPreview()
     cvError.value = ''
     noteDraft.value = ''
     fitConsentOpen.value = false
-    activeTab.value = 'details'
+    activeTab.value = 'overview'
     hoverId.value = null
     store.beginCandidateEdit(candidateId)
     void activity.loadEvents(candidateId)
@@ -475,7 +498,7 @@ watch(
     setPageScrollLocked(value)
 
     if (!value) {
-      closeCvPreview()
+      resetCvPreview()
       fitConsentOpen.value = false
 
       if (props.candidateId) {
@@ -503,32 +526,60 @@ onBeforeUnmount(() => {
     >
       <div v-if="candidate" class="applicant-drawer__inner">
         <header ref="headRef" class="applicant-drawer__head">
-          <span class="candidate-avatar applicant-drawer__avatar" aria-hidden="true">
-            {{ initials }}
-          </span>
+          <div class="applicant-drawer__top">
+            <span class="candidate-avatar applicant-drawer__avatar" aria-hidden="true">
+              {{ initials }}
+            </span>
 
-          <div class="applicant-drawer__identity">
-            <p class="eyebrow">Applicant profile</p>
-            <h2>{{ candidate.name }}</h2>
-            <p class="meta">{{ candidate.currentRole || candidate.email }}</p>
+            <div class="applicant-drawer__identity">
+              <h2>{{ candidate.name }}</h2>
+              <p class="applicant-drawer__meta">{{ appliedLine }}</p>
+            </div>
+
+            <div class="applicant-drawer__actions">
+              <v-btn
+                :icon="candidate.favorite ? 'mdi-star' : 'mdi-star-outline'"
+                :color="candidate.favorite ? 'primary' : undefined"
+                :aria-label="candidate.favorite ? 'Remove from favorites' : 'Add to favorites'"
+                :aria-pressed="candidate.favorite"
+                variant="text"
+                :height="40"
+                :width="40"
+                @click="store.toggleFavorite(candidate.id)"
+              />
+              <v-menu location="bottom end" :offset="4">
+                <template #activator="{ props: menuProps }">
+                  <v-btn
+                    v-bind="menuProps"
+                    class="applicant-drawer__more"
+                    icon="mdi-dots-horizontal"
+                    variant="text"
+                    :height="40"
+                    :width="40"
+                    aria-label="More actions for this applicant"
+                  />
+                </template>
+                <v-list class="app-menu candidate-menu" density="compact">
+                  <v-list-item
+                    class="candidate-menu__reject"
+                    prepend-icon="mdi-delete-outline"
+                    title="Delete applicant"
+                    @click="requestDeleteApplicant"
+                  />
+                </v-list>
+              </v-menu>
+              <v-btn
+                icon="mdi-close"
+                variant="text"
+                :height="40"
+                :width="40"
+                aria-label="Close applicant profile"
+                @click="open = false"
+              />
+            </div>
           </div>
 
-          <div class="applicant-drawer__actions">
-            <v-btn
-              :icon="candidate.favorite ? 'mdi-star' : 'mdi-star-outline'"
-              :color="candidate.favorite ? 'primary' : undefined"
-              :aria-label="candidate.favorite ? 'Remove from favorites' : 'Add to favorites'"
-              :aria-pressed="candidate.favorite"
-              variant="text"
-              @click="store.toggleFavorite(candidate.id)"
-            />
-            <v-btn
-              icon="mdi-close"
-              variant="text"
-              aria-label="Close applicant profile"
-              @click="open = false"
-            />
-          </div>
+          <ApplicantStageBar :candidate-id="candidate.id" @retry="retrySave" />
         </header>
 
         <input
@@ -546,96 +597,49 @@ onBeforeUnmount(() => {
           @change="onJobSpecSelected"
         />
 
-        <v-tabs v-if="!cvPreviewOpen" v-model="activeTab" class="applicant-tabs" grow>
-          <v-tab value="details">Details</v-tab>
+        <v-tabs v-model="activeTab" class="applicant-tabs">
+          <v-tab value="overview">Overview</v-tab>
+          <v-tab value="cv">CV</v-tab>
           <v-tab value="career">Career</v-tab>
           <v-tab value="fit">CV fit</v-tab>
           <v-tab value="events">Activity</v-tab>
         </v-tabs>
 
-        <div v-if="cvPreviewOpen" class="applicant-cv-preview">
-          <div class="applicant-cv-toolbar">
-            <v-btn variant="text" prepend-icon="mdi-arrow-left" @click="closeCvPreview">Back</v-btn>
-            <span class="applicant-cv-toolbar__name">{{ candidate.cvName || 'CV.pdf' }}</span>
-            <div class="applicant-cv-toolbar__actions">
-              <v-btn
-                icon="mdi-open-in-new"
-                variant="text"
-                aria-label="Open CV in a new tab"
-                title="Open in a new tab"
-                @click="openCvFullscreen"
-              />
-              <v-btn
-                icon="mdi-printer-outline"
-                variant="text"
-                aria-label="Print CV"
-                title="Print CV"
-                @click="printCv"
-              />
-            </div>
-          </div>
-
-          <v-alert v-if="cvError" class="orbital-alert" type="error" density="compact">
-            {{ cvError }}
-          </v-alert>
-
-          <div v-if="cvLoading" class="applicant-cv-status">Loading preview...</div>
-          <iframe v-else-if="cvUrl" :src="cvUrl" class="applicant-cv-frame" title="CV preview" />
-        </div>
-
-        <div v-else-if="activeTab === 'details'" class="applicant-drawer__body">
+        <div v-if="activeTab === 'overview'" class="applicant-drawer__body">
           <v-alert v-if="detailsError" class="orbital-alert" type="error" density="compact">
             {{ detailsError }}
           </v-alert>
 
-          <v-alert
-            v-if="saveFailed && !detailsError"
-            class="orbital-alert"
-            type="warning"
-            density="compact"
-          >
-            <div class="d-flex align-center justify-space-between ga-4">
-              <span>Changes not saved. Your edits stay here until they can be saved.</span>
-              <v-btn size="small" variant="text" @click="retrySave">Retry</v-btn>
-            </div>
-          </v-alert>
-
-          <section class="applicant-section">
-            <p class="eyebrow">Basic information</p>
-
-            <div class="applicant-fields">
-              <v-text-field
-                class="applicant-field--wide"
-                label="Full name"
-                :model-value="form.name"
-                hide-details
-                @update:model-value="updateField('name', $event)"
-              />
-              <v-text-field
-                label="Email (optional)"
-                type="email"
-                :model-value="form.email"
-                :error-messages="fieldErrors.email"
-                hide-details="auto"
-                @update:model-value="updateField('email', $event)"
-              />
-              <v-text-field
-                label="Phone number (optional)"
-                type="tel"
-                :model-value="form.phone"
-                :error-messages="fieldErrors.phone"
-                hide-details="auto"
-                @update:model-value="updateField('phone', $event)"
-              />
-              <v-text-field
-                class="applicant-field--wide"
-                label="Current role"
-                :model-value="form.currentRole"
-                hide-details
-                @update:model-value="updateField('currentRole', $event)"
-              />
-            </div>
-          </section>
+          <div class="applicant-fields">
+            <v-text-field
+              label="Full name"
+              :model-value="form.name"
+              hide-details
+              @update:model-value="updateField('name', $event)"
+            />
+            <v-text-field
+              label="Current role"
+              :model-value="form.currentRole"
+              hide-details
+              @update:model-value="updateField('currentRole', $event)"
+            />
+            <v-text-field
+              label="Email (optional)"
+              type="email"
+              :model-value="form.email"
+              :error-messages="fieldErrors.email"
+              hide-details="auto"
+              @update:model-value="updateField('email', $event)"
+            />
+            <v-text-field
+              label="Phone (optional)"
+              type="tel"
+              :model-value="form.phone"
+              :error-messages="fieldErrors.phone"
+              hide-details="auto"
+              @update:model-value="updateField('phone', $event)"
+            />
+          </div>
 
           <section class="applicant-section">
             <p class="eyebrow">CV</p>
@@ -646,39 +650,33 @@ onBeforeUnmount(() => {
                 <p class="candidate-name">{{ candidate.cvName || 'CV.pdf' }}</p>
                 <p class="candidate-source">PDF document</p>
               </div>
-              <div class="applicant-cv-card__actions">
-                <v-btn variant="outlined" prepend-icon="mdi-eye-outline" @click="openCvPreview">
-                  Preview
-                </v-btn>
-                <v-btn
-                  color="error"
-                  variant="text"
-                  prepend-icon="mdi-delete-outline"
-                  :disabled="cvBusy"
-                  :loading="cvBusy"
-                  @click="removeCv"
-                >
-                  Remove
-                </v-btn>
-              </div>
+              <v-btn
+                variant="outlined"
+                prepend-icon="mdi-eye-outline"
+                :height="40"
+                @click="activeTab = 'cv'"
+              >
+                Open
+              </v-btn>
             </div>
 
-            <template v-else>
-              <p class="applicant-cv-hint">
-                Upload one PDF CV for this applicant. PDFs are compressed in your browser before
-                upload.
-              </p>
+            <div v-else class="applicant-cv-card applicant-cv-card--empty">
+              <v-icon class="applicant-cv-card__icon" icon="mdi-file-upload-outline" size="32" />
+              <div class="applicant-cv-card__copy">
+                <p class="candidate-name">No CV yet</p>
+                <p class="candidate-source">PDFs are compressed in your browser before upload.</p>
+              </div>
               <v-btn
-                color="primary"
                 variant="outlined"
                 prepend-icon="mdi-upload"
+                :height="40"
                 :disabled="cvBusy"
                 :loading="cvBusy"
                 @click="chooseCv"
               >
                 Upload CV
               </v-btn>
-            </template>
+            </div>
 
             <v-alert v-if="cvError" class="orbital-alert" type="error" density="compact">
               {{ cvError }}
@@ -686,27 +684,31 @@ onBeforeUnmount(() => {
           </section>
 
           <section class="applicant-section">
-            <p class="eyebrow">Notes</p>
+            <p class="eyebrow">
+              Notes<span v-if="notes.length" class="applicant-count">{{ notes.length }}</span>
+            </p>
 
-            <v-textarea
-              v-model="noteDraft"
-              class="applicant-notes-field"
-              label="Add a note"
-              auto-grow
-              hide-details
-              rows="3"
-            />
-            <div class="applicant-note-compose">
-              <v-btn
-                color="primary"
-                variant="outlined"
-                prepend-icon="mdi-note-plus-outline"
-                :disabled="!noteDraft.trim()"
-                :loading="noteSaving"
-                @click="addNote"
-              >
-                Add note
-              </v-btn>
+            <div class="applicant-composer">
+              <textarea
+                v-model="noteDraft"
+                class="applicant-composer__input"
+                aria-label="Note"
+                placeholder="Write a note for the team..."
+                rows="2"
+              />
+              <div class="applicant-composer__foot">
+                <span class="applicant-composer__hint">Visible to everyone in the workspace</span>
+                <v-btn
+                  color="primary"
+                  variant="flat"
+                  :height="40"
+                  :disabled="!noteDraft.trim()"
+                  :loading="noteSaving"
+                  @click="addNote"
+                >
+                  Add note
+                </v-btn>
+              </div>
             </div>
 
             <div v-if="notesLoading" class="applicant-note-status">Loading notes...</div>
@@ -719,22 +721,93 @@ onBeforeUnmount(() => {
                 <p class="applicant-note__meta">
                   {{ note.authorName }}
                   <span aria-hidden="true">·</span>
-                  <time :datetime="note.createdAt">{{ formatEventTime(note.createdAt) }}</time>
+                  <time :datetime="note.createdAt" :title="formatEventTime(note.createdAt)">
+                    {{ formatRelativeTime(note.createdAt) }}
+                  </time>
                 </p>
               </li>
             </ul>
           </section>
+        </div>
 
-          <p class="applicant-drawer__note">Changes save automatically to the shared workspace.</p>
+        <div v-else-if="activeTab === 'cv'" class="applicant-cv-preview">
+          <template v-if="candidate.cvPath">
+            <div class="applicant-cv-toolbar">
+              <v-icon class="applicant-cv-card__icon" icon="mdi-file-pdf-box" size="28" />
+              <span class="applicant-cv-toolbar__name">{{ candidate.cvName || 'CV.pdf' }}</span>
+              <div class="applicant-cv-toolbar__actions">
+                <v-btn
+                  icon="mdi-open-in-new"
+                  variant="text"
+                  :height="40"
+                  :width="40"
+                  aria-label="Open CV in a new tab"
+                  title="Open in a new tab"
+                  :disabled="!cvUrl"
+                  @click="openCvFullscreen"
+                />
+                <v-btn
+                  icon="mdi-printer-outline"
+                  variant="text"
+                  :height="40"
+                  :width="40"
+                  aria-label="Print CV"
+                  title="Print CV"
+                  @click="printCv"
+                />
+                <v-menu location="bottom end" :offset="4">
+                  <template #activator="{ props: menuProps }">
+                    <v-btn
+                      v-bind="menuProps"
+                      icon="mdi-dots-horizontal"
+                      variant="text"
+                      :height="40"
+                      :width="40"
+                      aria-label="More CV actions"
+                      :loading="cvBusy"
+                    />
+                  </template>
+                  <v-list class="app-menu candidate-menu" density="compact">
+                    <v-list-item
+                      class="candidate-menu__reject"
+                      prepend-icon="mdi-delete-outline"
+                      title="Remove CV"
+                      :disabled="cvBusy"
+                      @click="removeCv"
+                    />
+                  </v-list>
+                </v-menu>
+              </div>
+            </div>
 
-          <v-btn
-            variant="text"
-            color="error"
-            prepend-icon="mdi-delete-outline"
-            @click="requestDeleteApplicant"
-          >
-            Delete applicant
-          </v-btn>
+            <v-alert v-if="cvError" class="orbital-alert" type="error" density="compact">
+              {{ cvError }}
+            </v-alert>
+
+            <div v-if="cvLoading" class="applicant-cv-status">Loading preview...</div>
+            <iframe v-else-if="cvUrl" :src="cvUrl" class="applicant-cv-frame" title="CV preview" />
+          </template>
+
+          <div v-else class="fit-empty">
+            <v-icon icon="mdi-file-upload-outline" size="40" />
+            <p class="fit-empty__title">No CV yet</p>
+            <p class="fit-empty__hint">
+              Upload one PDF CV for this applicant. PDFs are compressed in your browser before
+              upload.
+            </p>
+            <v-alert v-if="cvError" class="orbital-alert" type="error" density="compact">
+              {{ cvError }}
+            </v-alert>
+            <v-btn
+              variant="outlined"
+              prepend-icon="mdi-upload"
+              :disabled="cvBusy"
+              :loading="cvBusy"
+              @click="chooseCv"
+            >
+              Upload CV
+            </v-btn>
+          </div>
         </div>
 
         <div v-else-if="activeTab === 'career'" class="applicant-career">
@@ -793,9 +866,13 @@ onBeforeUnmount(() => {
               <span class="applicant-event__dot" aria-hidden="true" />
               <div class="applicant-event__copy">
                 <p class="applicant-event__message">{{ event.message }}</p>
-                <time class="applicant-event__time" :datetime="event.createdAt">
-                  {{ formatEventTime(event.createdAt) }}
-                </time>
+                <p class="applicant-event__meta">
+                  {{ event.actorName }}
+                  <span aria-hidden="true">·</span>
+                  <time :datetime="event.createdAt" :title="formatEventTime(event.createdAt)">
+                    {{ formatRelativeTime(event.createdAt) }}
+                  </time>
+                </p>
               </div>
             </li>
           </ol>
@@ -807,8 +884,18 @@ onBeforeUnmount(() => {
           </v-alert>
 
           <v-alert v-if="fitStale" class="orbital-alert" type="warning" density="compact">
-            This profile, CV, or job spec has changed since the last analysis. Use the refresh
-            button to update it.
+            <div class="applicant-fit__stale">
+              <span>This profile, CV, or job spec has changed since the last analysis.</span>
+              <v-btn
+                variant="outlined"
+                prepend-icon="mdi-refresh"
+                :height="36"
+                :disabled="!canAnalyze || fitAnalyzing"
+                @click="requestFitAnalysis"
+              >
+                Re-run
+              </v-btn>
+            </div>
           </v-alert>
 
           <section v-if="fitPrerequisites.length" class="applicant-section fit-prereqs">

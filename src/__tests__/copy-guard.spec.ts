@@ -42,6 +42,9 @@ const banned = [
   'days in step',
   'Entered this step',
   '>Events<',
+  '>Details<',
+  'Changes save automatically',
+  'Use the refresh button',
 ]
 
 function vueFiles(dir: string): string[] {

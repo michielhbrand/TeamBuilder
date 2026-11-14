@@ -52,7 +52,11 @@ rule set; the selected reference is `design/ui-directions.html#orbital`.
   applicant through `moveCandidate` (tray chevrons, Move to..., or drag to an adjacent stage)
   and decides through `hireCandidate` / `rejectCandidate`, whose undo entry the shared
   `UndoToast` shows. `ApplicantDrawer.vue` is the right-side editable applicant profile opened
-  from a card.
+  from a card. Its header holds `ApplicantStageBar.vue`, which reads the applicants and boards
+  stores itself: a stage stepper (click a stage to call `moveCandidate`), **Move to <next>**
+  (`advanceCandidate`), Hire and Reject (with the same undo toast), the `saveStatusFor`
+  indicator, and for closed applicants an outcome chip with Reopen. The drawer tabs are
+  Overview, CV, Career, CV fit, and Activity.
   `DepartmentLoadChart.vue`, `OutcomeDonut.vue`, `RolePerformanceTable.vue`, and
   `ApplicantWatchList.vue` implement the dashboard visuals and lists.
   `design/hiring-pipeline-step-columns.html` is the structural concept reference; its
@@ -173,8 +177,8 @@ and typing stay responsive:
   written by the next debounced save.
 - A failed autosave keeps the user's text instead of reverting it mid-edit.
   `persistCandidate` marks the applicant as not saved (`hasUnsavedChanges`), the applicant
-  drawer shows a non-blocking "Changes not saved" alert with a Retry action, and the next
-  successful save clears the flag.
+  drawer's save indicator reads "Couldn't save" with a Retry action (which calls
+  `flushCandidate`), and the next successful save clears the flag.
 - `saveStatusFor(candidateId)` exposes the autosave lifecycle as `SaveStatus`
   (`idle`, `pending`, `saving`, `saved`, `failed`): an edit sets `pending`, the write sets
   `saving`, success sets `saved` (or `pending` again if a field changed mid-write), failure
@@ -283,7 +287,7 @@ by git.
 
 The CV selected during creation is uploaded after the applicant row exists. If the upload
 fails, the applicant is still created and the board shows the store error; the CV can be
-retried from the applicant drawer. LinkedIn URL scraping is intentionally not supported:
+retried from the applicant drawer's CV tab or Overview CV card. LinkedIn URL scraping is intentionally not supported:
 LinkedIn blocks automated access, prohibits scraping, and has no free reliable profile API.
 
 ### CV analysis
@@ -292,7 +296,7 @@ The applicant drawer has a **CV fit** tab. It compares the applicant's education
 experience with the board's PDF job spec and shows two lists: similarities and gaps. The flow is:
 
 ```text
-CV fit tab, CV upload, or refresh
+CV fit tab, CV upload, refresh, or the stale banner's Re-run
   -> consent dialog (every analysis, including re-evaluation)
   -> browser extracts job-spec text locally (pdfjs-dist + OCR fallback)
   -> supabase.functions.invoke('fit-analysis')
