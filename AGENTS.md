@@ -117,6 +117,7 @@ npm run build
 - `src/components/AuthShell.vue` — shared Orbital layout for login and password setup.
 - `src/components/FullNameDialog.vue` — blocking full-name capture for signed-in users whose
   profile has no name yet.
+- `src/components/PageHeader.vue` — page title, breadcrumb, meta, and actions header.
 - `src/components/BrandMark.vue` — the only application brand lockup.
 - `src/components/BoardList.vue` — searchable boards grouped by department.
 - `src/components/BoardFormDialog.vue` — create and edit board fields.

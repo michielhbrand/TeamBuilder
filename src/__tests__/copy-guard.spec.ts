@@ -45,12 +45,8 @@ const banned = [
 
 // Strings owned by later tasks; remove each entry in the task that rewrites it.
 const PENDING: Record<string, string[]> = {
-  // Task 6 (auth shell) and Task 10 (brand/footer)
-  'components/AuthShell.vue': ['Pinia', 'Hiring & Recruitment', 'Orbital System'],
-  // Task 7 (app shell)
-  'components/AppShell.vue': ['Vue 3 + Supabase', 'Orbital system'],
-  // Task 10 (brand mark)
-  'components/BrandMark.vue': ['[Beta]'],
+  // Task 10 (auth shell readout)
+  'components/AuthShell.vue': ['Pinia'],
   // Task 10 (account page)
   'views/AccountView.vue': ['JWT', 'Pinia', 'Identity console'],
 }

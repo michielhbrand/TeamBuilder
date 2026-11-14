@@ -15,7 +15,7 @@ defineProps<{
     <div class="orbital-orbit orbital-orbit--b" aria-hidden="true" />
 
     <header class="page-topbar">
-      <BrandMark />
+      <BrandMark context="Recruitment platform" />
       <div class="topbar-actions">
         <ThemeToggle />
       </div>
@@ -50,11 +50,5 @@ defineProps<{
         <slot />
       </section>
     </main>
-
-    <footer class="page-footer">
-      <span>TeamBuilder</span>
-      <span>Hiring & Recruitment</span>
-      <span>Orbital System</span>
-    </footer>
   </div>
 </template>

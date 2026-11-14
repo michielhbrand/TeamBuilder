@@ -1,12 +1,7 @@
 <script setup lang="ts">
-withDefaults(
-  defineProps<{
-    context?: string
-  }>(),
-  {
-    context: 'Recruitment platform',
-  },
-)
+defineProps<{
+  context?: string
+}>()
 </script>
 
 <template>
@@ -15,7 +10,10 @@ withDefaults(
       <v-icon icon="mdi-google-analytics" size="22" />
     </span>
     <span class="brand-copy">
-      <span class="brand-name">TeamBuilder [Beta]</span>
+      <span class="brand-name">
+        TeamBuilder
+        <span class="brand-badge">Beta</span>
+      </span>
       <span v-if="context" class="brand-context">{{ context }}</span>
     </span>
   </div>

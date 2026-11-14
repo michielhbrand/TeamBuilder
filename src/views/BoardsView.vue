@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import AppShell from '@/components/AppShell.vue'
 import BoardFormDialog from '@/components/BoardFormDialog.vue'
 import BoardList from '@/components/BoardList.vue'
+import PageHeader from '@/components/PageHeader.vue'
 import { useBoardsStore } from '@/stores/boards'
 import type { Board } from '@/types/pipeline'
 
@@ -23,22 +24,13 @@ function onCreated(board: Board): void {
       {{ store.error }}
     </v-alert>
 
-    <div class="page-heading">
-      <div>
-        <p class="eyebrow">Boards</p>
-        <h1 class="page-title">Boards</h1>
-        <p class="lede">
-          One board per open role, grouped by department. Search or filter to find the pipeline that
-          needs attention.
-        </p>
-      </div>
-
-      <div class="board-nav">
+    <PageHeader title="Boards">
+      <template #actions>
         <v-btn color="primary" prepend-icon="mdi-plus" @click="createOpen = true">
           New board
         </v-btn>
-      </div>
-    </div>
+      </template>
+    </PageHeader>
 
     <BoardList :groups="store.groups" @create="createOpen = true" />
 

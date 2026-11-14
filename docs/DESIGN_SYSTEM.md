@@ -119,18 +119,18 @@ planets, glows, or gradients. Those belong to the other directions.
 - Metadata, labels, indices, and code-like values: `IBM Plex Mono` at 400/500.
 - Fallbacks are system sans and monospace. Do not load Google Fonts at runtime.
 
-| Role        | Family        | Size                            | Weight  | Tracking     | Line height |
-| ----------- | ------------- | ------------------------------- | ------- | ------------ | ----------- |
-| Page title  | Manrope       | `clamp(2.6rem, 5-6vw, 4.75rem)` | 700     | `-0.055em`   | 0.98-1.05   |
-| Panel title | Manrope       | `1.15rem`                       | 700     | `-0.035em`   | 1.2         |
-| Stat value  | Manrope       | `1.55rem`                       | 700     | `-0.045em`   | 1.05        |
-| Body        | Manrope       | `1rem`                          | 400     | normal       | 1.7         |
-| Small body  | Manrope       | `0.75-0.88rem`                  | 400-600 | normal       | 1.5-1.6     |
-| Eyebrow     | IBM Plex Mono | `0.6875rem` (11px)              | 500     | `0.12em`     | 1.5         |
-| Data label  | IBM Plex Mono | `0.6875-0.75rem`                | 500     | `0.08-0.1em` | 1.4-1.5     |
-| Meta        | Manrope       | `0.75rem` (12px)                | 400-500 | normal       | 1.5         |
-| Field label | Manrope       | `0.8125rem`                     | 600     | normal       | 1.4         |
-| Field value | Manrope       | `0.94rem`                       | 400     | normal       | 1.45        |
+| Role        | Family        | Size                  | Weight  | Tracking     | Line height |
+| ----------- | ------------- | --------------------- | ------- | ------------ | ----------- |
+| Page title  | Manrope       | `2rem` (`PageHeader`) | 700     | `-0.045em`   | 1.15        |
+| Panel title | Manrope       | `1.15rem`             | 700     | `-0.035em`   | 1.2         |
+| Stat value  | Manrope       | `1.55rem`             | 700     | `-0.045em`   | 1.05        |
+| Body        | Manrope       | `1rem`                | 400     | normal       | 1.7         |
+| Small body  | Manrope       | `0.75-0.88rem`        | 400-600 | normal       | 1.5-1.6     |
+| Eyebrow     | IBM Plex Mono | `0.6875rem` (11px)    | 500     | `0.12em`     | 1.5         |
+| Data label  | IBM Plex Mono | `0.6875-0.75rem`      | 500     | `0.08-0.1em` | 1.4-1.5     |
+| Meta        | Manrope       | `0.75rem` (12px)      | 400-500 | normal       | 1.5         |
+| Field label | Manrope       | `0.8125rem`           | 600     | normal       | 1.4         |
+| Field value | Manrope       | `0.94rem`             | 400     | normal       | 1.45        |
 
 Rules:
 
@@ -154,7 +154,7 @@ Rules:
 - Main content width: `min(1180px, calc(100% - 64px))`; at `920px` or below use
   `calc(100% - 40px)`; at `520px` or below use `calc(100% - 32px)`.
 - Auth card: maximum `460px`, panel padding `36px` desktop / `24px` tablet / `18-22px` phone.
-- Top bar: `88px` desktop, `76px` tablet.
+- Top bar: `72px` desktop and tablet, `60px` at `720px` and below.
 - Page padding: `64px 0 72px` for auth pages; `clamp(40px, 6vw, 72px) 0 80px` for protected
   app pages.
 
@@ -162,6 +162,7 @@ Rules:
 
 The motif is one thin off-canvas circle, not a decorative illustration system.
 
+- Orbit rings appear on auth pages only; protected pages have none.
 - Use `1px` accent stroke at `10-12%` opacity.
 - Desktop ring: large, roughly `460-840px`, anchored off the top-right of the page.
 - Optional second ring: signal color at about `6%`, anchored off the bottom-left.
@@ -189,10 +190,10 @@ Use `AuthShell` for `/` and `/set-password`.
 ```
 
 - Desktop: two columns, editorial intro on the left and a `460px` auth panel on the right.
-- The intro contains an eyebrow, page title, one short paragraph, and a three-cell readout.
+- The intro contains an eyebrow, a display title (`.display-title`, used by `AuthShell` only), one short paragraph, and a three-cell readout. There is no footer.
 - At `720px` and below the readout is hidden so the form stays close to the top; the
   eyebrow, title, and paragraph remain. The layout becomes one column with the intro first.
-- Every auth page uses `BrandMark`, the `Secure access` status badge, and the `ThemeToggle`
+- Every auth page uses `BrandMark context="Recruitment platform"`, the `Secure access` status badge, and the `ThemeToggle`
   from the shell.
 - Auth forms use a panel heading, the fields, one primary full-width submit button, and one
   quiet note. Do not add social login, tabs, or extra actions without a product decision.
@@ -201,9 +202,12 @@ Use `AuthShell` for `/` and `/set-password`.
 
 Use `AppShell` for `/overview`, `/boards`, `/boards/:boardId`, and `/account`.
 
-- `app-topbar` with `BrandMark context="Recruitment platform"`, the Overview / Boards /
-  Account navigation, `ThemeToggle`, and the avatar account menu.
-- Eyebrow plus display title, one paragraph, and the page-level action.
+- `app-topbar` with `BrandMark` (no context line), the Overview / Boards navigation,
+  `ThemeToggle`, and the avatar account menu (Account and Sign out live there). No orbit rings
+  and no footer.
+- `PageHeader` (`title` prop; slots `breadcrumb`, `title-adornment`, `meta`, `actions`) renders
+  the `2rem` page title with chips on the left and actions on the right, wrapping under `1024px`.
+  Pages not yet migrated keep `.page-heading` with the same `.page-title`.
 - The Overview page is a hiring dashboard. It has a department filter row, a four-card stat
   row, a department workload chart, an outcome donut, a sortable role performance table, a
   deadline watch list, and newest / longest-in-step applicant lists. Chart bars and table
@@ -436,9 +440,10 @@ class. Keep the rules attached to the field.
 ### Brand, avatar, and status
 
 - `BrandMark` is the only application identity lockup. It combines the accent square, the
-  `mdi-google-analytics` icon, `TeamBuilder`, and an uppercase mono context line. The browser
+  `mdi-google-analytics` icon, `TeamBuilder`, a small neutral `Beta` badge, and an optional
+  uppercase mono context line (`context` prop, used on auth pages only). The browser
   favicon uses the same icon on an accent square.
-- Use `Identity console` on auth pages and `Recruitment platform` on protected pages.
+- Use `Recruitment platform` as the context on auth pages; protected pages omit it.
 - The avatar is a `38px` accent-soft circle with two initials. It is decorative; never make
   it the only way to identify the account.
 - Session status belongs in the top bar and in the session panel. The labels are

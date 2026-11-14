@@ -48,11 +48,8 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="orbital-page app-shell">
-    <div class="orbital-orbit orbital-orbit--a" aria-hidden="true" />
-    <div class="orbital-orbit orbital-orbit--b" aria-hidden="true" />
-
     <header class="app-topbar">
-      <BrandMark context="Recruitment platform" />
+      <BrandMark />
 
       <nav class="app-nav" aria-label="Workspace">
         <RouterLink class="app-nav-link" active-class="app-nav-link--active" to="/overview">
@@ -60,9 +57,6 @@ onBeforeUnmount(() => {
         </RouterLink>
         <RouterLink class="app-nav-link" active-class="app-nav-link--active" to="/boards">
           Boards
-        </RouterLink>
-        <RouterLink class="app-nav-link" active-class="app-nav-link--active" to="/account">
-          Account
         </RouterLink>
       </nav>
 
@@ -92,11 +86,6 @@ onBeforeUnmount(() => {
     <main class="app-main">
       <slot />
     </main>
-
-    <footer class="page-footer">
-      <span>TeamBuilder / Vue 3 + Supabase</span>
-      <span>Orbital system / A</span>
-    </footer>
 
     <FullNameDialog />
   </div>
