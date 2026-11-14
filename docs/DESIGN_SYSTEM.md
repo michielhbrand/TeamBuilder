@@ -129,7 +129,7 @@ planets, glows, or gradients. Those belong to the other directions.
 | Eyebrow     | IBM Plex Mono | `0.6875rem` (11px)              | 500     | `0.12em`     | 1.5         |
 | Data label  | IBM Plex Mono | `0.6875-0.75rem`                | 500     | `0.08-0.1em` | 1.4-1.5     |
 | Meta        | Manrope       | `0.75rem` (12px)                | 400-500 | normal       | 1.5         |
-| Field label | Manrope       | `0.75-0.8125rem`                | 500     | normal       | 1.4         |
+| Field label | Manrope       | `0.8125rem`                     | 600     | normal       | 1.4         |
 | Field value | Manrope       | `0.94rem`                       | 400     | normal       | 1.45        |
 
 Rules:
@@ -289,9 +289,14 @@ that prototype's palette, gradients, or Bricolage/Hanken fonts.
 Vuetify defaults set `variant="outlined"`, comfortable density, and the `orbital-field`
 class. Keep the rules attached to the field.
 
-- Height about `50px`; surface background; line outline; `8px` radius.
-- Focus: accent outline plus a `3px` accent-soft ring.
-- Labels are uppercase mono at `0.68rem`; values are Manrope at `0.94rem`.
+- The label is static text above the control (Manrope `0.8125rem`, 600, ink, sentence case),
+  never inside the border and never floating. The CSS positions the Vuetify label; templates
+  keep passing `label`.
+- Control height `44px`; surface background; `1px` outline in `--orbital-line-input`; `8px`
+  radius; `16px` visual gap between fields. No message space is reserved: a message appears
+  below the control only when there is one.
+- Focus: accent outline plus a `3px` accent-soft ring. Values are Manrope at `0.94rem`.
+- Mark optional fields with "(optional)" in the label (applicant Email and Phone number).
 - Icons are muted; the focused icon becomes accent text.
 - Errors use the danger token. Never rely on color alone; keep the validation message.
 

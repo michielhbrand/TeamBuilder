@@ -709,6 +709,9 @@ body {
 }
 
 .orbital-field .v-field {
+  --v-field-padding-top: 0px;
+  --v-field-padding-bottom: 0px;
+  margin-top: 26px;
   border-radius: var(--orbital-radius-sm);
   background: var(--orbital-surface);
   color: var(--orbital-ink);
@@ -718,6 +721,21 @@ body {
 .orbital-field .v-field__outline {
   color: var(--orbital-line-input);
   opacity: 1;
+}
+
+.orbital-field .v-field__outline__notch {
+  display: none;
+}
+
+.orbital-field .v-field__outline__start {
+  flex: 0 0 8px;
+  border-inline-end: 0;
+  border-radius: var(--orbital-radius-sm) 0 0 var(--orbital-radius-sm);
+}
+
+.orbital-field .v-field__outline__end {
+  border-inline-start: 0;
+  border-radius: 0 var(--orbital-radius-sm) var(--orbital-radius-sm) 0;
 }
 
 .orbital-field .v-field--focused .v-field__outline {
@@ -732,27 +750,61 @@ body {
   color: var(--orbital-danger);
 }
 
-.orbital-field .v-label {
-  color: var(--orbital-muted);
-  font-family: var(--orbital-font-mono);
-  font-size: 0.6875rem;
-  font-weight: 500;
-  letter-spacing: 0.09em;
+.orbital-field .v-field .v-label.v-field-label {
+  position: absolute;
+  top: -26px;
+  left: 0;
+  max-width: 100%;
+  margin: 0;
+  transform: none;
+  color: var(--orbital-ink);
+  font-family: var(--orbital-font-body);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  line-height: 1.4;
   opacity: 1;
-  text-transform: uppercase;
+  text-transform: none;
+  visibility: visible;
 }
 
-.orbital-field .v-field--focused .v-label,
-.orbital-field .v-field--active .v-label {
-  color: var(--orbital-accent-text);
+.orbital-field .v-field .v-label.v-field-label--floating {
+  display: none;
+}
+
+.orbital-field .v-field__field {
+  position: static;
+  align-items: center;
 }
 
 .orbital-field .v-field__input {
-  min-height: 50px;
-  padding-top: 10px;
-  padding-bottom: 10px;
+  min-height: 44px;
+  padding-top: 8px;
+  padding-bottom: 8px;
   color: var(--orbital-ink);
   font-size: 0.94rem;
+}
+
+.orbital-field textarea.v-field__input {
+  min-height: 0;
+}
+
+.orbital-field .v-input__details {
+  min-height: 0;
+  padding: 0;
+}
+
+.orbital-field .v-messages {
+  min-height: 0;
+  font-size: 0.75rem;
+}
+
+.orbital-field .v-messages__message {
+  padding-top: 4px;
+}
+
+.orbital-field.v-input--error .v-messages {
+  color: var(--orbital-danger);
 }
 
 .orbital-field .v-field__prepend-inner .v-icon,
@@ -763,11 +815,6 @@ body {
 
 .orbital-field .v-field--focused .v-field__prepend-inner .v-icon {
   color: var(--orbital-accent-text);
-}
-
-.orbital-field .v-messages {
-  padding-top: 4px;
-  font-size: 0.75rem;
 }
 
 .orbital-btn {

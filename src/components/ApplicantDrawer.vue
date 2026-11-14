@@ -612,7 +612,7 @@ onBeforeUnmount(() => {
                 @update:model-value="updateField('name', $event)"
               />
               <v-text-field
-                label="Email"
+                label="Email (optional)"
                 type="email"
                 :model-value="form.email"
                 :error-messages="fieldErrors.email"
@@ -620,7 +620,7 @@ onBeforeUnmount(() => {
                 @update:model-value="updateField('email', $event)"
               />
               <v-text-field
-                label="Phone number"
+                label="Phone number (optional)"
                 type="tel"
                 :model-value="form.phone"
                 :error-messages="fieldErrors.phone"

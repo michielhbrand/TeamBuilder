@@ -409,7 +409,7 @@ onBeforeUnmount(() => resetImport(true))
             <v-text-field
               class="orbital-field"
               :class="{ 'orbital-field--autofilled': autoFilled.has('email') }"
-              label="Email"
+              label="Email (optional)"
               type="email"
               variant="outlined"
               :model-value="form.email"
@@ -418,7 +418,7 @@ onBeforeUnmount(() => resetImport(true))
             <v-text-field
               class="orbital-field"
               :class="{ 'orbital-field--autofilled': autoFilled.has('phone') }"
-              label="Phone number"
+              label="Phone number (optional)"
               type="tel"
               variant="outlined"
               :model-value="form.phone"
