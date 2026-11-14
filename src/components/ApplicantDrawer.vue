@@ -84,6 +84,9 @@ const fitAnalyzing = computed(() =>
   props.candidateId ? fit.isAnalyzingFor(props.candidateId) : false,
 )
 const fitError = computed(() => (props.candidateId ? fit.errorFor(props.candidateId) : null))
+const saveFailed = computed(() =>
+  props.candidateId ? store.hasUnsavedChanges(props.candidateId) : false,
+)
 const fitProgress = computed(() => (props.candidateId ? fit.progressFor(props.candidateId) : ''))
 const fitStale = computed(() =>
   props.candidateId && fitAnalysis.value ? fit.isStaleFor(props.candidateId) : false,
@@ -165,6 +168,12 @@ function updateField(field: EditableCandidateField, value: unknown): void {
 
   if (field === 'education' || field === 'experience') {
     void fit.refreshProfileStale(current.id)
+  }
+}
+
+function retrySave(): void {
+  if (candidate.value) {
+    void store.flushCandidate(candidate.value.id)
   }
 }
 
@@ -494,6 +503,18 @@ onBeforeUnmount(() => setPageScrollLocked(false))
         <div v-else-if="activeTab === 'details'" class="applicant-drawer__body">
           <v-alert v-if="detailsError" class="orbital-alert" type="error" density="compact">
             {{ detailsError }}
+          </v-alert>
+
+          <v-alert
+            v-if="saveFailed && !detailsError"
+            class="orbital-alert"
+            type="warning"
+            density="compact"
+          >
+            <div class="d-flex align-center justify-space-between ga-4">
+              <span>Changes not saved. Your edits stay here until they can be saved.</span>
+              <v-btn size="small" variant="text" @click="retrySave">Retry</v-btn>
+            </div>
           </v-alert>
 
           <section class="applicant-section">

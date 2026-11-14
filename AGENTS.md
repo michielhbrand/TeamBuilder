@@ -171,6 +171,10 @@ See `docs/ARCHITECTURE.md` for the auth lifecycle and deployment pipeline.
   `fit.ts`). Components read from the stores and call their actions instead of calling
   Supabase or the Edge Function directly. Each store owns its own `error` state so a failure
   in one area does not overwrite another.
+- Board and column mutations are pessimistic. Applicant moves, status changes, and the
+  debounced field autosave are optimistic: roll back the previous `stepId`/`status`/
+  `stepEnteredAt` when a move or status write fails, and keep the not-saved flag set when an
+  autosave fails.
 - Keep Supabase queries and row/domain mapping in the split API modules under `src/lib/`
   (`boards-api.ts`, `applicants-api.ts`, `activity-api.ts`, `storage-api.ts`, and
   `fit-api.ts`), sharing row mappers through `api-shared.ts`. Board data is persisted in the

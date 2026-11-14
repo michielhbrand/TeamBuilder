@@ -129,6 +129,25 @@ Components call the store for the area they are changing instead of calling Supa
 directly. Because the errors are separate, a failed CV upload does not overwrite a board or
 applicant error.
 
+## Update strategy
+
+Board and column mutations (`updateBoard`, `addColumn`, `renameColumn`, `reorderColumns`, and
+`deleteColumn`) are pessimistic: local state changes only after Supabase accepts the write.
+Applicant moves, status changes, and debounced field autosave are optimistic so drag-and-drop
+and typing stay responsive:
+
+- `moveCandidate` remembers the previous `stepId`, `status`, and `stepEnteredAt`, and
+  `setCandidateStatus` remembers the previous `status`. If the API call fails, the store
+  restores the remembered values and sets its `error`, so the board never shows a column or
+  outcome the database does not have.
+- A failed autosave keeps the user's text instead of reverting it mid-edit.
+  `persistCandidate` marks the applicant as not saved (`hasUnsavedChanges`), the applicant
+  drawer shows a non-blocking "Changes not saved" alert with a Retry action, and the next
+  successful save clears the flag.
+
+Components render the store `error` values; they do not roll back or retry Supabase writes on
+their own.
+
 The Supabase client is a singleton in `src/lib/supabase.ts`. It reads
 `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` at module load and refuses to start
 without them. It also rejects a `sb_secret_` key defensively. `persistSession` is disabled so

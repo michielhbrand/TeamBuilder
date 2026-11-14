@@ -34,6 +34,7 @@ const SAVE_DELAY_MS = 500
 export const useApplicantsStore = defineStore('applicants', () => {
   const boards = useBoardsStore()
   const error = ref<string | null>(null)
+  const unsavedCandidates = ref<Record<string, boolean>>({})
   const saveTimers = new Map<string, ReturnType<typeof setTimeout>>()
   const editSnapshots = new Map<string, ProfileSnapshot>()
 
@@ -72,6 +73,22 @@ export const useApplicantsStore = defineStore('applicants', () => {
     return (Object.keys(current) as Array<keyof ProfileSnapshot>).some(
       (key) => current[key] !== snapshot[key],
     )
+  }
+
+  function hasUnsavedChanges(candidateId: string): boolean {
+    return unsavedCandidates.value[candidateId] === true
+  }
+
+  function setUnsaved(candidateId: string, unsaved: boolean): void {
+    const next = { ...unsavedCandidates.value }
+
+    if (unsaved) {
+      next[candidateId] = true
+    } else {
+      delete next[candidateId]
+    }
+
+    unsavedCandidates.value = next
   }
 
   function beginCandidateEdit(candidateId: string): void {
@@ -142,6 +159,7 @@ export const useApplicantsStore = defineStore('applicants', () => {
         (candidate) => candidate.id !== candidateId,
       )
       editSnapshots.delete(candidateId)
+      setUnsaved(candidateId, false)
       useApplicantActivityStore().forgetCandidate(candidateId)
 
       if (cvPath) {
@@ -188,6 +206,10 @@ export const useApplicantsStore = defineStore('applicants', () => {
       return
     }
 
+    error.value = null
+    const previousStepId = context.candidate.stepId
+    const previousStatus = context.candidate.status
+    const previousStepEnteredAt = context.candidate.stepEnteredAt
     const now = new Date().toISOString()
     context.candidate.stepId = stepId
     context.candidate.status = 'active'
@@ -200,6 +222,18 @@ export const useApplicantsStore = defineStore('applicants', () => {
         stepEnteredAt: now,
       })
     } catch (caught) {
+      if (context.candidate.stepId === stepId) {
+        context.candidate.stepId = previousStepId
+      }
+
+      if (context.candidate.status === 'active') {
+        context.candidate.status = previousStatus
+      }
+
+      if (context.candidate.stepEnteredAt === now) {
+        context.candidate.stepEnteredAt = previousStepEnteredAt
+      }
+
       error.value = errorMessage(caught)
     }
   }
@@ -225,11 +259,17 @@ export const useApplicantsStore = defineStore('applicants', () => {
       return
     }
 
+    error.value = null
+    const previousStatus = context.candidate.status
     context.candidate.status = status
 
     try {
       await api.updateApplicant(candidateId, { status })
     } catch (caught) {
+      if (context.candidate.status === status) {
+        context.candidate.status = previousStatus
+      }
+
       error.value = errorMessage(caught)
     }
   }
@@ -285,8 +325,11 @@ export const useApplicantsStore = defineStore('applicants', () => {
         status: candidate.status,
         columnId: candidate.stepId,
       })
+      setUnsaved(candidateId, false)
+      error.value = null
       return true
     } catch (caught) {
+      setUnsaved(candidateId, true)
       error.value = errorMessage(caught)
       return false
     }
@@ -309,6 +352,7 @@ export const useApplicantsStore = defineStore('applicants', () => {
   function forgetCandidate(candidateId: string): void {
     clearSaveTimer(candidateId)
     editSnapshots.delete(candidateId)
+    setUnsaved(candidateId, false)
   }
 
   function forgetCandidates(candidateIds: string[]): void {
@@ -322,12 +366,14 @@ export const useApplicantsStore = defineStore('applicants', () => {
 
     saveTimers.clear()
     editSnapshots.clear()
+    unsavedCandidates.value = {}
     error.value = null
   }
 
   return {
     error,
     candidateById,
+    hasUnsavedChanges,
     createApplicant,
     deleteApplicant,
     updateCandidateField,

@@ -216,6 +216,29 @@ describe('applicants store', () => {
     expect(mocks.recordApplicantEditEvent).not.toHaveBeenCalled()
   })
 
+  it('marks a candidate as not saved when autosave fails', async () => {
+    const { applicants } = await initializedStores()
+    const candidate = applicants.candidateById('c1')
+
+    expect(candidate).toBeDefined()
+    if (!candidate) return
+
+    applicants.updateCandidateField(candidate.id, 'email', 'unsaved@example.com')
+    mocks.updateApplicant.mockRejectedValueOnce(new Error('Network error'))
+
+    await applicants.flushCandidate(candidate.id)
+
+    expect(candidate.email).toBe('unsaved@example.com')
+    expect(applicants.hasUnsavedChanges(candidate.id)).toBe(true)
+    expect(applicants.error).toBe('Network error')
+
+    mocks.updateApplicant.mockResolvedValueOnce(undefined)
+    await applicants.flushCandidate(candidate.id)
+
+    expect(applicants.hasUnsavedChanges(candidate.id)).toBe(false)
+    expect(applicants.error).toBeNull()
+  })
+
   it('persists hire, reject, and reopen status changes', async () => {
     const { applicants } = await initializedStores()
     const candidate = applicants.candidateById('c1')

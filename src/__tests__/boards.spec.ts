@@ -11,12 +11,13 @@ const mocks = vi.hoisted(() => ({
   renameBoardColumn: vi.fn<(...args: unknown[]) => unknown>(),
   deleteBoardColumn: vi.fn<(...args: unknown[]) => unknown>(),
   reorderBoardColumns: vi.fn<(...args: unknown[]) => unknown>(),
+  updateApplicant: vi.fn<(...args: unknown[]) => unknown>(),
   deleteApplicantCv: vi.fn<(...args: unknown[]) => unknown>(),
   deleteBoardJobSpec: vi.fn<(...args: unknown[]) => unknown>(),
 }))
 
 vi.mock('@/lib/boards-api', () => mocks)
-vi.mock('@/lib/applicants-api', () => ({}))
+vi.mock('@/lib/applicants-api', () => ({ updateApplicant: mocks.updateApplicant }))
 vi.mock('@/lib/activity-api', () => ({}))
 vi.mock('@/lib/storage-api', () => ({
   deleteApplicantCv: mocks.deleteApplicantCv,
@@ -24,6 +25,7 @@ vi.mock('@/lib/storage-api', () => ({
 }))
 
 import { useBoardsStore } from '@/stores/boards'
+import { useApplicantsStore } from '@/stores/applicants'
 
 function makeCandidate(overrides: Partial<Candidate> = {}): Candidate {
   return {
@@ -75,6 +77,7 @@ describe('boards store', () => {
     mocks.deleteBoardColumn.mockResolvedValue(undefined)
     mocks.reorderBoardColumns.mockResolvedValue(undefined)
     mocks.renameBoardColumn.mockResolvedValue(undefined)
+    mocks.updateApplicant.mockResolvedValue(undefined)
     mocks.deleteApplicantCv.mockResolvedValue(undefined)
     mocks.deleteBoardJobSpec.mockResolvedValue(undefined)
   })
@@ -126,6 +129,47 @@ describe('boards store', () => {
     expect(deleted).toBe(false)
     expect(mocks.deleteBoardColumn).not.toHaveBeenCalled()
     expect(store.error).toBe('The first column cannot be deleted.')
+  })
+
+  it('restores the previous step and status when a move fails', async () => {
+    await initializedStore()
+    const applicants = useApplicantsStore()
+    const candidate = applicants.candidateById('c1')
+
+    expect(candidate).toBeDefined()
+    if (!candidate) return
+
+    const previousStepId = candidate.stepId
+    const previousStatus = candidate.status
+    const previousStepEnteredAt = candidate.stepEnteredAt
+
+    mocks.updateApplicant.mockRejectedValueOnce(new Error('Network error'))
+
+    await applicants.moveCandidate(candidate.id, 's2')
+
+    expect(candidate.stepId).toBe(previousStepId)
+    expect(candidate.status).toBe(previousStatus)
+    expect(candidate.stepEnteredAt).toBe(previousStepEnteredAt)
+    expect(applicants.error).toBe('Network error')
+  })
+
+  it('restores the previous status when a status change fails', async () => {
+    const store = await initializedStore()
+    const applicants = useApplicantsStore()
+    const candidate = applicants.candidateById('c1')
+
+    expect(store.boards).toHaveLength(1)
+    expect(candidate).toBeDefined()
+    if (!candidate) return
+
+    const previousStatus = candidate.status
+
+    mocks.updateApplicant.mockRejectedValueOnce(new Error('Network error'))
+
+    await applicants.hireCandidate(candidate.id)
+
+    expect(candidate.status).toBe(previousStatus)
+    expect(applicants.error).toBe('Network error')
   })
 
   it('reorders columns while keeping the first column fixed', async () => {
