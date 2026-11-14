@@ -35,7 +35,8 @@ fit analyses are stored in Supabase Postgres and loaded through Pinia.
   keyboard actions, Hire and Reject with Undo), drag to an adjacent stage, deadline chips, and
   stage tabs on phones
 - Board creation and editing, including ordered pipeline stages
-- Applicant creation per board with a right-side profile drawer: a decision header (stage
+- Applicant creation per board (CV drop zone, five fields, optional collapsed Career history)
+  with a right-side profile drawer: a decision header (stage
   stepper, Move to the next stage, Hire, Reject, a Saving/Saved/Couldn't save indicator, and
   Reopen for closed applicants) over Overview, CV, Career, CV fit, and Activity tabs, with an
   inline CV viewer and a Career tab that shows education and work experience as editable

@@ -386,8 +386,17 @@ class. Keep the rules attached to the field.
 ### Add applicant and CV import
 
 - `ApplicantFormDialog` uses the shared `.orbital-dialog` shell and `.orbital-field`
-  treatment. Above the fields, keep the `.applicant-import` quick-fill panel with an upload
-  action, selected filename, progress line, and cancel action.
+  treatment. The header is "Add applicant" with the board name and department as the
+  `.orbital-dialog__sub` subtitle. A dashed `.applicant-import` drop zone ("Start with a CV")
+  leads: it accepts a dropped PDF or the **Choose PDF** primary button, both through the same
+  validation, and shows the selected filename, progress line, and cancel action. Fields sit in
+  two columns (Full name (required), Current role, Email, Phone, Stage) with example
+  placeholders.
+- Work experience and Education live in one collapsed **Career history** disclosure
+  (`.applicant-disclosure`, a real button with `aria-expanded` and `aria-controls`) that shows
+  "Optional · Work N · Education M". It opens automatically when CV import fills at least one
+  entry and then shows the two `CareerTimeline`s. With it collapsed, the dialog fits a 900px
+  viewport without scrolling.
 - Auto-filled fields receive `.orbital-field--autofilled`. The treatment uses the accent and
   accent-soft tokens. A manual edit removes the marker; do not use an icon, separate color,
   or badge.

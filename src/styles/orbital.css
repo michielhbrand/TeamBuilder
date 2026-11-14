@@ -3339,28 +3339,45 @@ body > .v-navigation-drawer__scrim {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  border: 1px dashed var(--orbital-line);
+  border: 1.5px dashed var(--orbital-line-input);
   border-radius: var(--orbital-radius-sm);
   padding: 16px;
   background: var(--orbital-surface-2);
 }
 
+.applicant-import--over {
+  border-color: var(--orbital-accent);
+  background: var(--orbital-accent-soft);
+}
+
 .applicant-import__head {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
+  align-items: center;
+  gap: 14px;
+}
+
+.applicant-import__icon.v-icon {
+  flex: none;
+  color: var(--orbital-accent-text);
+  font-size: 1.8rem;
 }
 
 .applicant-import__copy {
   min-width: 0;
+  flex: 1;
+}
+
+.applicant-import__title {
+  margin: 0;
+  font-size: 0.92rem;
+  font-weight: 700;
 }
 
 .applicant-import__hint {
-  margin: 6px 0 0;
+  margin: 2px 0 0;
   color: var(--orbital-muted);
-  font-size: 0.8rem;
-  line-height: 1.55;
+  font-size: 0.82rem;
+  line-height: 1.5;
 }
 
 .applicant-import__file {
@@ -3419,10 +3436,71 @@ body > .v-navigation-drawer__scrim {
   color: var(--orbital-accent);
 }
 
+.orbital-dialog__sub {
+  margin: 4px 0 0;
+  color: var(--orbital-muted);
+  font-size: 0.85rem;
+}
+
+.applicant-disclosure {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 48px;
+  border: 1px solid var(--orbital-line);
+  border-radius: var(--orbital-radius-sm);
+  padding: 8px 14px;
+  background: var(--orbital-surface);
+  color: var(--orbital-ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.applicant-disclosure:hover {
+  background: var(--orbital-surface-2);
+}
+
+.applicant-disclosure:focus-visible {
+  outline: 2px solid var(--orbital-accent);
+  outline-offset: 2px;
+}
+
+.applicant-disclosure__title {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.applicant-disclosure__meta {
+  margin-left: auto;
+  color: var(--orbital-muted);
+  font-size: 0.82rem;
+}
+
+.applicant-career-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding-top: 18px;
+}
+
 @media (max-width: 720px) {
   .applicant-import__head {
-    flex-direction: column;
-    align-items: stretch;
+    flex-wrap: wrap;
+  }
+
+  .applicant-import__head .orbital-btn {
+    width: 100%;
+  }
+
+  .applicant-disclosure {
+    flex-wrap: wrap;
+  }
+
+  .applicant-disclosure__meta {
+    margin-left: 34px;
+    width: 100%;
   }
 }
 

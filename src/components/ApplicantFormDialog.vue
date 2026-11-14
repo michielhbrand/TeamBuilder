@@ -37,6 +37,8 @@ const importing = ref(false)
 const importStatus = ref('')
 const importProgress = ref(0)
 const importError = ref('')
+const dragging = ref(false)
+const careerOpen = ref(false)
 const autoFilled = reactive(new Set<ApplicantDraftField>())
 const editedFields = reactive(new Set<ApplicantDraftField>())
 const form = reactive<ApplicantFormValues>({
@@ -69,6 +71,8 @@ function syncForm(): void {
   localError.value = ''
   autoFilled.clear()
   editedFields.clear()
+  careerOpen.value = false
+  dragging.value = false
   resetImport(true)
 }
 
@@ -231,7 +235,16 @@ async function handleCv(file: File): Promise<void> {
   }
 }
 
-async function onCvDropped(event: DragEvent): Promise<void> {
+function onDragLeave(event: DragEvent): void {
+  const zone = event.currentTarget as HTMLElement | null
+
+  if (!zone?.contains(event.relatedTarget as Node | null)) {
+    dragging.value = false
+  }
+}
+
+async function onDrop(event: DragEvent): Promise<void> {
+  dragging.value = false
   const file = event.dataTransfer?.files?.[0]
 
   if (file) {
@@ -304,6 +317,15 @@ async function submit(): Promise<void> {
   }
 }
 
+watch(
+  () => autoFilled.has('experience') || autoFilled.has('education'),
+  (filled) => {
+    if (filled) {
+      careerOpen.value = true
+    }
+  },
+)
+
 watch([() => props.modelValue, () => props.board?.id], ([value]) => {
   if (value) {
     syncForm()
@@ -328,8 +350,10 @@ onBeforeUnmount(() => resetImport(true))
       <form @submit.prevent="submit">
         <div class="orbital-dialog__head">
           <div>
-            <p class="eyebrow">Applicant</p>
-            <h2 class="panel-title">Add an applicant</h2>
+            <h2 class="panel-title">Add applicant</h2>
+            <p v-if="board" class="orbital-dialog__sub">
+              {{ board.name }} · {{ board.department }}
+            </p>
           </div>
           <v-btn icon="mdi-close" variant="text" aria-label="Close" @click="open = false" />
         </div>
@@ -346,25 +370,28 @@ onBeforeUnmount(() => resetImport(true))
 
           <section
             class="applicant-import"
-            @dragenter.prevent
-            @dragover.prevent
-            @drop.prevent="onCvDropped"
+            :class="{ 'applicant-import--over': dragging }"
+            @dragenter.prevent="dragging = true"
+            @dragover.prevent="dragging = true"
+            @dragleave.prevent="onDragLeave"
+            @drop.prevent="onDrop"
           >
             <div class="applicant-import__head">
+              <v-icon class="applicant-import__icon" icon="mdi-file-upload-outline" />
               <div class="applicant-import__copy">
-                <p class="eyebrow">Quick fill</p>
+                <p class="applicant-import__title">Start with a CV</p>
                 <p class="applicant-import__hint">
-                  Upload a PDF CV to fill the fields below. Everything stays editable.
+                  Drop a PDF here or choose one. We fill in what we can; every field stays editable.
                 </p>
               </div>
               <v-btn
                 class="orbital-btn"
-                variant="outlined"
-                prepend-icon="mdi-file-upload-outline"
+                color="primary"
+                prepend-icon="mdi-paperclip"
                 :disabled="submitting"
                 @click="chooseCv"
               >
-                {{ cvFile ? 'Choose another' : 'Upload CV' }}
+                {{ cvFile ? 'Choose another' : 'Choose PDF' }}
               </v-btn>
             </div>
 
@@ -400,7 +427,8 @@ onBeforeUnmount(() => resetImport(true))
             <v-text-field
               class="orbital-field"
               :class="{ 'orbital-field--autofilled': autoFilled.has('name') }"
-              label="Full name"
+              label="Full name (required)"
+              placeholder="e.g. Naledi Mokoena"
               variant="outlined"
               :model-value="form.name"
               autofocus
@@ -408,8 +436,18 @@ onBeforeUnmount(() => resetImport(true))
             />
             <v-text-field
               class="orbital-field"
+              :class="{ 'orbital-field--autofilled': autoFilled.has('currentRole') }"
+              label="Current role"
+              placeholder="e.g. Senior frontend engineer"
+              variant="outlined"
+              :model-value="form.currentRole"
+              @update:model-value="setField('currentRole', $event)"
+            />
+            <v-text-field
+              class="orbital-field"
               :class="{ 'orbital-field--autofilled': autoFilled.has('email') }"
-              label="Email (optional)"
+              label="Email"
+              placeholder="name@example.com"
               type="email"
               variant="outlined"
               :model-value="form.email"
@@ -418,59 +456,70 @@ onBeforeUnmount(() => resetImport(true))
             <v-text-field
               class="orbital-field"
               :class="{ 'orbital-field--autofilled': autoFilled.has('phone') }"
-              label="Phone number (optional)"
+              label="Phone"
+              placeholder="082 123 4567"
               type="tel"
               variant="outlined"
               :model-value="form.phone"
               @update:model-value="setField('phone', $event)"
             />
-            <v-text-field
+            <v-select
+              v-model="stepId"
               class="orbital-field"
-              :class="{ 'orbital-field--autofilled': autoFilled.has('currentRole') }"
-              label="Current role"
+              label="Stage"
+              :items="steps"
+              item-title="name"
+              item-value="id"
               variant="outlined"
-              :model-value="form.currentRole"
-              @update:model-value="setField('currentRole', $event)"
             />
           </div>
 
-          <v-select
-            v-model="stepId"
-            class="orbital-field"
-            label="Stage"
-            :items="steps"
-            item-title="name"
-            item-value="id"
-            variant="outlined"
-          />
-
-          <section class="applicant-section">
-            <div class="career-section__head">
-              <p class="eyebrow">Work experience</p>
-              <span v-if="autoFilled.has('experience')" class="career-section__badge">
-                Filled from CV
+          <div class="applicant-career-disclosure">
+            <button
+              type="button"
+              class="applicant-disclosure"
+              :aria-expanded="careerOpen"
+              aria-controls="applicant-career-panel"
+              @click="careerOpen = !careerOpen"
+            >
+              <v-icon :icon="careerOpen ? 'mdi-chevron-down' : 'mdi-chevron-right'" />
+              <span class="applicant-disclosure__title">Career history</span>
+              <span class="applicant-disclosure__meta">
+                Optional · Work {{ form.experience.length }} · Education
+                {{ form.education.length }}
               </span>
-            </div>
-            <CareerTimeline
-              kind="experience"
-              :entries="form.experience"
-              @update:entries="setEntries('experience', $event)"
-            />
-          </section>
+            </button>
 
-          <section class="applicant-section">
-            <div class="career-section__head">
-              <p class="eyebrow">Education</p>
-              <span v-if="autoFilled.has('education')" class="career-section__badge">
-                Filled from CV
-              </span>
+            <div v-if="careerOpen" id="applicant-career-panel" class="applicant-career-panel">
+              <section class="applicant-section">
+                <div class="career-section__head">
+                  <p class="eyebrow">Work experience</p>
+                  <span v-if="autoFilled.has('experience')" class="career-section__badge">
+                    Filled from CV
+                  </span>
+                </div>
+                <CareerTimeline
+                  kind="experience"
+                  :entries="form.experience"
+                  @update:entries="setEntries('experience', $event)"
+                />
+              </section>
+
+              <section class="applicant-section">
+                <div class="career-section__head">
+                  <p class="eyebrow">Education</p>
+                  <span v-if="autoFilled.has('education')" class="career-section__badge">
+                    Filled from CV
+                  </span>
+                </div>
+                <CareerTimeline
+                  kind="education"
+                  :entries="form.education"
+                  @update:entries="setEntries('education', $event)"
+                />
+              </section>
             </div>
-            <CareerTimeline
-              kind="education"
-              :entries="form.education"
-              @update:entries="setEntries('education', $event)"
-            />
-          </section>
+          </div>
         </div>
 
         <div class="orbital-dialog__actions">
