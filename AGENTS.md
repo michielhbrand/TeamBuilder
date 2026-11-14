@@ -90,14 +90,15 @@ npm run build
   removal for applicant CVs and board job specs.
 - `src/lib/fit-api.ts` — Supabase reads for stored fit analyses and Edge Function invocation.
 - `src/lib/store-errors.ts` — shared friendly constraint messages and store error formatting.
-- `src/lib/applicant-events.ts` — fallback actor label and timestamp formatting for the
-  audit trail.
+- `src/lib/applicant-events.ts` — fallback actor label, absolute timestamp formatting, and
+  `formatRelativeTime` for the audit trail.
 - `src/lib/pdf-text.ts` — shared PDF text extraction, OCR fallback, IndexedDB cache, and PDF
   fingerprints.
 - `src/lib/job-spec.ts` — job-spec PDF text extraction and cleanup.
 - `src/lib/fit-hash.ts` — CV, job-spec, and profile fingerprint helpers.
-- `src/lib/pipeline.ts` — pure pipeline helpers for steps, deadlines, summaries, department
-  grouping, and dashboard applicant watch entries.
+- `src/lib/pipeline.ts` — pure pipeline helpers for steps, deadlines and `deadlineLabel`,
+  summaries, `stageBreakdown`, `sortBoards`, `applicantsInStage`, `reorderIds` (first stage
+  locked), `applicantActions`, department grouping, and dashboard applicant watch entries.
 - `src/lib/validation.ts` — shared email and phone validation helpers.
 - `src/stores/boards.ts` — persisted board and column state, derived groups/summaries/totals,
   board actions, and the focus/visibility refresh used to keep the shared workspace current.

@@ -256,3 +256,100 @@ export function summariseBoards(boards: Board[]): PipelineTotals {
 export function departmentTotals(group: BoardGroup): PipelineTotals {
   return summariseBoards(group.boards)
 }
+
+export function deadlineLabel(
+  board: Board,
+  now: Date = new Date(),
+): { text: string; overdue: boolean } {
+  const target = parseIsoDate(board.deadline)
+
+  if (!target || Number.isNaN(target.getTime())) {
+    return { text: 'No deadline', overdue: false }
+  }
+
+  const days = daysUntilDeadline(board.deadline, now)
+
+  if (days < 0) {
+    const late = Math.abs(days)
+    return { text: `${late} ${late === 1 ? 'day' : 'days'} overdue`, overdue: true }
+  }
+
+  if (days === 0) {
+    return { text: 'Due today', overdue: false }
+  }
+
+  if (days === 1) {
+    return { text: 'Due tomorrow', overdue: false }
+  }
+
+  return { text: `Due in ${days} days`, overdue: false }
+}
+
+export function stageBreakdown(
+  board: Board,
+  limit = 3,
+): { items: { name: string; count: number }[]; hidden: number } {
+  return {
+    items: board.steps.slice(0, limit).map((step) => ({
+      name: step.name,
+      count: candidatesInStep(board, step.id).length,
+    })),
+    hidden: Math.max(0, board.steps.length - limit),
+  }
+}
+
+export function sortBoards(boards: Board[], key: 'deadline' | 'name' | 'active'): Board[] {
+  const byName = (a: Board, b: Board) => a.name.localeCompare(b.name)
+
+  return [...boards].sort((a, b) => {
+    if (key === 'name') {
+      return byName(a, b)
+    }
+
+    if (key === 'deadline') {
+      return a.deadline.localeCompare(b.deadline) || byName(a, b)
+    }
+
+    return activeCandidates(b).length - activeCandidates(a).length || byName(a, b)
+  })
+}
+
+export function applicantsInStage(board: Board, stepId: string): number {
+  return board.candidates.filter((candidate) => candidate.stepId === stepId).length
+}
+
+export function reorderIds(ids: string[], from: number, to: number): string[] {
+  const result = [...ids]
+
+  if (from < 1 || to < 1 || from >= ids.length || to >= ids.length || from === to) {
+    return result
+  }
+
+  const [moved] = result.splice(from, 1)
+  result.splice(to, 0, moved as string)
+
+  return result
+}
+
+export function applicantActions(
+  board: Board,
+  candidate: Candidate,
+): {
+  next?: PipelineStep
+  previous?: PipelineStep
+  canHire: boolean
+  canReject: boolean
+  canReopen: boolean
+} {
+  if (candidate.status !== 'active') {
+    return { canHire: false, canReject: false, canReopen: true }
+  }
+
+  return {
+    next: nextStep(board, candidate),
+    previous: previousStep(board, candidate),
+    canHire: true,
+    canReject: true,
+    canReopen: false,
+  }
+}

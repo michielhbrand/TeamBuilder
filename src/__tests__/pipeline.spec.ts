@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import {
+  applicantActions,
+  applicantsInStage,
   candidateEntries,
   daysInStep,
   daysSince,
   daysSinceApplied,
   daysUntilDeadline,
+  deadlineLabel,
   defaultApplicantStep,
   formatDeadline,
   groupBoards,
@@ -14,6 +17,9 @@ import {
   nextStep,
   parseDeadlineInput,
   previousStep,
+  reorderIds,
+  sortBoards,
+  stageBreakdown,
   summariseBoard,
   summariseBoards,
   workDaysUntilDeadline,
@@ -212,5 +218,183 @@ describe('pipeline helpers', () => {
     expect(totals.openPositions).toBe(3)
     expect(totals.active).toBe(3)
     expect(totals.overdue).toBe(1)
+  })
+})
+
+describe('deadlineLabel', () => {
+  const now = new Date('2026-11-14T12:00:00Z')
+
+  it('labels upcoming deadlines', () => {
+    expect(deadlineLabel(board({ deadline: '2026-11-14' }), now)).toEqual({
+      text: 'Due today',
+      overdue: false,
+    })
+    expect(deadlineLabel(board({ deadline: '2026-11-15' }), now).text).toBe('Due tomorrow')
+    expect(deadlineLabel(board({ deadline: '2026-11-26' }), now)).toEqual({
+      text: 'Due in 12 days',
+      overdue: false,
+    })
+  })
+
+  it('labels overdue deadlines', () => {
+    expect(deadlineLabel(board({ deadline: '2026-11-13' }), now)).toEqual({
+      text: '1 day overdue',
+      overdue: true,
+    })
+    expect(deadlineLabel(board({ deadline: '2026-11-10' }), now).text).toBe('4 days overdue')
+  })
+
+  it('handles an invalid deadline', () => {
+    expect(deadlineLabel(board({ deadline: 'soon' }), now)).toEqual({
+      text: 'No deadline',
+      overdue: false,
+    })
+  })
+})
+
+describe('stageBreakdown', () => {
+  const steps = ['A', 'B', 'C', 'D', 'E'].map((name, position) => ({
+    id: `s${position + 1}`,
+    name,
+    position,
+  }))
+
+  it('limits stages and reports hidden ones', () => {
+    const result = stageBreakdown(board({ steps, candidates: [] }), 3)
+    expect(result.items).toHaveLength(3)
+    expect(result.hidden).toBe(2)
+  })
+
+  it('counts only active applicants', () => {
+    const result = stageBreakdown(
+      board({
+        candidates: [
+          candidate({ id: 'a' }),
+          candidate({ id: 'b', status: 'hired' }),
+          candidate({ id: 'c', status: 'rejected' }),
+        ],
+      }),
+    )
+    expect(result.items).toEqual([
+      { name: 'Applied', count: 1 },
+      { name: 'Interview', count: 0 },
+    ])
+    expect(result.hidden).toBe(0)
+  })
+
+  it('has nothing hidden for a single stage', () => {
+    const result = stageBreakdown(board({ steps: [steps[0]!], candidates: [] }))
+    expect(result.hidden).toBe(0)
+  })
+})
+
+describe('sortBoards', () => {
+  const boards = [
+    board({ id: '1', name: 'Zeta', deadline: '2026-12-01', candidates: [candidate()] }),
+    board({ id: '2', name: 'Alpha', deadline: '2026-12-01', candidates: [] }),
+    board({
+      id: '3',
+      name: 'Mid',
+      deadline: '2026-11-01',
+      candidates: [candidate({ id: 'x' }), candidate({ id: 'y' })],
+    }),
+  ]
+
+  it('sorts by deadline ascending with name tie-break', () => {
+    expect(sortBoards(boards, 'deadline').map((b) => b.id)).toEqual(['3', '2', '1'])
+  })
+
+  it('sorts by name', () => {
+    expect(sortBoards(boards, 'name').map((b) => b.id)).toEqual(['2', '3', '1'])
+  })
+
+  it('sorts by active descending with name tie-break', () => {
+    expect(sortBoards(boards, 'active').map((b) => b.id)).toEqual(['3', '1', '2'])
+  })
+
+  it('does not mutate the input', () => {
+    const before = boards.map((b) => b.id)
+    sortBoards(boards, 'name')
+    expect(boards.map((b) => b.id)).toEqual(before)
+  })
+})
+
+describe('applicantsInStage', () => {
+  it('counts every status', () => {
+    const target = board({
+      candidates: [
+        candidate({ id: 'a' }),
+        candidate({ id: 'b', status: 'hired' }),
+        candidate({ id: 'c', status: 'rejected' }),
+        candidate({ id: 'd', stepId: 's2' }),
+      ],
+    })
+    expect(applicantsInStage(target, 's1')).toBe(3)
+    expect(applicantsInStage(target, 's2')).toBe(1)
+  })
+})
+
+describe('reorderIds', () => {
+  const ids = ['a', 'b', 'c', 'd']
+
+  it('moves an id', () => {
+    expect(reorderIds(ids, 3, 1)).toEqual(['a', 'd', 'b', 'c'])
+    expect(reorderIds(ids, 1, 3)).toEqual(['a', 'c', 'd', 'b'])
+  })
+
+  it('keeps index 0 locked', () => {
+    expect(reorderIds(ids, 0, 2)).toEqual(ids)
+    expect(reorderIds(ids, 2, 0)).toEqual(ids)
+  })
+
+  it('ignores out-of-range and no-op moves', () => {
+    expect(reorderIds(ids, 1, 9)).toEqual(ids)
+    expect(reorderIds(ids, 9, 1)).toEqual(ids)
+    expect(reorderIds(ids, 2, 2)).toEqual(ids)
+    expect(reorderIds(['a'], 0, 0)).toEqual(['a'])
+  })
+
+  it('returns a copy', () => {
+    expect(reorderIds(ids, 0, 0)).not.toBe(ids)
+  })
+})
+
+describe('applicantActions', () => {
+  const steps = [
+    { id: 's1', name: 'Applied', position: 0 },
+    { id: 's2', name: 'Interview', position: 1 },
+    { id: 's3', name: 'Offer', position: 2 },
+  ]
+  const target = board({ steps })
+
+  it('has no previous stage in the first stage', () => {
+    const result = applicantActions(target, candidate({ stepId: 's1' }))
+    expect(result.previous).toBeUndefined()
+    expect(result.next?.id).toBe('s2')
+    expect(result).toMatchObject({ canHire: true, canReject: true, canReopen: false })
+  })
+
+  it('has no next stage in the last stage', () => {
+    const result = applicantActions(target, candidate({ stepId: 's3' }))
+    expect(result.next).toBeUndefined()
+    expect(result.previous?.id).toBe('s2')
+  })
+
+  it('only allows reopening closed applicants', () => {
+    for (const status of ['hired', 'rejected'] as const) {
+      expect(applicantActions(target, candidate({ stepId: 's2', status }))).toEqual({
+        next: undefined,
+        previous: undefined,
+        canHire: false,
+        canReject: false,
+        canReopen: true,
+      })
+    }
+  })
+
+  it('has no moves on a single-stage board', () => {
+    const result = applicantActions(board({ steps: [steps[0]!] }), candidate())
+    expect(result.next).toBeUndefined()
+    expect(result.previous).toBeUndefined()
   })
 })

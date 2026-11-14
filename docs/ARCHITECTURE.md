@@ -359,9 +359,12 @@ changed. This avoids one event per keystroke; the narrow `record_applicant_edit_
 derives the actor and message from the session and applicant. Database triggers record
 creation, moves, and hire/reject/reopen events in the same transaction as the applicant
 change. `src/types/pipeline.ts` defines the domain types,
-`src/lib/applicant-events.ts` provides the fallback actor label and formats timestamps, and
-`src/lib/pipeline.ts` contains pure helpers for column lookup, deadlines, elapsed days,
-next-step navigation, department grouping, and summaries. Components read from the stores and
+`src/lib/applicant-events.ts` provides the fallback actor label and formats absolute and
+relative timestamps (`formatRelativeTime`), and `src/lib/pipeline.ts` contains pure helpers
+for column lookup, deadlines and deadline labels (`deadlineLabel`), elapsed days, next-step
+navigation, per-stage breakdowns (`stageBreakdown`, `applicantsInStage`), board sorting
+(`sortBoards`), locked-first reordering (`reorderIds`), per-applicant action availability
+(`applicantActions`), department grouping, and summaries. Components read from the stores and
 call their actions; they do not call Supabase directly.
 
 ## Routing and GitHub Pages
