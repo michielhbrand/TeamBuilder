@@ -63,6 +63,22 @@ describe('undo store', () => {
     expect(undo.entry).toBeNull()
   })
 
+  it('run records a failing undo in error instead of rejecting', async () => {
+    const undo = useUndoStore()
+
+    undo.push(
+      'Amara hired',
+      vi.fn<() => Promise<void>>().mockRejectedValue(new Error('Network down')),
+    )
+
+    await expect(undo.run()).resolves.toBeUndefined()
+    expect(undo.error).toBe('Network down')
+    expect(undo.entry).toBeNull()
+
+    undo.push('Amara rejected', vi.fn<() => Promise<void>>())
+    expect(undo.error).toBeNull()
+  })
+
   it('dismiss and reset clear the entry and timer', () => {
     const undo = useUndoStore()
 

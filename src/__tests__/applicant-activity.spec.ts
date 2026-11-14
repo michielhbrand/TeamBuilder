@@ -221,6 +221,6 @@ describe('applicant activity store', () => {
 
     expect(created).toBeNull()
     expect(activity.error).toBe('notes unavailable')
-    expect(applicants.error).toBe('Add a column to this board before creating an applicant.')
+    expect(applicants.error).toBe('Add a stage to this board before adding an applicant.')
   })
 })

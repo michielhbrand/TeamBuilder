@@ -166,7 +166,7 @@ export const useApplicantsStore = defineStore('applicants', () => {
     const defaultStep = board ? defaultApplicantStep(board) : undefined
 
     if (!board || !defaultStep) {
-      error.value = 'Add a column to this board before creating an applicant.'
+      error.value = 'Add a stage to this board before adding an applicant.'
       return null
     }
 

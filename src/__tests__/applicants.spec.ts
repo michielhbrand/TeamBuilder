@@ -545,7 +545,7 @@ describe('applicants store', () => {
     })
 
     expect(boards.error).toBe('The first stage cannot be deleted.')
-    expect(applicants.error).toBe('Add a column to this board before creating an applicant.')
+    expect(applicants.error).toBe('Add a stage to this board before adding an applicant.')
   })
 
   it('resets timers and snapshots', async () => {
