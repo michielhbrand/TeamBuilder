@@ -33,7 +33,7 @@ function confirm(): void {
       <div class="orbital-dialog__head">
         <div>
           <p class="eyebrow">AI analysis</p>
-          <h2 class="panel-title">Send this CV to Kilo?</h2>
+          <h2 class="panel-title">Share data with an AI?</h2>
         </div>
         <v-icon icon="mdi-shield-lock-outline" size="28" aria-hidden="true" />
       </div>
@@ -62,13 +62,9 @@ function confirm(): void {
         </div>
 
         <v-alert class="orbital-alert" type="warning" density="compact" variant="tonal">
-          Kilo may log or train on free-tier requests. Do not send confidential CVs without
-          approval. The saved result is visible to everyone signed in to this workspace.
+          Request data may be used for AI training.
         </v-alert>
 
-        <p class="fit-consent__note">
-          You will be asked again before every analysis. Cancelling keeps the previous result.
-        </p>
       </div>
 
       <div class="orbital-dialog__actions">

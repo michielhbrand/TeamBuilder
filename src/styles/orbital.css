@@ -2145,6 +2145,11 @@ body.applicant-drawer-open {
   background: var(--orbital-surface) !important;
 }
 
+/* The drawer is fixed but its scrim is absolute, so it drifts with page scroll. */
+body > .v-navigation-drawer__scrim {
+  position: fixed;
+}
+
 .applicant-drawer .v-navigation-drawer__content {
   background: var(--orbital-surface);
 }

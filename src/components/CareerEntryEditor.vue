@@ -22,13 +22,13 @@ const labels = computed(() =>
         title: 'Job title',
         organization: 'Company',
         current: 'Currently working here',
-        description: 'Responsibilities and achievements',
+        description: 'Details',
       }
     : {
         title: 'Qualification',
         organization: 'Institution',
         current: 'Still studying',
-        description: 'Major, thesis, distinctions',
+        description: 'Details',
       },
 )
 
