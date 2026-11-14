@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   fetchApplicantEvents: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
   fetchApplicantNotes: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
   createApplicantNote: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
+  actorName: 'Emma Brand',
 }))
 
 vi.mock('@/lib/boards-api', () => ({
@@ -34,6 +35,9 @@ vi.mock('@/lib/activity-api', () => ({
 vi.mock('@/lib/storage-api', () => ({
   uploadApplicantCv: vi.fn<(...args: unknown[]) => unknown>(),
   deleteApplicantCv: vi.fn<(...args: unknown[]) => unknown>(),
+}))
+vi.mock('@/stores/auth', () => ({
+  useAuthStore: () => ({ actorName: mocks.actorName }),
 }))
 
 import { useApplicantActivityStore } from '@/stores/applicant-activity'
@@ -152,7 +156,7 @@ describe('applicant activity store', () => {
   it('adds applicant notes to the front of the list', async () => {
     const { activity } = await initializedStores()
 
-    const added = await activity.addNote('c1', '  Follow up Friday.  ', 'Emma Brand')
+    const added = await activity.addNote('c1', '  Follow up Friday.  ')
 
     expect(added).toBe(true)
     expect(mocks.createApplicantNote).toHaveBeenCalledExactlyOnceWith({
@@ -174,7 +178,7 @@ describe('applicant activity store', () => {
   it('does not save empty applicant notes', async () => {
     const { activity } = await initializedStores()
 
-    const added = await activity.addNote('c1', '   ', 'Emma Brand')
+    const added = await activity.addNote('c1', '   ')
 
     expect(added).toBe(false)
     expect(mocks.createApplicantNote).not.toHaveBeenCalled()
@@ -207,7 +211,7 @@ describe('applicant activity store', () => {
     const { applicants, activity } = await initializedStores()
 
     mocks.createApplicantNote.mockRejectedValue(new Error('notes unavailable'))
-    await activity.addNote('c1', 'Follow up', 'Emma Brand')
+    await activity.addNote('c1', 'Follow up')
 
     const created = await applicants.createApplicant('missing-board', {
       name: 'Liam Price',

@@ -74,7 +74,8 @@ npm run build
 - `src/lib/auth-link.ts` — reads invite/recovery link parameters before Supabase consumes
   the URL.
 - `src/stores/auth.ts` — owns session state, initialization, sign-in, full-name capture,
-  password setup, and sign-out.
+  actor-name derivation, password setup, sign-out, and dependent-store resets when the
+  session becomes `null`.
 - `src/types/pipeline.ts` — board, step, candidate, applicant event, and summary types.
 - `src/types/fit.ts` — applicant CV/job-spec analysis types.
 - `src/lib/api-shared.ts` — shared row types, select fragments, and board/applicant/event/note
@@ -100,7 +101,7 @@ npm run build
 - `src/stores/applicants.ts` — candidate lookup, applicant CRUD, moves, status changes,
   dirty-field debounced autosave, and edit snapshots.
 - `src/stores/applicant-activity.ts` — applicant events and notes with per-applicant loading
-  state.
+  state; derives the note author from the auth store's `actorName`.
 - `src/stores/storage.ts` — CV and job-spec uploads, removals, signed URLs, and blobs.
 - `src/stores/fit.ts` — persisted applicant CV-analysis state and actions.
 - `supabase/migrations/` — Postgres tables, RLS policies, indexes, and board RPC functions.

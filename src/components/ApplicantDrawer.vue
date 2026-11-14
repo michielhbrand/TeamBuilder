@@ -2,11 +2,10 @@
 import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import FitConsentDialog from '@/components/FitConsentDialog.vue'
-import { DEFAULT_ACTOR_NAME, formatEventTime } from '@/lib/applicant-events'
+import { formatEventTime } from '@/lib/applicant-events'
 import { printPdfBlob } from '@/lib/pdf'
 import { initials as getInitials } from '@/lib/pipeline'
 import { isValidEmail, isValidPhone } from '@/lib/validation'
-import { useAuthStore } from '@/stores/auth'
 import { useApplicantActivityStore } from '@/stores/applicant-activity'
 import { useApplicantsStore, type EditableCandidateField } from '@/stores/applicants'
 import { useBoardsStore } from '@/stores/boards'
@@ -27,11 +26,9 @@ const store = useApplicantsStore()
 const boards = useBoardsStore()
 const activity = useApplicantActivityStore()
 const storage = useStorageStore()
-const auth = useAuthStore()
 const fit = useFitStore()
 const detailsError = computed(() => store.error || activity.error || storage.error)
 const eventsError = computed(() => activity.error)
-const actorName = computed(() => auth.fullName || auth.user?.email || DEFAULT_ACTOR_NAME)
 const candidate = computed(() =>
   props.candidateId ? store.candidateById(props.candidateId) : undefined,
 )
@@ -186,7 +183,7 @@ async function addNote(): Promise<void> {
   }
 
   noteSaving.value = true
-  const added = await activity.addNote(current.id, body, actorName.value)
+  const added = await activity.addNote(current.id, body)
   noteSaving.value = false
 
   if (added) {

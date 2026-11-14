@@ -1,6 +1,7 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import type { Session, User } from '@supabase/supabase-js'
+import { DEFAULT_ACTOR_NAME } from '@/lib/applicant-events'
 import { supabase } from '@/lib/supabase'
 import {
   initialAuthLinkError,
@@ -8,6 +9,11 @@ import {
   initialAuthTokenHash,
   type AuthLinkType,
 } from '@/lib/auth-link'
+import { useApplicantActivityStore } from '@/stores/applicant-activity'
+import { useApplicantsStore } from '@/stores/applicants'
+import { useBoardsStore } from '@/stores/boards'
+import { useFitStore } from '@/stores/fit'
+import { useStorageStore } from '@/stores/storage'
 
 function errorMessage(error: unknown): string {
   if (error instanceof Error) {
@@ -71,7 +77,16 @@ export const useAuthStore = defineStore('auth', () => {
     return typeof value === 'string' ? value.trim() : ''
   })
   const fullNameRequired = computed(() => isAuthenticated.value && !fullName.value)
+  const actorName = computed(() => fullName.value || user.value?.email || DEFAULT_ACTOR_NAME)
   let unsubscribe: (() => void) | undefined
+
+  function resetWorkspace(): void {
+    useBoardsStore().reset()
+    useApplicantsStore().reset()
+    useApplicantActivityStore().reset()
+    useStorageStore().reset()
+    useFitStore().reset()
+  }
 
   async function initialize(): Promise<void> {
     if (initialized.value) {
@@ -92,6 +107,10 @@ export const useAuthStore = defineStore('auth', () => {
       if (!unsubscribe) {
         const { data: listener } = supabase.auth.onAuthStateChange((event, nextSession) => {
           session.value = nextSession
+
+          if (!nextSession) {
+            resetWorkspace()
+          }
 
           if (event === 'PASSWORD_RECOVERY') {
             passwordSetupRequired.value = true
@@ -231,6 +250,7 @@ export const useAuthStore = defineStore('auth', () => {
 
       session.value = null
       passwordSetupRequired.value = false
+      resetWorkspace()
     } catch (caught) {
       error.value = friendlyErrorMessage(errorMessage(caught))
     } finally {
@@ -251,6 +271,7 @@ export const useAuthStore = defineStore('auth', () => {
     isAuthenticated,
     fullName,
     fullNameRequired,
+    actorName,
     initialize,
     signIn,
     verifyLink,

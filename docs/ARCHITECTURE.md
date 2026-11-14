@@ -63,7 +63,9 @@ rule set; the selected reference is `design/ui-directions.html#orbital`.
    `persistSession: false`, so the JWT lives only in the Pinia store and is never written to
    local or session storage; a full reload starts a fresh sign-in.
 3. The store subscribes to `onAuthStateChange`; token refreshes and sign-out events update
-   `session` in place.
+   `session` in place. When the next session is `null`, the auth store resets the boards,
+   applicants, applicant-activity, storage, and fit stores so no workspace data or pending
+   saves survive a sign-out.
 4. Only after initialization does `main.ts` install the router and mount the app. This keeps
    the first navigation from racing the session lookup.
 5. `router.beforeEach` checks `to.meta.requiresAuth`. Unauthenticated visitors to a
@@ -77,7 +79,9 @@ rule set; the selected reference is `design/ui-directions.html#orbital`.
    department filter and drill-downs into boards and applicant profiles. `BoardsView.vue`
    lists boards grouped by department, `BoardView.vue` renders one board's step columns, and
    `AccountView.vue` shows non-sensitive session details, full-name editing, and password
-   reset. Sign-out calls `auth.signOut()`, clears the session, and returns to `/`.
+   reset. Sign-out calls `auth.signOut()`, which clears the session and resets the dependent
+   workspace stores; `App.vue` watches `auth.isAuthenticated` and redirects a protected route
+   to `/` with a `redirect` query when the session ends.
 9. Signed-in users whose `user_metadata.full_name` is empty see the persistent
    `FullNameDialog` from `AppShell` until they save a name. `auth.updateFullName()` writes the
    value through `supabase.auth.updateUser({ data: { full_name } })`, so it is available on
@@ -106,6 +110,8 @@ rule set; the selected reference is `design/ui-directions.html#orbital`.
 - `session` and derived `user`
 - `isAuthenticated`
 - `fullName` and `fullNameRequired` from `user_metadata.full_name`
+- `actorName` for activity authors, falling back to the signed-in email and then
+  `DEFAULT_ACTOR_NAME`
 - `initialized` and `loading`
 - `error` (user-facing message)
 - `initialize`, `signIn`, `verifyLink`, `setPassword`, `updateFullName`, `signOut`
@@ -315,7 +321,8 @@ sharing row types, select fragments, and domain mappers through `src/lib/api-sha
 
 - its own `error`, `eventsFor`, `eventsLoadingFor`, `notesFor`, and `notesLoadingFor`.
 - `loadEvents`, `loadNotes`, `addNote`, `recordEdit`, `forgetCandidate`, and
-  `forgetCandidates`.
+  `forgetCandidates`. `addNote` reads the author from `auth.actorName`; components do not
+  compute it.
 
 `src/stores/storage.ts` owns file storage for both buckets:
 

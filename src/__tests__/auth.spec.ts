@@ -1,6 +1,7 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import type { Session } from '@supabase/supabase-js'
+import type { Board, Candidate } from '@/types/pipeline'
 
 const mocks = vi.hoisted(() => ({
   getSession: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
@@ -9,6 +10,8 @@ const mocks = vi.hoisted(() => ({
   verifyOtp: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
   updateUser: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
   signOut: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
+  fetchApplicantEvents: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
+  fetchApplicantNotes: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
 }))
 
 vi.mock('@/lib/supabase', () => ({
@@ -16,8 +19,43 @@ vi.mock('@/lib/supabase', () => ({
     auth: mocks,
   },
 }))
+vi.mock('@/lib/activity-api', () => ({
+  fetchApplicantEvents: mocks.fetchApplicantEvents,
+  fetchApplicantNotes: mocks.fetchApplicantNotes,
+  createApplicantNote: vi.fn<(...args: unknown[]) => unknown>(),
+  recordApplicantEditEvent: vi.fn<(...args: unknown[]) => unknown>(),
+}))
 
+import { useApplicantActivityStore } from '@/stores/applicant-activity'
+import { useApplicantsStore } from '@/stores/applicants'
 import { useAuthStore } from '@/stores/auth'
+import { useBoardsStore } from '@/stores/boards'
+
+const candidate: Candidate = {
+  id: 'c1',
+  boardId: 'b1',
+  name: 'Amara Okafor',
+  email: 'amara@example.com',
+  phone: '+1 555 010 2000',
+  currentRole: 'Product Designer',
+  favorite: false,
+  stepId: 's1',
+  status: 'active',
+  appliedAt: '2026-11-01T00:00:00Z',
+  stepEnteredAt: '2026-11-03T00:00:00Z',
+  education: '',
+  experience: '',
+}
+
+const board: Board = {
+  id: 'b1',
+  name: 'Frontend Engineer',
+  department: 'Engineering',
+  openPositions: 1,
+  deadline: '2026-12-31',
+  steps: [{ id: 's1', name: 'Applied', position: 0 }],
+  candidates: [candidate],
+}
 
 const session = {
   access_token: 'access-token',
@@ -43,6 +81,10 @@ describe('auth store', () => {
     mocks.onAuthStateChange.mockReturnValue({
       data: { subscription: { unsubscribe: vi.fn<() => void>() } },
     })
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
   })
 
   it('initializes from the existing Supabase session', async () => {
@@ -156,12 +198,14 @@ describe('auth store', () => {
 
     expect(auth.fullName).toBe('')
     expect(auth.fullNameRequired).toBe(true)
+    expect(auth.actorName).toBe('demo@example.com')
 
     const saved = await auth.updateFullName('  Ada Lovelace  ')
 
     expect(saved).toBe(true)
     expect(auth.fullName).toBe('Ada Lovelace')
     expect(auth.fullNameRequired).toBe(false)
+    expect(auth.actorName).toBe('Ada Lovelace')
     expect(mocks.updateUser).toHaveBeenCalledWith({
       data: { full_name: 'Ada Lovelace' },
     })
@@ -177,6 +221,66 @@ describe('auth store', () => {
     expect(saved).toBe(false)
     expect(auth.error).toBe('Enter your full name.')
     expect(mocks.updateUser).not.toHaveBeenCalled()
+  })
+
+  it('resets workspace stores when Supabase reports a signed-out session', async () => {
+    let handler: ((event: string, nextSession: Session | null) => void) | undefined
+    mocks.onAuthStateChange.mockImplementation((callback) => {
+      handler = callback as (event: string, nextSession: Session | null) => void
+      return { data: { subscription: { unsubscribe: vi.fn<() => void>() } } }
+    })
+    mocks.getSession.mockResolvedValue({ data: { session }, error: null })
+    mocks.fetchApplicantEvents.mockResolvedValue([
+      {
+        id: 'e1',
+        boardId: 'b1',
+        applicantId: 'c1',
+        actorName: 'Emma Brand',
+        action: 'created',
+        message: 'Emma Brand created Amara Okafor',
+        createdAt: '2026-11-09T10:00:00Z',
+      },
+    ])
+    mocks.fetchApplicantNotes.mockResolvedValue([
+      {
+        id: 'n1',
+        boardId: 'b1',
+        applicantId: 'c1',
+        authorName: 'Emma Brand',
+        body: 'Strong portfolio.',
+        createdAt: '2026-11-09T10:00:00Z',
+      },
+    ])
+
+    const auth = useAuthStore()
+    await auth.initialize()
+
+    const boards = useBoardsStore()
+    const applicants = useApplicantsStore()
+    const activity = useApplicantActivityStore()
+    boards.boards = [board]
+    boards.initialized = true
+
+    vi.useFakeTimers()
+    applicants.updateCandidateField('c1', 'name', 'Amara O.')
+    await activity.loadEvents('c1')
+    await activity.loadNotes('c1')
+
+    expect(applicants.pendingProfileValues('c1')).toEqual({ name: 'Amara O.' })
+    expect(activity.eventsFor('c1')).toHaveLength(1)
+    expect(activity.notesFor('c1')).toHaveLength(1)
+    expect(vi.getTimerCount()).toBe(1)
+    expect(handler).toBeTypeOf('function')
+
+    handler?.('SIGNED_OUT', null)
+
+    expect(auth.isAuthenticated).toBe(false)
+    expect(boards.boards).toEqual([])
+    expect(boards.initialized).toBe(false)
+    expect(activity.eventsFor('c1')).toEqual([])
+    expect(activity.notesFor('c1')).toEqual([])
+    expect(applicants.pendingProfileValues('c1')).toBeUndefined()
+    expect(vi.getTimerCount()).toBe(0)
   })
 
   it('clears the session on sign out', async () => {

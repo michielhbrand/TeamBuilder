@@ -1,17 +1,14 @@
 import { ref } from 'vue'
 import { defineStore } from 'pinia'
 import * as api from '@/lib/activity-api'
-import { DEFAULT_ACTOR_NAME } from '@/lib/applicant-events'
 import { errorMessage } from '@/lib/store-errors'
 import { useApplicantsStore } from '@/stores/applicants'
+import { useAuthStore } from '@/stores/auth'
 import type { ApplicantEvent, ApplicantNote } from '@/types/pipeline'
-
-function actorLabel(actorName: string): string {
-  return actorName.trim() || DEFAULT_ACTOR_NAME
-}
 
 export const useApplicantActivityStore = defineStore('applicant-activity', () => {
   const applicants = useApplicantsStore()
+  const auth = useAuthStore()
   const error = ref<string | null>(null)
   const applicantEvents = ref<Record<string, ApplicantEvent[]>>({})
   const applicantEventsLoading = ref<Record<string, boolean>>({})
@@ -110,11 +107,7 @@ export const useApplicantActivityStore = defineStore('applicant-activity', () =>
     }
   }
 
-  async function addNote(
-    candidateId: string,
-    body: string,
-    actorName: string = DEFAULT_ACTOR_NAME,
-  ): Promise<boolean> {
+  async function addNote(candidateId: string, body: string): Promise<boolean> {
     error.value = null
     const candidate = applicants.candidateById(candidateId)
     const trimmed = body.trim()
@@ -127,7 +120,7 @@ export const useApplicantActivityStore = defineStore('applicant-activity', () =>
       const note = await api.createApplicantNote({
         boardId: candidate.boardId,
         applicantId: candidateId,
-        authorName: actorLabel(actorName),
+        authorName: auth.actorName,
         body: trimmed,
       })
 

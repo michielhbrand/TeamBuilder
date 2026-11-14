@@ -1,23 +1,14 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted } from 'vue'
-import { RouterLink, useRouter } from 'vue-router'
+import { RouterLink } from 'vue-router'
 import BrandMark from '@/components/BrandMark.vue'
 import FullNameDialog from '@/components/FullNameDialog.vue'
 import ThemeToggle from '@/components/ThemeToggle.vue'
-import { useApplicantActivityStore } from '@/stores/applicant-activity'
-import { useApplicantsStore } from '@/stores/applicants'
 import { useAuthStore } from '@/stores/auth'
 import { useBoardsStore } from '@/stores/boards'
-import { useFitStore } from '@/stores/fit'
-import { useStorageStore } from '@/stores/storage'
 
 const auth = useAuthStore()
 const boards = useBoardsStore()
-const applicants = useApplicantsStore()
-const activity = useApplicantActivityStore()
-const storage = useStorageStore()
-const fit = useFitStore()
-const router = useRouter()
 
 const email = computed(() => auth.user?.email ?? 'Signed in')
 
@@ -42,12 +33,6 @@ function onVisibilityChange(): void {
 
 async function signOut(): Promise<void> {
   await auth.signOut()
-  boards.reset()
-  applicants.reset()
-  activity.reset()
-  storage.reset()
-  fit.reset()
-  await router.replace('/')
 }
 
 onMounted(() => {
