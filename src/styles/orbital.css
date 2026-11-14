@@ -2546,10 +2546,6 @@ body {
   .board-switcher {
     height: 40px;
   }
-
-  .board-jobspec-btn.v-btn {
-    height: 40px !important;
-  }
 }
 
 @media (max-width: 720px) {

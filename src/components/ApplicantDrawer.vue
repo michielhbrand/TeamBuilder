@@ -597,7 +597,7 @@ onBeforeUnmount(() => {
           @change="onJobSpecSelected"
         />
 
-        <v-tabs v-model="activeTab" class="applicant-tabs">
+        <v-tabs v-model="activeTab" aria-label="Applicant sections" class="applicant-tabs">
           <v-tab value="overview">Overview</v-tab>
           <v-tab value="cv">CV</v-tab>
           <v-tab value="career">Career</v-tab>
@@ -951,7 +951,7 @@ onBeforeUnmount(() => {
           </div>
 
           <template v-else-if="fitAnalysis">
-            <div class="fit-toolbar">
+            <div v-if="!fitStale" class="fit-toolbar">
               <v-btn
                 icon="mdi-refresh"
                 size="small"

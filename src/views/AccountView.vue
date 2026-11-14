@@ -197,6 +197,7 @@ async function savePassword(): Promise<void> {
               v-model="password"
               autocomplete="new-password"
               label="New password"
+              placeholder="At least 8 characters"
               :rules="passwordRules"
               :type="showPassword ? 'text' : 'password'"
               :append-inner-icon="showPassword ? 'mdi-eye-off' : 'mdi-eye'"

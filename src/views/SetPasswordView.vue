@@ -153,6 +153,7 @@ async function goToLogin(): Promise<void> {
           v-model="password"
           autocomplete="new-password"
           label="New password"
+          placeholder="At least 8 characters"
           prepend-inner-icon="mdi-lock-outline"
           required
           :rules="passwordRules"
@@ -165,6 +166,7 @@ async function goToLogin(): Promise<void> {
           v-model="confirmation"
           autocomplete="new-password"
           label="Confirm password"
+          placeholder="Repeat it"
           prepend-inner-icon="mdi-lock-check-outline"
           required
           :rules="confirmationRules"

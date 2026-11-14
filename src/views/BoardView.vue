@@ -42,6 +42,8 @@ const applicantOpen = ref(false)
 const closedOpen = ref(false)
 const selectedStepId = ref<string | null>(null)
 const isPhone = useMediaQuery('(max-width: 720px)')
+const isCompact = useMediaQuery('(max-width: 1024px), (hover: none)')
+const secondaryHeight = computed(() => (isCompact.value ? 40 : 36))
 let settleTimer: ReturnType<typeof setTimeout> | undefined
 
 const boardId = computed(() => String(route.params.boardId ?? ''))
@@ -247,7 +249,7 @@ onBeforeUnmount(() => {
             class="board-jobspec-btn"
             prepend-icon="mdi-file-document-outline"
             variant="text"
-            :height="36"
+            :height="secondaryHeight"
             @click="jobSpecOpen = true"
           >
             Job spec
@@ -337,7 +339,7 @@ onBeforeUnmount(() => {
             class="closed-summary__toggle"
             :append-icon="closedOpen ? 'mdi-chevron-up' : 'mdi-chevron-down'"
             variant="text"
-            :height="36"
+            :height="secondaryHeight"
             :aria-expanded="closedOpen"
             aria-controls="closed-lists"
             @click="closedOpen = !closedOpen"
@@ -369,7 +371,7 @@ onBeforeUnmount(() => {
               </button>
               <v-btn
                 variant="outlined"
-                :height="36"
+                :height="secondaryHeight"
                 @click="applicants.reopenCandidate(candidate.id)"
               >
                 Reopen
@@ -399,7 +401,7 @@ onBeforeUnmount(() => {
               </button>
               <v-btn
                 variant="outlined"
-                :height="36"
+                :height="secondaryHeight"
                 @click="applicants.reopenCandidate(candidate.id)"
               >
                 Reopen
