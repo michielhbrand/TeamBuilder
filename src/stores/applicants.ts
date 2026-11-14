@@ -24,7 +24,10 @@ interface CandidateContext {
 
 export type EditableCandidateField = 'name' | 'email' | 'phone' | 'currentRole'
 
-type SavableCandidateField = EditableCandidateField | CareerKind | 'favorite'
+export type EditableCandidateNumberField = 'noticePeriodMonths' | 'salaryExpectationCents'
+
+type SavableCandidateField =
+  EditableCandidateField | EditableCandidateNumberField | CareerKind | 'favorite'
 export type PendingProfileValues = Partial<Pick<Candidate, SavableCandidateField>>
 
 type ProfileSnapshot = Pick<
@@ -33,6 +36,8 @@ type ProfileSnapshot = Pick<
   | 'email'
   | 'phone'
   | 'currentRole'
+  | 'noticePeriodMonths'
+  | 'salaryExpectationCents'
   | 'education'
   | 'experience'
   | 'favorite'
@@ -75,6 +80,8 @@ export const useApplicantsStore = defineStore('applicants', () => {
       email: candidate.email,
       phone: candidate.phone,
       currentRole: candidate.currentRole,
+      noticePeriodMonths: candidate.noticePeriodMonths,
+      salaryExpectationCents: candidate.salaryExpectationCents,
       education: candidate.education,
       experience: candidate.experience,
       favorite: candidate.favorite,
@@ -236,6 +243,20 @@ export const useApplicantsStore = defineStore('applicants', () => {
     candidateId: string,
     field: EditableCandidateField,
     value: string,
+  ): void {
+    const context = candidateContext(candidateId)
+
+    if (context) {
+      context.candidate[field] = value
+      markDirty(candidateId, field)
+      scheduleSave(candidateId)
+    }
+  }
+
+  function updateCandidateNumber(
+    candidateId: string,
+    field: EditableCandidateNumberField,
+    value: number,
   ): void {
     const context = candidateContext(candidateId)
 
@@ -537,6 +558,7 @@ export const useApplicantsStore = defineStore('applicants', () => {
     createApplicant,
     deleteApplicant,
     updateCandidateField,
+    updateCandidateNumber,
     updateCandidateEntries,
     toggleFavorite,
     advanceCandidate,

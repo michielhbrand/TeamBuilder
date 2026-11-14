@@ -177,8 +177,8 @@ and typing stay responsive:
   row that still has that status, so a decision changed elsewhere is left alone). Reopen pushes nothing.
 - Autosave tracks the profile fields that changed since the last successful save and writes
   only those fields. Profile saves never include `status` or `column_id`, so editing a name,
-  contact detail, role, education, experience, or favorite cannot move an applicant or
-  change their outcome. A field that changes while a save is in flight stays dirty and is
+  contact detail, role, notice period, salary expectation, education, experience, or favorite
+  cannot move an applicant or change their outcome. A field that changes while a save is in flight stays dirty and is
   written by the next debounced save.
 - A failed autosave keeps the user's text instead of reverting it mid-edit.
   `persistCandidate` marks the applicant as not saved (`hasUnsavedChanges`), the applicant
@@ -212,7 +212,8 @@ The schema lives in `supabase/migrations/`:
 - `public.boards` — free-text department, name unique per department, open positions,
   deadline, job spec path and filename, timestamps.
 - `public.board_columns` — board, unique name per board, ordered `position`.
-- `public.applicants` — board, assigned stage, contact details, current role, structured
+- `public.applicants` — board, assigned stage, contact details, current role, notice period
+  in months (one decimal), salary expectation in cents defaulting to `0`, structured
   education and work experience (jsonb arrays of entries with `id`, `title`, `organization`,
   `start` and `end` as `YYYY-MM`, `current`, and `description`; a check constraint requires
   arrays), favorite flag, status, CV path and filename, `applied_at`, and `step_entered_at`.

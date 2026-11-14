@@ -52,6 +52,8 @@ function makeCandidate(overrides: Partial<Candidate> = {}): Candidate {
     email: 'amara@example.com',
     phone: '+1 555 010 2000',
     currentRole: 'Product Designer',
+    noticePeriodMonths: 0,
+    salaryExpectationCents: 0,
     favorite: false,
     stepId: 's1',
     status: 'active',
@@ -247,6 +249,29 @@ describe('applicants store', () => {
     })
     expect(patch).not.toHaveProperty('status')
     expect(patch).not.toHaveProperty('columnId')
+  })
+
+  it('persists notice period and salary expectation as changed fields', async () => {
+    const { applicants } = await initializedStores()
+    const candidate = applicants.candidateById('c1')
+
+    expect(candidate).toBeDefined()
+    if (!candidate) return
+
+    applicants.beginCandidateEdit(candidate.id)
+    applicants.updateCandidateNumber(candidate.id, 'noticePeriodMonths', 1.5)
+    applicants.updateCandidateNumber(candidate.id, 'salaryExpectationCents', 2500050)
+
+    expect(candidate.noticePeriodMonths).toBe(1.5)
+    expect(candidate.salaryExpectationCents).toBe(2500050)
+
+    await applicants.flushCandidate(candidate.id)
+
+    expect(mocks.updateApplicant).toHaveBeenCalledExactlyOnceWith(candidate.id, {
+      noticePeriodMonths: 1.5,
+      salaryExpectationCents: 2500050,
+    })
+    expect(mocks.recordApplicantEditEvent).toHaveBeenCalledExactlyOnceWith(candidate.id)
   })
 
   it('saves only fields changed since the last successful save', async () => {

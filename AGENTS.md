@@ -81,6 +81,8 @@ npm run build
 - `src/lib/career.ts` — structured education/work entries: normalising, serialising, month and
   duration formatting, total experience, employment gaps, the career-strip layout, and the
   plain-text formatter used for fit analysis fingerprints.
+- `src/lib/compensation.ts` — notice-period months and rand salary expectations stored as
+  cents: parsing, validation, and formatting for the applicant drawer.
 - `src/lib/api-shared.ts` — shared row types, select fragments, and board/applicant/event/note
   mappers.
 - `src/lib/boards-api.ts` — Supabase reads and writes for boards and stages.

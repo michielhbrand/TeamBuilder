@@ -37,6 +37,8 @@ export interface Candidate {
   email: string
   phone: string
   currentRole: string
+  noticePeriodMonths: number
+  salaryExpectationCents: number
   favorite: boolean
   stepId: string
   status: CandidateStatus

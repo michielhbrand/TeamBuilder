@@ -40,6 +40,8 @@ export interface ApplicantRow {
   email: string
   phone: string
   job_title: string
+  notice_period_months: number
+  salary_expectation_cents: number
   education: unknown
   experience: unknown
   favorite: boolean
@@ -74,6 +76,8 @@ export interface ApplicantPatch {
   email?: string
   phone?: string
   currentRole?: string
+  noticePeriodMonths?: number
+  salaryExpectationCents?: number
   education?: CareerEntry[]
   experience?: CareerEntry[]
   favorite?: boolean
@@ -129,6 +133,8 @@ export const APPLICANT_SELECT = `
   email,
   phone,
   job_title,
+  notice_period_months,
+  salary_expectation_cents,
   education,
   experience,
   favorite,
@@ -156,6 +162,8 @@ export const BOARD_SELECT = `
     email,
     phone,
     job_title,
+    notice_period_months,
+    salary_expectation_cents,
     education,
     experience,
     favorite,
@@ -189,6 +197,8 @@ export function mapApplicant(row: ApplicantRow): Candidate {
     email: row.email,
     phone: row.phone,
     currentRole: row.job_title,
+    noticePeriodMonths: Number(row.notice_period_months ?? 0),
+    salaryExpectationCents: Number(row.salary_expectation_cents ?? 0),
     favorite: row.favorite,
     stepId: row.column_id,
     status: row.status as CandidateStatus,
@@ -299,6 +309,12 @@ export function applicantPatch(input: ApplicantPatch): Record<string, unknown> {
   if (input.email !== undefined) patch.email = input.email
   if (input.phone !== undefined) patch.phone = input.phone
   if (input.currentRole !== undefined) patch.job_title = input.currentRole
+  if (input.noticePeriodMonths !== undefined) {
+    patch.notice_period_months = input.noticePeriodMonths
+  }
+  if (input.salaryExpectationCents !== undefined) {
+    patch.salary_expectation_cents = input.salaryExpectationCents
+  }
   if (input.education !== undefined) patch.education = serializeEntries(input.education)
   if (input.experience !== undefined) patch.experience = serializeEntries(input.experience)
   if (input.favorite !== undefined) patch.favorite = input.favorite

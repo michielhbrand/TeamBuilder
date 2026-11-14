@@ -40,6 +40,8 @@ const candidate: Candidate = {
   email: 'amara@example.com',
   phone: '+1 555 010 2000',
   currentRole: 'Product Designer',
+  noticePeriodMonths: 0,
+  salaryExpectationCents: 0,
   favorite: false,
   stepId: 's1',
   status: 'active',

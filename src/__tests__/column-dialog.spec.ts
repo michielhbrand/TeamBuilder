@@ -33,6 +33,8 @@ const boardData = (): Board => ({
     email: '',
     phone: '',
     currentRole: '',
+    noticePeriodMonths: 0,
+    salaryExpectationCents: 0,
     favorite: false,
     stepId,
     status,

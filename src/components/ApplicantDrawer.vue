@@ -7,6 +7,12 @@ import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import FitConsentDialog from '@/components/FitConsentDialog.vue'
 import { formatEventTime, formatRelativeTime } from '@/lib/applicant-events'
 import { hasCareerContent } from '@/lib/career'
+import {
+  formatNoticePeriod,
+  formatSalaryCents,
+  parseNoticePeriod,
+  parseSalaryToCents,
+} from '@/lib/compensation'
 import { isPdfFile, printPdfBlob } from '@/lib/pdf'
 import { daysSinceApplied, initials as getInitials } from '@/lib/pipeline'
 import { isValidEmail, isValidPhone } from '@/lib/validation'
@@ -90,6 +96,14 @@ const fieldErrors = reactive({
   email: '',
   phone: '',
 })
+const numericForm = reactive({
+  noticePeriodMonths: '0',
+  salaryExpectationCents: '0.00',
+})
+const numericErrors = reactive({
+  noticePeriodMonths: '',
+  salaryExpectationCents: '',
+})
 
 const fitAnalysis = computed(() =>
   props.candidateId ? fit.analysisFor(props.candidateId) : undefined,
@@ -158,8 +172,12 @@ function syncForm(): void {
   form.email = current?.email ?? ''
   form.phone = current?.phone ?? ''
   form.currentRole = current?.currentRole ?? ''
+  numericForm.noticePeriodMonths = formatNoticePeriod(current?.noticePeriodMonths ?? 0)
+  numericForm.salaryExpectationCents = formatSalaryCents(current?.salaryExpectationCents ?? 0)
   fieldErrors.email = ''
   fieldErrors.phone = ''
+  numericErrors.noticePeriodMonths = ''
+  numericErrors.salaryExpectationCents = ''
 }
 
 function updateField(field: EditableCandidateField, value: unknown): void {
@@ -189,6 +207,62 @@ function updateField(field: EditableCandidateField, value: unknown): void {
   }
 
   store.updateCandidateField(current.id, field, next)
+}
+
+function updateNoticePeriod(value: unknown): void {
+  const current = candidate.value
+
+  if (!current) {
+    return
+  }
+
+  const next = String(value ?? '')
+  numericForm.noticePeriodMonths = next
+  const months = parseNoticePeriod(next)
+
+  if (months === null) {
+    numericErrors.noticePeriodMonths = 'Enter a number of months, for example 1.5.'
+    return
+  }
+
+  numericErrors.noticePeriodMonths = ''
+  store.updateCandidateNumber(current.id, 'noticePeriodMonths', months)
+}
+
+function updateSalaryExpectation(value: unknown): void {
+  const current = candidate.value
+
+  if (!current) {
+    return
+  }
+
+  const next = String(value ?? '')
+  numericForm.salaryExpectationCents = next
+  const cents = parseSalaryToCents(next)
+
+  if (cents === null) {
+    numericErrors.salaryExpectationCents = 'Enter a rand amount, for example 25000.00.'
+    return
+  }
+
+  numericErrors.salaryExpectationCents = ''
+  store.updateCandidateNumber(current.id, 'salaryExpectationCents', cents)
+}
+
+function formatNoticePeriodField(): void {
+  const current = candidate.value
+
+  if (current && !numericErrors.noticePeriodMonths) {
+    numericForm.noticePeriodMonths = formatNoticePeriod(current.noticePeriodMonths)
+  }
+}
+
+function formatSalaryExpectationField(): void {
+  const current = candidate.value
+
+  if (current && !numericErrors.salaryExpectationCents) {
+    numericForm.salaryExpectationCents = formatSalaryCents(current.salaryExpectationCents)
+  }
 }
 
 function updateEntries(kind: CareerKind, entries: CareerEntry[]): void {
@@ -622,6 +696,28 @@ onBeforeUnmount(() => {
               :model-value="form.currentRole"
               hide-details
               @update:model-value="updateField('currentRole', $event)"
+            />
+            <v-text-field
+              label="Notice period (months)"
+              type="number"
+              min="0"
+              step="0.1"
+              :model-value="numericForm.noticePeriodMonths"
+              :error-messages="numericErrors.noticePeriodMonths"
+              hide-details="auto"
+              @update:model-value="updateNoticePeriod"
+              @blur="formatNoticePeriodField"
+            />
+            <v-text-field
+              label="Salary expectation (R)"
+              type="number"
+              min="0"
+              step="0.01"
+              :model-value="numericForm.salaryExpectationCents"
+              :error-messages="numericErrors.salaryExpectationCents"
+              hide-details="auto"
+              @update:model-value="updateSalaryExpectation"
+              @blur="formatSalaryExpectationField"
             />
             <v-text-field
               label="Email (optional)"
