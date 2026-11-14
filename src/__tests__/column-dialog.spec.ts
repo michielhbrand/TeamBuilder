@@ -205,6 +205,70 @@ describe('ColumnDialog keyboard reorder', () => {
     expect(rowNames()).toEqual(['Applied', 'Panel', 'Screening', 'Final offer'])
   })
 
+  it('aborts reorder, add and delete when a flushed rename fails and keeps the draft and error', async () => {
+    const store = useBoardsStore()
+    vi.spyOn(store, 'renameColumn').mockImplementation(async () => {
+      store.error = 'Could not rename the stage.'
+      return false
+    })
+    const reorder = vi.spyOn(store, 'reorderColumns').mockResolvedValue(true)
+    const addColumn = vi.spyOn(store, 'addColumn').mockResolvedValue(true)
+    const remove = vi.spyOn(store, 'deleteColumn').mockResolvedValue(true)
+    mountDialog()
+    await flushPromises()
+
+    type(3, 'Final offer')
+    const el = handle('screening')
+    press(el, ' ')
+    press(el, 'ArrowDown')
+    await flushPromises()
+    expect(reorder).not.toHaveBeenCalled()
+
+    const input = document.querySelector<HTMLInputElement>('.column-manage__add input')!
+    input.value = 'Reference check'
+    input.dispatchEvent(new Event('input', { bubbles: true }))
+    input.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', bubbles: true }))
+    await flushPromises()
+    expect(addColumn).not.toHaveBeenCalled()
+
+    document.querySelector<HTMLElement>('[aria-label="Delete Interview"]')!.click()
+    await flushPromises()
+    Array.from(document.querySelectorAll<HTMLElement>('button'))
+      .find((button) => button.textContent?.trim() === 'Delete stage')!
+      .click()
+    await flushPromises()
+    expect(remove).not.toHaveBeenCalled()
+
+    expect(rowNames()[3]).toBe('Final offer')
+    expect(document.querySelector('.v-alert')?.textContent).toContain('Could not rename the stage.')
+  })
+
+  it('ignores add while a reorder is in flight', async () => {
+    const store = useBoardsStore()
+    let release: (value: boolean) => void = () => {}
+    vi.spyOn(store, 'reorderColumns').mockImplementation(
+      () => new Promise<boolean>((resolve) => (release = resolve)),
+    )
+    const addColumn = vi.spyOn(store, 'addColumn').mockResolvedValue(true)
+    mountDialog()
+    await flushPromises()
+
+    const el = handle('interview')
+    press(el, ' ')
+    press(el, 'ArrowUp')
+    await flushPromises()
+
+    const input = document.querySelector<HTMLInputElement>('.column-manage__add input')!
+    input.value = 'Reference check'
+    input.dispatchEvent(new Event('input', { bubbles: true }))
+    input.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', bubbles: true }))
+    await flushPromises()
+    expect(addColumn).not.toHaveBeenCalled()
+
+    release(true)
+    await flushPromises()
+  })
+
   it('rejects a drop on the first row, ignores a drop on itself, and clears drop state on dragend', async () => {
     const store = useBoardsStore()
     const reorder = vi.spyOn(store, 'reorderColumns').mockResolvedValue(true)

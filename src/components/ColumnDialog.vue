@@ -93,17 +93,17 @@ watch(
   },
 )
 
-async function rename(step: PipelineStep): Promise<void> {
+async function rename(step: PipelineStep): Promise<boolean> {
   clearRenameTimer(step.id)
   const name = (drafts.value[step.id] ?? '').trim()
 
   if (!name) {
     drafts.value[step.id] = step.name
-    return
+    return true
   }
 
   if (name === step.name) {
-    return
+    return true
   }
 
   const saved = await store.renameColumn(props.board?.id ?? '', step.id, name)
@@ -112,10 +112,13 @@ async function rename(step: PipelineStep): Promise<void> {
     drafts.value[step.id] = name
     flashSaved()
   }
+
+  return saved
 }
 
-async function flushRenames(): Promise<void> {
-  await Promise.all(steps.value.map((step) => rename(step)))
+async function flushRenames(): Promise<boolean> {
+  const results = await Promise.all(steps.value.map((step) => rename(step)))
+  return results.every(Boolean)
 }
 
 const grabbedId = ref<string | null>(null)
@@ -153,7 +156,12 @@ async function reorder(from: number, to: number): Promise<boolean> {
   }
 
   movingId.value = ids[from] ?? null
-  await flushRenames()
+
+  if (!(await flushRenames())) {
+    movingId.value = null
+    return false
+  }
+
   const saved = await store.reorderColumns(props.board.id, reordered)
   movingId.value = null
 
@@ -272,12 +280,19 @@ async function onDrop(event: DragEvent, index: number): Promise<void> {
 async function add(): Promise<void> {
   const name = newColumn.value.trim()
 
-  if (!name || !props.board) {
+  if (!name || !props.board || movingId.value) {
     return
   }
 
-  await flushRenames()
+  movingId.value = 'add'
+
+  if (!(await flushRenames())) {
+    movingId.value = null
+    return
+  }
+
   const saved = await store.addColumn(props.board.id, name)
+  movingId.value = null
 
   if (saved) {
     syncDrafts()
@@ -292,8 +307,7 @@ async function confirmRemove(): Promise<void> {
   }
 
   deleteBusy.value = true
-  await flushRenames()
-  const saved = await store.deleteColumn(props.board.id, step.id)
+  const saved = (await flushRenames()) && (await store.deleteColumn(props.board.id, step.id))
   deleteBusy.value = false
   deleting.value = null
 

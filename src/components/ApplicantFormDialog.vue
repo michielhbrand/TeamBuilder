@@ -490,7 +490,7 @@ onBeforeUnmount(() => resetImport(true))
               </span>
             </button>
 
-            <div v-if="careerOpen" id="applicant-career-panel" class="applicant-career-panel">
+            <div v-show="careerOpen" id="applicant-career-panel" class="applicant-career-panel">
               <section class="applicant-section">
                 <div class="career-section__head">
                   <p class="eyebrow">Work experience</p>

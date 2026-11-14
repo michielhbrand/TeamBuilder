@@ -159,6 +159,16 @@ function onKeydown(event: KeyboardEvent): void {
   }
 
   if (event.key === '/') {
+    if (
+      profileOpen.value ||
+      editOpen.value ||
+      columnsOpen.value ||
+      jobSpecOpen.value ||
+      applicantOpen.value
+    ) {
+      return
+    }
+
     event.preventDefault()
     switcher.value?.open()
   }

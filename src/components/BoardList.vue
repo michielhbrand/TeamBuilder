@@ -120,7 +120,7 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
         </button>
       </div>
       <label class="board-sort">
-        <span class="mono-label">Sort</span>
+        <span class="meta">Sort</span>
         <select v-model="sortKey" class="board-search board-sort__select" aria-label="Sort roles">
           <option value="deadline">Deadline (soonest)</option>
           <option value="name">Name</option>

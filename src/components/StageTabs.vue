@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { nextTick, ref } from 'vue'
+import { nextTick } from 'vue'
 import type { PipelineStep } from '@/types/pipeline'
 
 const props = defineProps<{
@@ -13,16 +13,15 @@ const emit = defineEmits<{
   'update:modelValue': [stepId: string]
 }>()
 
-const tabs = ref<HTMLButtonElement[]>([])
-
 function select(index: number): void {
   const step = props.steps[index]
 
   if (step) {
     emit('update:modelValue', step.id)
     void nextTick(() => {
-      tabs.value[index]?.focus()
-      tabs.value[index]?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+      const tab = document.getElementById(`stage-tab-${step.id}`)
+      tab?.focus()
+      tab?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
     })
   }
 }
@@ -50,7 +49,6 @@ function onKeydown(event: KeyboardEvent, index: number): void {
       v-for="(step, index) in steps"
       :id="`stage-tab-${step.id}`"
       :key="step.id"
-      ref="tabs"
       class="stage-tabs__tab"
       type="button"
       role="tab"

@@ -303,21 +303,6 @@ body {
   white-space: nowrap;
 }
 
-.status-badge--signal {
-  border-color: transparent;
-  background: var(--orbital-signal-soft);
-  color: var(--orbital-signal-text);
-}
-
-.status-dot {
-  width: 6px;
-  height: 6px;
-  flex: none;
-  border-radius: 50%;
-  background: currentColor;
-  box-shadow: 0 0 0 3px var(--orbital-signal-soft);
-}
-
 .user-avatar {
   display: grid;
   width: 38px;
@@ -3874,7 +3859,6 @@ body > .v-navigation-drawer__scrim {
 }
 
 @media (max-width: 720px) {
-  .topbar-status,
   .intro-readout {
     display: none;
   }
