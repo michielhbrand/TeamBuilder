@@ -401,6 +401,8 @@ describe('applicants store', () => {
     )
 
     expect(added).toEqual(created)
+    expect(added?.cvPath).toBe('c3/cv.pdf')
+    expect(added?.cvName).toBe('noor-cv.pdf')
     expect(mocks.uploadApplicantCv).toHaveBeenCalledWith('c3', cv)
     expect(applicants.candidateById('c3')?.cvPath).toBe('c3/cv.pdf')
     expect(applicants.candidateById('c3')?.cvName).toBe('noor-cv.pdf')

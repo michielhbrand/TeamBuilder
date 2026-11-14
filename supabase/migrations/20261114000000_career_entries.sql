@@ -6,6 +6,8 @@ alter table public.applicants
   alter column education type jsonb using (
     case
       when btrim(education) = '' then '[]'::jsonb
+      when btrim(education) ~ '^\[[[:space:]]*\]$' then '[]'::jsonb
+      when left(btrim(education), 2) = '[{' then btrim(education)::jsonb
       else jsonb_build_array(
         jsonb_build_object(
           'id', gen_random_uuid()::text,
@@ -22,6 +24,8 @@ alter table public.applicants
   alter column experience type jsonb using (
     case
       when btrim(experience) = '' then '[]'::jsonb
+      when btrim(experience) ~ '^\[[[:space:]]*\]$' then '[]'::jsonb
+      when left(btrim(experience), 2) = '[{' then btrim(experience)::jsonb
       else jsonb_build_array(
         jsonb_build_object(
           'id', gen_random_uuid()::text,

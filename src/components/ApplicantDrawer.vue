@@ -5,8 +5,8 @@ import CareerTimeline from '@/components/CareerTimeline.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import FitConsentDialog from '@/components/FitConsentDialog.vue'
 import { formatEventTime } from '@/lib/applicant-events'
-import { employmentGaps, formatMonths, hasCareerContent, totalMonths } from '@/lib/career'
-import { printPdfBlob } from '@/lib/pdf'
+import { hasCareerContent } from '@/lib/career'
+import { isPdfFile, printPdfBlob } from '@/lib/pdf'
 import { initials as getInitials } from '@/lib/pipeline'
 import { isValidEmail, isValidPhone } from '@/lib/validation'
 import { useApplicantActivityStore } from '@/stores/applicant-activity'
@@ -64,6 +64,9 @@ const cvPreviewOpen = ref(false)
 const cvLoading = ref(false)
 const cvUrl = ref('')
 const cvFileInput = ref<HTMLInputElement | null>(null)
+const specFileInput = ref<HTMLInputElement | null>(null)
+const specBusy = ref(false)
+const specError = ref('')
 const form = reactive<Record<EditableCandidateField, string>>({
   name: '',
   email: '',
@@ -110,6 +113,9 @@ const fitPrerequisites = computed(() => {
   return issues
 })
 const canAnalyze = computed(() => fitPrerequisites.value.length === 0)
+const hasCareer = computed(() =>
+  candidate.value ? hasCareerContent(candidate.value.education, candidate.value.experience) : false,
+)
 
 const deleteMessage = computed(
   () => `Delete ${candidate.value?.name ?? 'this applicant'}? This cannot be undone.`,
@@ -121,28 +127,6 @@ const educationTimeline = ref<InstanceType<typeof CareerTimeline> | null>(null)
 const headRef = ref<HTMLElement | null>(null)
 const stickyTop = ref(0)
 let headObserver: ResizeObserver | null = null
-
-const careerSummary = computed(() => {
-  const current = candidate.value
-
-  if (!current) {
-    return ''
-  }
-
-  const roles = current.experience.length
-  const qualifications = current.education.length
-  const months = totalMonths(current.experience)
-  const gaps = employmentGaps(current.experience).length
-
-  return [
-    months ? `${formatMonths(months)} experience` : '',
-    `${roles} ${roles === 1 ? 'role' : 'roles'}`,
-    `${qualifications} ${qualifications === 1 ? 'qualification' : 'qualifications'}`,
-    gaps ? `${gaps} ${gaps === 1 ? 'gap' : 'gaps'}` : '',
-  ]
-    .filter(Boolean)
-    .join(' · ')
-})
 
 watch(headRef, (element) => {
   headObserver?.disconnect()
@@ -308,6 +292,11 @@ function chooseCv(): void {
   cvFileInput.value?.click()
 }
 
+function chooseJobSpec(): void {
+  specError.value = ''
+  specFileInput.value?.click()
+}
+
 async function onCvSelected(event: Event): Promise<void> {
   const input = event.target as HTMLInputElement
   const file = input.files?.[0]
@@ -335,6 +324,38 @@ async function onCvSelected(event: Event): Promise<void> {
   }
 
   openFitAfterUpload()
+}
+
+async function onJobSpecSelected(event: Event): Promise<void> {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  const currentBoard = board.value
+  input.value = ''
+
+  if (!file || !currentBoard) {
+    return
+  }
+
+  if (!isPdfFile(file)) {
+    specError.value = 'Choose a PDF file.'
+    return
+  }
+
+  specBusy.value = true
+  const uploaded = await storage.uploadJobSpec(currentBoard.id, file)
+  specBusy.value = false
+
+  if (!uploaded) {
+    specError.value = storage.error ?? 'The job spec could not be uploaded.'
+    return
+  }
+
+  specError.value = ''
+  fit.markBoardStale(currentBoard.id)
+
+  if (canAnalyze.value) {
+    fitConsentOpen.value = true
+  }
 }
 
 async function removeCv(): Promise<void> {
@@ -510,6 +531,21 @@ onBeforeUnmount(() => {
           </div>
         </header>
 
+        <input
+          ref="cvFileInput"
+          class="applicant-cv-input"
+          type="file"
+          accept="application/pdf,.pdf"
+          @change="onCvSelected"
+        />
+        <input
+          ref="specFileInput"
+          class="applicant-cv-input"
+          type="file"
+          accept="application/pdf,.pdf"
+          @change="onJobSpecSelected"
+        />
+
         <v-tabs v-if="!cvPreviewOpen" v-model="activeTab" class="applicant-tabs" grow>
           <v-tab value="details">Details</v-tab>
           <v-tab value="career">Career</v-tab>
@@ -602,16 +638,6 @@ onBeforeUnmount(() => {
           </section>
 
           <section class="applicant-section">
-            <p class="eyebrow">Career</p>
-            <div class="career-summary">
-              <p class="career-summary__text">{{ careerSummary }}</p>
-              <v-btn variant="outlined" append-icon="mdi-arrow-right" @click="activeTab = 'career'">
-                Open career
-              </v-btn>
-            </div>
-          </section>
-
-          <section class="applicant-section">
             <p class="eyebrow">CV</p>
 
             <div v-if="candidate.cvPath" class="applicant-cv-card">
@@ -653,14 +679,6 @@ onBeforeUnmount(() => {
                 Upload CV
               </v-btn>
             </template>
-
-            <input
-              ref="cvFileInput"
-              class="applicant-cv-input"
-              type="file"
-              accept="application/pdf,.pdf"
-              @change="onCvSelected"
-            />
 
             <v-alert v-if="cvError" class="orbital-alert" type="error" density="compact">
               {{ cvError }}
@@ -793,6 +811,53 @@ onBeforeUnmount(() => {
             button to update it.
           </v-alert>
 
+          <section v-if="fitPrerequisites.length" class="applicant-section fit-prereqs">
+            <p class="eyebrow">Before analyzing</p>
+            <ul class="fit-empty__checks">
+              <li v-for="item in fitPrerequisites" :key="item">{{ item }}</li>
+            </ul>
+
+            <v-alert v-if="cvError" class="orbital-alert" type="error" density="compact">
+              {{ cvError }}
+            </v-alert>
+            <v-alert v-if="specError" class="orbital-alert" type="error" density="compact">
+              {{ specError }}
+            </v-alert>
+
+            <div class="fit-prereqs__actions">
+              <v-btn
+                v-if="!candidate.cvPath"
+                color="primary"
+                variant="outlined"
+                prepend-icon="mdi-upload"
+                :disabled="cvBusy"
+                :loading="cvBusy"
+                @click="chooseCv"
+              >
+                Upload CV
+              </v-btn>
+              <v-btn
+                v-if="!board?.jobSpecPath"
+                color="primary"
+                variant="outlined"
+                prepend-icon="mdi-file-upload-outline"
+                :disabled="specBusy"
+                :loading="specBusy"
+                @click="chooseJobSpec"
+              >
+                Upload job spec
+              </v-btn>
+              <v-btn
+                v-if="!hasCareer"
+                variant="text"
+                append-icon="mdi-arrow-right"
+                @click="activeTab = 'career'"
+              >
+                Add career details
+              </v-btn>
+            </div>
+          </section>
+
           <div v-if="fitAnalyzing" class="applicant-fit__status" role="status" aria-live="polite">
             <v-progress-circular indeterminate color="primary" size="22" />
             <span>{{ fitProgress || 'Analyzing the CV against the job spec…' }}</span>
@@ -845,9 +910,6 @@ onBeforeUnmount(() => {
             <p class="fit-empty__hint">
               Analyze this CV against the role's job spec to list similarities and gaps.
             </p>
-            <ul v-if="fitPrerequisites.length" class="fit-empty__checks">
-              <li v-for="item in fitPrerequisites" :key="item">{{ item }}</li>
-            </ul>
             <v-btn
               color="primary"
               prepend-icon="mdi-file-compare"

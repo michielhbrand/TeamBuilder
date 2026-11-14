@@ -2584,6 +2584,13 @@ body.applicant-drawer-open {
   color: var(--orbital-danger);
 }
 
+.fit-prereqs__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 4px;
+}
+
 .fit-consent__body {
   gap: 18px;
 }

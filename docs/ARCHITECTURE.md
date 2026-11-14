@@ -205,8 +205,9 @@ The schema lives in `supabase/migrations/`:
   users can select; only the Edge Function with the service role writes.
 
 The composite applicant foreign key `(board_id, column_id)` guarantees that an applicant is
-assigned to a column on the same board. New applicants default to the column named
-`Applied`, falling back to the first column when it has been renamed. Email and phone use
+assigned to a column on the same board. New boards start with `Applied`, `Interview`, and
+`Offer` columns. New applicants default to the column named `Applied`, falling back to the
+first column when it has been renamed. Email and phone use
 partial unique indexes so multiple applicants can leave them blank. A trigger keeps
 `updated_at` current. SQL functions
 `create_board`, `add_board_column`, `reorder_board_columns`, and `delete_board_column` make
