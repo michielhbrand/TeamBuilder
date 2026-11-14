@@ -111,10 +111,11 @@ jobs:
           supabase secrets set \
             KILO_API_KEY="$KILO_API_KEY" \
             KILO_MODEL="$model" \
-            --project-ref "$SUPABASE_PROJECT_ID"
+            --remote "$SUPABASE_PROJECT_ID" \
+            --yes
 
       - name: Deploy fit-analysis
-        run: supabase functions deploy fit-analysis --project-ref "$SUPABASE_PROJECT_ID"
+        run: supabase functions deploy fit-analysis --remote "$SUPABASE_PROJECT_ID" --yes
 
   deploy:
     name: Deploy
