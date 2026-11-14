@@ -9,8 +9,7 @@ new work.
 
 On 2026-11-14 the UX overhaul amended Orbital: a warning token pair (`--orbital-warn`,
 `--orbital-warn-soft`), input-line and signal-text tokens, a compact protected-page header with
-the display scale kept for auth pages, label-above fields, and the terminology below. The
-reviewed screen designs live in `design/review/` (open `design/review/index.html`).
+the display scale kept for auth pages, label-above fields, and the terminology below.
 
 Read this file before adding or changing any UI. For auth, routing, build, or deployment
 changes, also read `AGENTS.md` and `docs/ARCHITECTURE.md`.
