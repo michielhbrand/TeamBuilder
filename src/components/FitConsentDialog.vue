@@ -64,7 +64,6 @@ function confirm(): void {
         <v-alert class="orbital-alert" type="warning" density="compact" variant="tonal">
           Request data may be used for AI training.
         </v-alert>
-
       </div>
 
       <div class="orbital-dialog__actions">
