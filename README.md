@@ -101,8 +101,8 @@ directions.
 6. Set the function secrets and deploy `fit-analysis`:
 
    ```bash
-   npx supabase secrets set KILO_API_KEY=... KILO_MODEL=kilo-auto/free --remote <project-ref>
-   npx supabase functions deploy fit-analysis --remote <project-ref>
+   npx supabase secrets set KILO_API_KEY=... KILO_MODEL=kilo-auto/free --remote=<project-ref>
+   npx supabase functions deploy fit-analysis --remote=<project-ref>
    ```
 
 7. In **Authentication → Users**, either add a demo user with auto-confirm enabled or use
