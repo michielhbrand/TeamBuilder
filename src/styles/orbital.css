@@ -4442,6 +4442,10 @@ body > .v-navigation-drawer__scrim {
   color: var(--orbital-ink);
 }
 
+.ov-kpis--history {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 @media (max-width: 1000px) {
   .ov-kpis {
     grid-template-columns: repeat(3, minmax(0, 1fr));

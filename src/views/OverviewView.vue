@@ -16,6 +16,7 @@ import { provideChartTooltip } from '@/lib/chart-tooltip'
 import {
   attentionItems,
   finalStageCount,
+  formatCount,
   hireRate,
   hiresInQuarters,
   median,
@@ -26,6 +27,7 @@ import {
   stageStats,
 } from '@/lib/overview'
 import { summariseBoards } from '@/lib/pipeline'
+import { departments as knownDepartments } from '@/types/pipeline'
 import { useApplicantActivityStore } from '@/stores/applicant-activity'
 import { useBoardsStore } from '@/stores/boards'
 import { useHistoryStore } from '@/stores/history'
@@ -61,7 +63,20 @@ const range = ref<4 | 12>(4)
 const hireView = ref<HireView>('strip')
 const focusBoardId = ref<string | null>(null)
 
-const departments = computed(() => store.groups.map((group) => group.department))
+const hasBoards = computed(() => store.boards.length > 0)
+const hasHistory = computed(() => history.months.length > 0)
+
+const departments = computed(() => {
+  const names = new Set([
+    ...store.groups.map((group) => group.department),
+    ...history.months.map((entry) => entry.department),
+  ])
+  const rank = (name: string) => {
+    const index = knownDepartments.indexOf(name as (typeof knownDepartments)[number])
+    return index === -1 ? knownDepartments.length : index
+  }
+  return [...names].sort((a, b) => rank(a) - rank(b) || a.localeCompare(b))
+})
 
 const filteredBoards = computed(() =>
   store.orderedBoards.filter(
@@ -123,6 +138,10 @@ const hireDepartments = computed(() => {
   return [...departments.value, ...new Set(extra)]
 })
 
+const emptyHistoryText = computed(() =>
+  department.value === 'all' ? undefined : 'No history for this department yet.',
+)
+
 const flows = computed(() => filteredBoards.value.map(roleFlow))
 const stats = computed(() => (focusBoard.value ? stageStats(focusBoard.value, now) : []))
 const slowest = computed(() => slowestStage(stats.value))
@@ -179,238 +198,266 @@ onMounted(() => {
       </template>
     </PageHeader>
 
-    <div v-if="!store.boards.length" class="board-empty">
-      <h2>No role boards yet.</h2>
-      <p>Create your first role board to start tracking applicants and hiring progress.</p>
-      <v-btn color="primary" prepend-icon="mdi-plus" to="/boards">Open boards</v-btn>
-    </div>
-
-    <div v-else class="ov-page">
-      <div class="ov-chips" role="group" aria-label="Department">
-        <button
-          class="ov-chip"
-          type="button"
-          :aria-pressed="department === 'all'"
-          @click="department = 'all'"
-        >
-          All departments
-        </button>
-        <button
-          v-for="name in departments"
-          :key="name"
-          class="ov-chip"
-          type="button"
-          :aria-pressed="department === name"
-          @click="toggleDepartment(name)"
-        >
-          {{ name }}
-        </button>
+    <div class="ov-page">
+      <div v-if="!hasBoards" class="board-empty">
+        <h2>No role boards yet.</h2>
+        <p>Create your first role board to start tracking applicants and hiring progress.</p>
+        <v-btn color="primary" prepend-icon="mdi-plus" to="/boards">Open boards</v-btn>
       </div>
 
-      <div class="ov-kpis">
-        <OverviewKpi
-          label="Open positions"
-          :value="totals.openPositions"
-          :meta="`across ${plural(filteredBoards.length, 'role')}`"
-          source="live"
-        />
-        <OverviewKpi
-          label="Active applicants"
-          :value="totals.active"
-          :meta="`in ${plural(filteredBoards.length, 'live role')}`"
-          source="live"
-        />
-        <OverviewKpi
-          label="At final stage"
-          :value="finalStage"
-          meta="waiting on a decision"
-          source="live"
-        />
-        <OverviewKpi
-          label="Hired last 4 quarters"
-          :value="lastFourHired"
-          :meta="`${rate.hired} since records began`"
-          source="history"
-        />
-        <OverviewKpi
-          label="Time to a hire"
-          :value="hireDays ?? '–'"
-          :unit="hireDays === null ? undefined : hireDays === 1 ? 'day' : 'days'"
-          meta="median, board opened → hire"
-          source="history"
-        />
-        <OverviewKpi
-          label="Hire rate"
-          :value="rate.percent === null ? '–' : `${rate.percent}%`"
-          :meta="`${rate.hired} hired · ${rate.rejected} rejected`"
-          source="history"
-        >
-          <div
-            v-if="rate.hired + rate.rejected > 0"
-            class="ov-split"
-            role="img"
-            :aria-label="`${rate.hired} hired, ${rate.rejected} rejected`"
+      <template v-if="hasBoards || hasHistory">
+        <div class="ov-chips" role="group" aria-label="Department">
+          <button
+            class="ov-chip"
+            type="button"
+            :aria-pressed="department === 'all'"
+            @click="department = 'all'"
           >
-            <i class="ov-split__hired" :style="{ flex: rate.hired }" />
-            <i class="ov-split__rejected" :style="{ flex: rate.rejected }" />
-          </div>
-        </OverviewKpi>
-      </div>
-
-      <div class="ov-grid-2">
-        <OverviewPanel
-          title="Needs your attention"
-          :subtitle="`${plural(attention.length, 'item')}, most urgent first`"
-          source="live"
-        >
-          <AttentionList :items="attention.slice(0, ATTENTION_LIMIT)" :total="attention.length" />
-        </OverviewPanel>
-        <OverviewPanel title="Latest activity" subtitle="From the audit trail" source="live">
-          <p v-if="activity.recentError" class="ov-empty">{{ activity.recentError }}</p>
-          <ActivityFeed v-else :events="latestEvents" :boards="filteredBoards" />
-        </OverviewPanel>
-      </div>
-
-      <OverviewPanel
-        title="Roles by deadline"
-        subtitle="The line shows how applicants are spread across each board's own stages"
-        source="live"
-      >
-        <RoleDeadlineTable
-          :boards="filteredBoards"
-          :selected-id="focusBoard?.id ?? null"
-          @select="focusBoardId = $event"
-        />
-      </OverviewPanel>
-
-      <div class="ov-band">
-        <h2 class="ov-band__title">Hiring over time</h2>
-        <p class="ov-band__text">
-          Kept after roles are deleted. Shows
-          {{
-            range === 4 ? 'the last 4 quarters' : 'every quarter on record, up to the latest 12'
-          }}.
-        </p>
-        <div class="ov-chips" role="group" aria-label="Range">
-          <button class="ov-chip" type="button" :aria-pressed="range === 4" @click="range = 4">
-            Last 4 quarters
+            All departments
           </button>
-          <button class="ov-chip" type="button" :aria-pressed="range === 12" @click="range = 12">
-            All on record
+          <button
+            v-for="name in departments"
+            :key="name"
+            class="ov-chip"
+            type="button"
+            :aria-pressed="department === name"
+            @click="toggleDepartment(name)"
+          >
+            {{ name }}
           </button>
         </div>
-      </div>
 
-      <p
-        v-if="history.initialized && !history.loading && !history.error && !history.months.length"
-        class="ov-empty"
-      >
-        History fills in as applicants are hired and rejected.
-      </p>
-      <template v-else>
-        <div class="ov-grid-2 ov-grid-2--even">
-          <OverviewPanel
-            title="Hired and rejected, per quarter"
-            subtitle="Green is hired. Grey is rejected."
+        <div class="ov-kpis" :class="{ 'ov-kpis--history': !hasBoards }">
+          <template v-if="hasBoards">
+            <OverviewKpi
+              label="Open positions"
+              :value="formatCount(totals.openPositions)"
+              :meta="`across ${plural(filteredBoards.length, 'role')}`"
+              source="live"
+            />
+            <OverviewKpi
+              label="Active applicants"
+              :value="formatCount(totals.active)"
+              :meta="`in ${plural(filteredBoards.length, 'live role')}`"
+              source="live"
+            />
+            <OverviewKpi
+              label="At final stage"
+              :value="formatCount(finalStage)"
+              meta="waiting on a decision"
+              source="live"
+            />
+          </template>
+          <OverviewKpi
+            label="Hired last 4 quarters"
+            :value="formatCount(lastFourHired)"
+            :meta="`${formatCount(rate.hired)} since records began`"
+            source="history"
+          />
+          <OverviewKpi
+            label="Time to a hire"
+            :value="hireDays === null ? '–' : formatCount(hireDays)"
+            :unit="hireDays === null ? undefined : hireDays === 1 ? 'day' : 'days'"
+            meta="median, board opened → hire"
+            source="history"
+          />
+          <OverviewKpi
+            label="Hire rate"
+            :value="rate.percent === null ? '–' : `${rate.percent}%`"
+            :meta="`${formatCount(rate.hired)} hired · ${formatCount(rate.rejected)} rejected`"
             source="history"
           >
-            <QuarterChart :points="series" kind="decisions" />
-          </OverviewPanel>
-          <OverviewPanel
-            title="Applicants in, per quarter"
-            subtitle="Everyone who applied to any role"
-            source="history"
-          >
-            <QuarterChart :points="series" kind="applicants" />
-          </OverviewPanel>
-        </div>
-
-        <OverviewPanel
-          title="How long hires take"
-          :subtitle="`Days from the board opening to the hire. ${hireViewHelp[hireView]}`"
-          source="history"
-        >
-          <div class="ov-chips ov-chips--spaced" role="group" aria-label="Hire time view">
-            <button
-              v-for="option in hireViews"
-              :key="option.value"
-              class="ov-chip"
-              type="button"
-              :aria-pressed="hireView === option.value"
-              @click="hireView = option.value"
+            <div
+              v-if="rate.hired + rate.rejected > 0"
+              class="ov-split"
+              role="img"
+              :aria-label="`${formatCount(rate.hired)} hired, ${formatCount(rate.rejected)} rejected`"
             >
-              {{ option.label }}
+              <i class="ov-split__hired" :style="{ flex: rate.hired }" />
+              <i class="ov-split__rejected" :style="{ flex: rate.rejected }" />
+            </div>
+          </OverviewKpi>
+        </div>
+
+        <template v-if="hasBoards">
+          <div class="ov-grid-2">
+            <OverviewPanel
+              title="Needs your attention"
+              :subtitle="`${plural(attention.length, 'item')}, most urgent first`"
+              source="live"
+            >
+              <AttentionList
+                :items="attention.slice(0, ATTENTION_LIMIT)"
+                :total="attention.length"
+              />
+            </OverviewPanel>
+            <OverviewPanel title="Latest activity" subtitle="From the audit trail" source="live">
+              <p v-if="activity.recentError" class="ov-empty">{{ activity.recentError }}</p>
+              <ActivityFeed v-else :events="latestEvents" :boards="filteredBoards" />
+            </OverviewPanel>
+          </div>
+
+          <OverviewPanel
+            title="Roles by deadline"
+            subtitle="The line shows how applicants are spread across each board's own stages"
+            source="live"
+          >
+            <RoleDeadlineTable
+              :boards="filteredBoards"
+              :selected-id="focusBoard?.id ?? null"
+              @select="focusBoardId = $event"
+            />
+          </OverviewPanel>
+        </template>
+
+        <div class="ov-band">
+          <h2 class="ov-band__title">Hiring over time</h2>
+          <p class="ov-band__text">
+            Kept after roles are deleted. Shows
+            {{
+              range === 4 ? 'the last 4 quarters' : 'every quarter on record, up to the latest 12'
+            }}.
+          </p>
+          <div class="ov-chips" role="group" aria-label="Range">
+            <button class="ov-chip" type="button" :aria-pressed="range === 4" @click="range = 4">
+              Last 4 quarters
+            </button>
+            <button class="ov-chip" type="button" :aria-pressed="range === 12" @click="range = 12">
+              All on record
             </button>
           </div>
-          <HireTimeChart
-            :hires="rangeHires"
-            :departments="hireDepartments"
-            :view="hireView"
-            :quarters="series.map((point) => point.key)"
-            :partial-key="currentQuarter"
-          />
-        </OverviewPanel>
-      </template>
-
-      <div class="ov-band">
-        <h2 class="ov-band__title">One board in focus</h2>
-        <p class="ov-band__text">
-          Stage-level numbers only make sense inside one board, because every board has its own
-          stages.
-        </p>
-        <label v-if="focusBoard" class="board-sort">
-          <span class="meta">Board</span>
-          <select class="board-search board-sort__select" :value="focusBoard.id" @change="onPick">
-            <option v-for="board in filteredBoards" :key="board.id" :value="board.id">
-              {{ board.name }}
-            </option>
-          </select>
-        </label>
-      </div>
-
-      <template v-if="focusBoard">
-        <OverviewPanel
-          title="Applicants in vs decisions made, per role"
-          subtitle="Select a role to put it in focus"
-          source="live"
-        >
-          <div class="ov-legend">
-            <span class="ov-legend__item">
-              <i class="ov-legend__swatch ov-legend__swatch--in" />Applicants in
-            </span>
-            <span class="ov-legend__item">
-              <i class="ov-legend__swatch ov-legend__swatch--hired" />Hired
-            </span>
-            <span class="ov-legend__item">
-              <i class="ov-legend__swatch ov-legend__swatch--rejected" />Rejected
-            </span>
-            <span class="ov-legend__item">
-              <i class="ov-legend__swatch ov-legend__swatch--active" />Still active
-            </span>
-          </div>
-          <FlowRows :rows="flows" :selected-id="focusBoard.id" @select="focusBoardId = $event" />
-        </OverviewPanel>
-
-        <div class="ov-grid-2 ov-grid-2--even">
-          <OverviewPanel
-            title="Where active applicants are"
-            :subtitle="`${focusBoard.name} · ${plural(focusBoard.steps.length, 'stage')}`"
-            source="live"
-          >
-            <StageBars :rows="countRows" />
-          </OverviewPanel>
-          <OverviewPanel
-            title="Time in the current stage"
-            :subtitle="`Median days, ${focusBoard.name}`"
-            source="live"
-          >
-            <StageBars :rows="dayRows" />
-            <p v-if="slowest" class="meta ov-note">
-              Slowest stage on this board: <b>{{ slowest.name }}</b
-              >, median {{ plural(Math.round(slowest.medianDays as number), 'day') }}.
-            </p>
-          </OverviewPanel>
         </div>
+
+        <p
+          v-if="
+            hasBoards &&
+            history.initialized &&
+            !history.loading &&
+            !history.error &&
+            !history.months.length
+          "
+          class="ov-empty"
+        >
+          History fills in as applicants are hired and rejected.
+        </p>
+        <template v-else>
+          <div class="ov-grid-2 ov-grid-2--even">
+            <OverviewPanel
+              title="Hired and rejected, per quarter"
+              subtitle="Green is hired. Grey is rejected."
+              source="history"
+            >
+              <QuarterChart :points="series" kind="decisions" :empty-text="emptyHistoryText" />
+            </OverviewPanel>
+            <OverviewPanel
+              title="Applicants in, per quarter"
+              subtitle="Everyone who applied to any role"
+              source="history"
+            >
+              <QuarterChart :points="series" kind="applicants" :empty-text="emptyHistoryText" />
+            </OverviewPanel>
+          </div>
+
+          <OverviewPanel
+            v-if="hasBoards || history.hires.length > 0"
+            title="How long hires take"
+            :subtitle="`Days from the board opening to the hire. ${hireViewHelp[hireView]}`"
+            source="history"
+          >
+            <div class="ov-chips ov-chips--spaced" role="group" aria-label="Hire time view">
+              <button
+                v-for="option in hireViews"
+                :key="option.value"
+                class="ov-chip"
+                type="button"
+                :aria-pressed="hireView === option.value"
+                @click="hireView = option.value"
+              >
+                {{ option.label }}
+              </button>
+            </div>
+            <HireTimeChart
+              :hires="rangeHires"
+              :departments="hireDepartments"
+              :view="hireView"
+              :quarters="series.map((point) => point.key)"
+              :partial-key="currentQuarter"
+            />
+          </OverviewPanel>
+        </template>
+
+        <template v-if="hasBoards">
+          <div class="ov-band">
+            <h2 class="ov-band__title">One board in focus</h2>
+            <p class="ov-band__text">
+              Stage-level numbers only make sense inside one board, because every board has its own
+              stages.
+            </p>
+            <label v-if="focusBoard" class="board-sort">
+              <span class="meta">Board</span>
+              <select
+                class="board-search board-sort__select"
+                :value="focusBoard.id"
+                @change="onPick"
+              >
+                <option v-for="board in filteredBoards" :key="board.id" :value="board.id">
+                  {{ board.name }}
+                </option>
+              </select>
+            </label>
+          </div>
+
+          <p v-if="!focusBoard" class="ov-empty">No role boards in this department.</p>
+
+          <template v-if="focusBoard">
+            <OverviewPanel
+              title="Applicants in vs decisions made, per role"
+              subtitle="Select a role to put it in focus"
+              source="live"
+            >
+              <div class="ov-legend">
+                <span class="ov-legend__item">
+                  <i class="ov-legend__swatch ov-legend__swatch--in" />Applicants in
+                </span>
+                <span class="ov-legend__item">
+                  <i class="ov-legend__swatch ov-legend__swatch--hired" />Hired
+                </span>
+                <span class="ov-legend__item">
+                  <i class="ov-legend__swatch ov-legend__swatch--rejected" />Rejected
+                </span>
+                <span class="ov-legend__item">
+                  <i class="ov-legend__swatch ov-legend__swatch--active" />Still active
+                </span>
+              </div>
+              <FlowRows
+                :rows="flows"
+                :selected-id="focusBoard.id"
+                @select="focusBoardId = $event"
+              />
+            </OverviewPanel>
+
+            <div class="ov-grid-2 ov-grid-2--even">
+              <OverviewPanel
+                title="Where active applicants are"
+                :subtitle="`${focusBoard.name} · ${plural(focusBoard.steps.length, 'stage')}`"
+                source="live"
+              >
+                <StageBars :rows="countRows" />
+              </OverviewPanel>
+              <OverviewPanel
+                title="Time in the current stage"
+                :subtitle="`Median days, ${focusBoard.name}`"
+                source="live"
+              >
+                <StageBars :rows="dayRows" />
+                <p v-if="slowest" class="meta ov-note">
+                  Slowest stage on this board: <b>{{ slowest.name }}</b
+                  >, median {{ plural(Math.round(slowest.medianDays as number), 'day') }}.
+                </p>
+              </OverviewPanel>
+            </div>
+          </template>
+        </template>
       </template>
     </div>
 

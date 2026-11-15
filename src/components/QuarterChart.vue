@@ -2,18 +2,19 @@
 import { computed, ref } from 'vue'
 import { useChartHover } from '@/lib/chart-tooltip'
 import { barPath, niceTicks, thinStep } from '@/lib/chart-scale'
-import type { QuarterPoint } from '@/lib/overview'
+import { formatCount, type QuarterPoint } from '@/lib/overview'
 import { useElementWidth } from '@/lib/use-element-width'
 
 const props = defineProps<{
   points: QuarterPoint[]
   kind: 'decisions' | 'applicants'
+  emptyText?: string
 }>()
 
 const HEIGHT = 220
 const TOP = 10
 const BOTTOM = 30
-const LEFT = 34
+const MIN_LEFT = 34
 const GAP = 2
 
 const wrapper = ref<HTMLElement | null>(null)
@@ -27,6 +28,11 @@ function total(point: QuarterPoint): number {
 const empty = computed(() => props.points.every((point) => total(point) === 0))
 
 const axis = computed(() => niceTicks(Math.max(0, ...props.points.map(total))))
+const left = computed(() => {
+  const longest = Math.max(...axis.value.ticks.map((tick) => formatCount(tick).length))
+  return Math.max(MIN_LEFT, longest * 7 + 12)
+})
+
 const baseline = HEIGHT - BOTTOM
 const plotHeight = HEIGHT - TOP - BOTTOM
 
@@ -34,23 +40,23 @@ function yFor(value: number): number {
   return TOP + plotHeight * (1 - value / axis.value.top)
 }
 
-const band = computed(() => (width.value - LEFT) / Math.max(1, props.points.length))
+const band = computed(() => (width.value - left.value) / Math.max(1, props.points.length))
 const labelStep = computed(() => thinStep(band.value, 46))
 
 function tooltipText(point: QuarterPoint): string {
   if (props.kind === 'applicants') {
-    return `${point.applicantsIn} applicants came in`
+    return `${formatCount(point.applicantsIn)} applicants came in`
   }
   const decided = point.hired + point.rejected
   const share = decided > 0 ? Math.round((point.hired / decided) * 100) : 0
-  return `${point.hired} hired · ${point.rejected} rejected (${share}% hired)`
+  return `${formatCount(point.hired)} hired · ${formatCount(point.rejected)} rejected (${share}% hired)`
 }
 
 const bars = computed(() =>
   props.points.map((point, index) => {
-    const left = LEFT + index * band.value
+    const barLeft = left.value + index * band.value
     const barWidth = Math.min(40, Math.max(8, band.value * 0.56))
-    const x = left + (band.value - barWidth) / 2
+    const x = barLeft + (band.value - barWidth) / 2
     const segments: { d: string; tone: 'hired' | 'rejected' | 'applicants' }[] = []
 
     if (props.kind === 'applicants') {
@@ -80,10 +86,10 @@ const bars = computed(() =>
 
     return {
       key: point.key,
-      left,
+      left: barLeft,
       center: x + barWidth / 2,
       label: `${point.label}${point.partial ? '*' : ''}`,
-      showLabel: index % labelStep.value === 0,
+      showLabel: (props.points.length - 1 - index) % labelStep.value === 0,
       segments,
       title: `${point.label}${point.partial ? ' (so far)' : ''}`,
       text: tooltipText(point),
@@ -99,7 +105,7 @@ const summary = computed(
 
 <template>
   <div ref="wrapper" class="ov-chart">
-    <p v-if="empty" class="ov-empty">No history recorded yet.</p>
+    <p v-if="empty" class="ov-empty">{{ emptyText ?? 'No history recorded yet.' }}</p>
     <template v-else>
       <svg
         class="ov-svg"
@@ -111,8 +117,8 @@ const summary = computed(
         :height="HEIGHT"
       >
         <g v-for="tick in axis.ticks" :key="tick">
-          <line class="ov-grid" :x1="LEFT" :x2="width" :y1="yFor(tick)" :y2="yFor(tick)" />
-          <text :x="LEFT - 6" :y="yFor(tick) + 4" text-anchor="end">{{ tick }}</text>
+          <line class="ov-grid" :x1="left" :x2="width" :y1="yFor(tick)" :y2="yFor(tick)" />
+          <text :x="left - 6" :y="yFor(tick) + 4" text-anchor="end">{{ formatCount(tick) }}</text>
         </g>
         <g v-for="bar in bars" :key="bar.key" class="ov-qbar" v-bind="hover(bar.title, bar.text)">
           <rect class="ov-hit" :x="bar.left" :y="TOP" :width="band" :height="plotHeight" />
@@ -155,10 +161,10 @@ const summary = computed(
           <tr v-for="point in points" :key="point.key">
             <th scope="row">{{ point.label }}{{ point.partial ? ' (so far)' : '' }}</th>
             <template v-if="kind === 'decisions'">
-              <td>{{ point.hired }}</td>
-              <td>{{ point.rejected }}</td>
+              <td>{{ formatCount(point.hired) }}</td>
+              <td>{{ formatCount(point.rejected) }}</td>
             </template>
-            <td v-else>{{ point.applicantsIn }}</td>
+            <td v-else>{{ formatCount(point.applicantsIn) }}</td>
           </tr>
         </tbody>
       </table>

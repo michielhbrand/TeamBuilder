@@ -3,6 +3,7 @@ import {
   attentionItems,
   filledShare,
   finalStageCount,
+  formatCount,
   hireRate,
   hiresInQuarters,
   median,
@@ -84,6 +85,15 @@ function month(
 function hire(id: string, department: string, hiredOn: string, daysToHire: number): HireRecord {
   return { applicantId: id, department, hiredOn, daysToHire }
 }
+
+describe('formatCount', () => {
+  it('groups thousands only from 1000', () => {
+    expect(formatCount(999)).toBe('999')
+    expect(formatCount(1000)).toBe('1,000')
+    expect(formatCount(1234567)).toBe('1,234,567')
+    expect(formatCount(0)).toBe('0')
+  })
+})
 
 describe('percentile and median', () => {
   it('interpolates linearly', () => {
@@ -306,6 +316,43 @@ describe('attentionItems', () => {
       ['final', 'final'],
       ['stalled', 'stalled'],
       ['due-soon', 'due'],
+    ])
+  })
+
+  it('sorts due-soon items soonest first and final-stage items by applicants then name', () => {
+    const due = (id: string, days: number) =>
+      makeBoard({ id, name: id, deadline: dayOffset(days), candidates: [] })
+    const atFinal = (id: string, name: string, count: number) =>
+      makeBoard({
+        id,
+        name,
+        deadline: dayOffset(60),
+        candidates: Array.from({ length: count }, (_, index) =>
+          applicant(`${id}${index}`, { boardId: id, stepId: 's3' }),
+        ),
+      })
+
+    const items = attentionItems(
+      [
+        due('d12', 12),
+        due('d2', 2),
+        due('d7', 7),
+        atFinal('f1', 'Zed', 1),
+        atFinal('f3', 'Mid', 3),
+        atFinal('f2', 'Abe', 1),
+      ],
+      now,
+    )
+
+    expect(items.filter((item) => item.kind === 'due-soon').map((item) => item.boardId)).toEqual([
+      'd2',
+      'd7',
+      'd12',
+    ])
+    expect(items.filter((item) => item.kind === 'final').map((item) => item.boardId)).toEqual([
+      'f3',
+      'f2',
+      'f1',
     ])
   })
 

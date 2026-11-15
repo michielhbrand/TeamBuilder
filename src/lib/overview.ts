@@ -52,6 +52,17 @@ export function recentQuarters(now: Date, count: number): string[] {
   return keys
 }
 
+export function historyWindowStart(now: Date = new Date()): string {
+  const [year, quarter] = (recentQuarters(now, 12)[0] as string).split('-Q') as [string, string]
+  const month = (Number(quarter) - 1) * 3 + 1
+
+  return `${year}-${String(month).padStart(2, '0')}-01`
+}
+
+export function formatCount(value: number): string {
+  return value >= 1000 ? value.toLocaleString('en-US') : String(value)
+}
+
 export interface QuarterPoint {
   key: string
   label: string
@@ -255,7 +266,7 @@ export function attentionItems(boards: Board[], now: Date = new Date()): Attenti
       }
     })
 
-  const final: AttentionItem[] = []
+  const finalEntries: { count: number; name: string; item: AttentionItem }[] = []
 
   for (const board of boards) {
     const count = finalStageCount(board)
@@ -264,14 +275,22 @@ export function attentionItems(boards: Board[], now: Date = new Date()): Attenti
     if (count > 0 && last) {
       const stat = stageStats(board, now).find((entry) => entry.stepId === last.id)
 
-      final.push({
-        kind: 'final',
-        boardId: board.id,
-        title: `${count} ${count === 1 ? 'applicant is' : 'applicants are'} at the final stage (${last.name}) for ${board.name}`,
-        detail: `Median ${plural(Math.round(stat?.medianDays ?? 0), 'day')} at this stage`,
+      finalEntries.push({
+        count,
+        name: board.name,
+        item: {
+          kind: 'final',
+          boardId: board.id,
+          title: `${count} ${count === 1 ? 'applicant is' : 'applicants are'} at the final stage (${last.name}) for ${board.name}`,
+          detail: `Median ${plural(Math.round(stat?.medianDays ?? 0), 'day')} at this stage`,
+        },
       })
     }
   }
+
+  const final = finalEntries
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
+    .map((entry) => entry.item)
 
   const stalled: AttentionItem[] = []
 
@@ -300,6 +319,7 @@ export function attentionItems(boards: Board[], now: Date = new Date()): Attenti
       const days = daysUntilDeadline(board.deadline, now)
       return days >= 0 && days <= 14
     })
+    .sort((a, b) => daysUntilDeadline(a.deadline, now) - daysUntilDeadline(b.deadline, now))
     .map<AttentionItem>((board) => {
       const days = daysUntilDeadline(board.deadline, now)
       const when = days === 0 ? 'today' : days === 1 ? 'tomorrow' : `in ${days} days`

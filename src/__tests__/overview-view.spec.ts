@@ -509,4 +509,104 @@ describe('OverviewView', () => {
       expect(kpi(wrapper, 'Hired last 4 quarters').text()).toContain('6 since records began')
     })
   })
+
+  describe('without live boards', () => {
+    it('keeps the history sections and KPIs and shows the empty state in place of live ones', async () => {
+      mocks.fetchHiringMonthly.mockResolvedValue([month('Engineering', 3, 1)])
+      mocks.fetchHireHistory.mockResolvedValue([hire('h1', 'Engineering', 25)])
+      const wrapper = await seed([])
+      const text = wrapper.text()
+
+      expect(text).toContain('No role boards yet.')
+      for (const label of ['Hired last 4 quarters', 'Time to a hire', 'Hire rate']) {
+        expect(wrapper.findAll('.ov-kpi__label').some((node) => node.text().includes(label))).toBe(
+          true,
+        )
+      }
+      expect(kpi(wrapper, 'Hired last 4 quarters').get('.ov-kpi__value').text()).toBe('3')
+      expect(wrapper.findAll('.ov-kpi')).toHaveLength(3)
+      expect(text).toContain('Hiring over time')
+      expect(text).toContain('Hired and rejected, per quarter')
+      expect(text).toContain('How long hires take')
+      for (const hidden of [
+        'Open positions',
+        'Needs your attention',
+        'Latest activity',
+        'Roles by deadline',
+        'One board in focus',
+      ]) {
+        expect(text).not.toContain(hidden)
+      }
+      expect(wrapper.find('select').exists()).toBe(false)
+    })
+
+    it('shows only the empty state when there is no history either', async () => {
+      const wrapper = await seed([])
+
+      expect(wrapper.text()).toContain('No role boards yet.')
+      expect(wrapper.find('.ov-kpis').exists()).toBe(false)
+      expect(wrapper.find('.ov-chip').exists()).toBe(false)
+      expect(wrapper.text()).not.toContain('Hiring over time')
+    })
+  })
+
+  describe('departments known only from history', () => {
+    beforeEach(() => {
+      mocks.fetchHiringMonthly.mockResolvedValue([
+        month('Sales', 2, 2),
+        month('Engineering', 1, 0),
+        month('Aviation', 1, 1),
+      ])
+      mocks.fetchHireHistory.mockResolvedValue([hire('h1', 'Sales', 25)])
+    })
+
+    it('offers a chip per department in the known order, then alphabetical', async () => {
+      const wrapper = await seed(sampleBoards())
+      const labels = wrapper
+        .findAll('[aria-label="Department"] .ov-chip')
+        .map((node) => node.text())
+
+      expect(labels).toEqual(['All departments', 'Engineering', 'Design', 'Sales', 'Aviation'])
+    })
+
+    it('zeroes the live widgets for a department without boards but keeps its history', async () => {
+      const wrapper = await seed(sampleBoards())
+
+      await chip(wrapper, 'Sales').trigger('click')
+
+      expect(kpi(wrapper, 'Open positions').get('.ov-kpi__value').text()).toBe('0')
+      expect(kpi(wrapper, 'Active applicants').get('.ov-kpi__value').text()).toBe('0')
+      expect(kpi(wrapper, 'Hire rate').get('.ov-kpi__value').text()).toContain('50%')
+      expect(wrapper.text()).toContain('No role boards in this department.')
+      expect(wrapper.find('select').exists()).toBe(false)
+    })
+
+    it('says so when a department has boards but no history', async () => {
+      const wrapper = await seed(sampleBoards())
+
+      await chip(wrapper, 'Design').trigger('click')
+
+      expect(wrapper.text()).toContain('No history for this department yet.')
+      await chip(wrapper, 'All departments').trigger('click')
+      expect(wrapper.text()).not.toContain('No history for this department yet.')
+    })
+
+    it('resets to all when a history-only department disappears', async () => {
+      const wrapper = await seed(sampleBoards())
+      await chip(wrapper, 'Sales').trigger('click')
+
+      useHistoryStore().months = []
+      await flushPromises()
+
+      expect(chip(wrapper, 'All departments').attributes('aria-pressed')).toBe('true')
+    })
+  })
+
+  it('groups thousands in KPI numbers', async () => {
+    mocks.fetchHiringMonthly.mockResolvedValue([month('Engineering', 1500, 500)])
+    const wrapper = await seed(sampleBoards())
+
+    expect(kpi(wrapper, 'Hired last 4 quarters').get('.ov-kpi__value').text()).toBe('1,500')
+    expect(kpi(wrapper, 'Hired last 4 quarters').text()).toContain('1,500 since records began')
+  })
 })

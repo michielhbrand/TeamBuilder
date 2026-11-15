@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import { fail } from '@/lib/api-shared'
+import { historyWindowStart } from '@/lib/overview'
 import type { HireRecord, HiringMonth } from '@/types/history'
 
 export interface HiringMonthRow {
@@ -36,24 +37,52 @@ export function mapHireRecord(row: HireRecordRow): HireRecord {
   }
 }
 
-export async function fetchHiringMonthly(): Promise<HiringMonth[]> {
-  const { data, error } = await supabase
-    .from('hiring_monthly')
-    .select('month, department, applicants_in, hired, rejected')
-    .order('month', { ascending: true })
+export const PAGE_SIZE = 1000
 
-  fail(error)
+type PageResult = PromiseLike<{ data: unknown; error: { message: string } | null }>
 
-  return ((data ?? []) as unknown as HiringMonthRow[]).map(mapHiringMonth)
+export async function fetchAllPages<T>(
+  page: (from: number, to: number) => PageResult,
+): Promise<T[]> {
+  const rows: T[] = []
+
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data, error } = await page(from, from + PAGE_SIZE - 1)
+
+    fail(error)
+
+    const batch = (data ?? []) as T[]
+    rows.push(...batch)
+
+    if (batch.length < PAGE_SIZE) {
+      return rows
+    }
+  }
 }
 
-export async function fetchHireHistory(): Promise<HireRecord[]> {
-  const { data, error } = await supabase
-    .from('hire_history')
-    .select('applicant_id, department, hired_on, days_to_hire')
-    .order('hired_on', { ascending: true })
+export async function fetchHiringMonthly(): Promise<HiringMonth[]> {
+  const rows = await fetchAllPages<HiringMonthRow>((from, to) =>
+    supabase
+      .from('hiring_monthly')
+      .select('month, department, applicants_in, hired, rejected')
+      .order('month', { ascending: true })
+      .order('department', { ascending: true })
+      .range(from, to),
+  )
 
-  fail(error)
+  return rows.map(mapHiringMonth)
+}
 
-  return ((data ?? []) as unknown as HireRecordRow[]).map(mapHireRecord)
+export async function fetchHireHistory(now: Date = new Date()): Promise<HireRecord[]> {
+  const rows = await fetchAllPages<HireRecordRow>((from, to) =>
+    supabase
+      .from('hire_history')
+      .select('applicant_id, department, hired_on, days_to_hire')
+      .gte('hired_on', historyWindowStart(now))
+      .order('hired_on', { ascending: false })
+      .order('applicant_id', { ascending: true })
+      .range(from, to),
+  )
+
+  return rows.map(mapHireRecord).reverse()
 }
