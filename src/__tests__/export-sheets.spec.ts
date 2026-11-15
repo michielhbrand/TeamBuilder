@@ -128,6 +128,7 @@ const support = makeBoard({
 })
 
 const months: HiringMonth[] = [
+  month('2025-06-01', 'Design', 4, 3, 1),
   month('2026-03-01', 'Design', 5, 1, 2),
   month('2026-04-01', 'Design', 3, 0, 0),
   month('2026-10-01', 'Design', 4, 1, 1),
@@ -397,6 +398,8 @@ describe('buildWorkbookModel', () => {
     ])
     expect(quarters.columns[5]?.kind).toBe('percent')
     expect(quarters.rows).toEqual([
+      ['Q2 25', 'Design', 4, 3, 1, 0.75],
+      ['Q2 25', 'All departments', 4, 3, 1, 0.75],
       ['Q1 26', 'Design', 5, 1, 2, 1 / 3],
       ['Q1 26', 'All departments', 5, 1, 2, 1 / 3],
       ['Q2 26', 'Design', 3, 0, 0, null],
@@ -469,8 +472,45 @@ describe('buildWorkbookModel', () => {
     expect(sheet(models, 'Active roles').rows).toEqual([])
     expect(sheet(models, 'Applicants').rows).toEqual([])
     expect(sheet(models, 'Pipeline').rows).toEqual([])
-    expect(sheet(models, 'Hiring by quarter').rows.length).toBeGreaterThan(0)
-    expect(sheet(models, 'Summary').rows.length).toBeGreaterThan(0)
+    expect(sheet(models, 'Hiring by quarter').rows.map((row) => row[0])).toContain('Q2 25')
+
+    const summary = sheet(models, 'Summary')
+
+    expect(summary.rows.slice(3, 6)).toEqual([
+      ['Open positions', 0, null, null, null, null],
+      ['Active applicants', 0, null, null, null, null],
+      ['At final stage', 0, null, null, null, null],
+    ])
+    expect(summary.rows[6]?.[1]).toBe(4)
+    expect(summary.rows[10]?.[0]).toBe('By department')
+    expect(summary.rows).toHaveLength(12)
+    expect(String(summary.rows[11]?.[0])).toMatch(/^Hiring history starts on June 2025/)
+  })
+
+  it('uses the injected date for roles past deadline', () => {
+    const past = new Date('2020-01-01T12:00:00Z')
+    const overdue = makeBoard({ id: 'o1', deadline: '2019-12-31', openPositions: 1 })
+    const upcoming = makeBoard({
+      id: 'o2',
+      name: 'Later Role',
+      department: 'Engineering',
+      deadline: '2021-01-01',
+    })
+    const summary = sheet(
+      buildWorkbookModel({
+        boards: [overdue, upcoming],
+        months: [],
+        hires: [],
+        department: 'all',
+        now: past,
+      }),
+      'Summary',
+    )
+
+    expect(summary.rows.slice(11)).toEqual([
+      ['Engineering', 1, 2, 0, 0, 0],
+      ['Design', 1, 1, 0, 0, 1],
+    ])
   })
 
   it('passes formula-looking and numeric-looking text through unchanged', () => {
@@ -525,7 +565,7 @@ describe('Summary sheet', () => {
       ['At final stage', 1, null, null, null, null],
       ['Hired last 4 quarters', 4, null, null, null, null],
       ['Time to a hire (median days, last 4 quarters)', 30, null, null, null, null],
-      ['Hire rate', 0.57, null, null, null, null],
+      ['Hire rate', 0.64, null, null, null, null],
       [null, null, null, null, null, null],
       [
         'By department',
@@ -539,7 +579,7 @@ describe('Summary sheet', () => {
       ['Design', 1, 2, 1, 4, 1],
       ['Customer success', 1, 1, 0, 0, 0],
       [
-        'Hiring history starts on March 2026; roles deleted earlier are not included.',
+        'Hiring history starts on June 2025; roles deleted earlier are not included.',
         null,
         null,
         null,

@@ -9,7 +9,7 @@ import {
   recentQuarters,
   finalStageCount,
 } from '@/lib/overview'
-import { activeCandidates, daysInStep, daysUntilDeadline, summariseBoards } from '@/lib/pipeline'
+import { activeCandidates, daysInStep, daysUntilDeadline } from '@/lib/pipeline'
 import type { HireRecord, HiringMonth } from '@/types/history'
 import {
   departments as knownDepartments,
@@ -300,8 +300,12 @@ function timeToHireRow(name: string, records: HireRecord[], recent: string[]): E
     name,
     records.length,
     wholeDays(median(days)),
-    wholeDays(days.length > 0 ? Math.min(...days) : null),
-    wholeDays(days.length > 0 ? Math.max(...days) : null),
+    wholeDays(
+      days.reduce<number | null>((low, day) => (low === null || day < low ? day : low), null),
+    ),
+    wholeDays(
+      days.reduce<number | null>((high, day) => (high === null || day > high ? day : high), null),
+    ),
     wholeDays(percentile(days, 0.25)),
     wholeDays(percentile(days, 0.75)),
     wholeDays(median(recentDays)),
@@ -355,6 +359,22 @@ function historyStart(months: HiringMonth[]): string | null {
   return name ? `${name} ${earliest.slice(0, 4)}` : null
 }
 
+function boardTotals(
+  boards: Board[],
+  now: Date,
+): { openPositions: number; active: number; hired: number; overdue: number } {
+  return boards.reduce(
+    (totals, board) => {
+      totals.openPositions += board.openPositions
+      totals.active += statusCount(board, 'active')
+      totals.hired += statusCount(board, 'hired')
+      totals.overdue += daysUntilDeadline(board.deadline, now) < 0 ? 1 : 0
+      return totals
+    },
+    { openPositions: 0, active: 0, hired: 0, overdue: 0 },
+  )
+}
+
 function buildSummary(
   boards: Board[],
   months: HiringMonth[],
@@ -374,7 +394,7 @@ function buildSummary(
     kinds.push(padKinds(cellKinds))
   }
 
-  const totals = summariseBoards(boards)
+  const totals = boardTotals(boards, now)
   const finalStage = boards.reduce((sum, board) => sum + finalStageCount(board), 0)
   const hiredRecently = quarterSeries(months, department, 4, now).reduce(
     (sum, point) => sum + point.hired,
@@ -413,7 +433,7 @@ function buildSummary(
 
   for (const name of names) {
     const inDepartment = boards.filter((board) => board.department === name)
-    const sums = summariseBoards(inDepartment)
+    const sums = boardTotals(inDepartment, now)
 
     add(
       [name, inDepartment.length, sums.openPositions, sums.hired, sums.active, sums.overdue],
