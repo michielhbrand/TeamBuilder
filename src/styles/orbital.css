@@ -5077,3 +5077,284 @@ body > .v-navigation-drawer__scrim {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+.ov-queue,
+.ov-feed {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ov-queue li {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  border-top: 1px solid var(--orbital-line);
+  padding: 11px 0;
+}
+
+.ov-queue li:first-child {
+  border-top: 0;
+}
+
+.ov-queue__icon {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--orbital-surface-2);
+  color: var(--orbital-muted);
+}
+
+.ov-queue__icon--danger {
+  background: var(--orbital-danger-soft);
+  color: var(--orbital-danger);
+}
+
+.ov-queue__icon--accent {
+  background: var(--orbital-accent-soft);
+  color: var(--orbital-accent-text);
+}
+
+.ov-queue__text {
+  color: var(--orbital-ink);
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.ov-queue__text span {
+  display: block;
+  color: var(--orbital-muted);
+  font-size: 0.8125rem;
+  font-weight: 400;
+}
+
+.ov-queue__link {
+  color: var(--orbital-accent-text);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.ov-queue__link:hover {
+  text-decoration: underline;
+}
+
+.ov-queue__more {
+  margin: 4px 0 0;
+  color: var(--orbital-muted);
+  font-size: 0.8125rem;
+}
+
+.ov-feed {
+  display: grid;
+  gap: 12px;
+}
+
+.ov-feed li {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 10px;
+}
+
+.ov-feed__text {
+  color: var(--orbital-ink);
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+
+.ov-feed__text small {
+  display: block;
+  color: var(--orbital-muted);
+  font-size: 0.75rem;
+}
+
+.ov-roles__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.ov-roles__table > thead > tr > th {
+  border-bottom: 1px solid var(--orbital-line);
+  padding: 4px 8px 6px;
+  color: var(--orbital-muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.ov-roles__table > tbody > tr > td {
+  border-bottom: 1px solid var(--orbital-line);
+  padding: 10px 8px;
+  vertical-align: middle;
+}
+
+.ov-roles__table > tbody > tr:last-child > td {
+  border-bottom: 0;
+}
+
+.ov-roles__table > tbody > tr.is-selected > td {
+  background: var(--orbital-accent-soft);
+}
+
+.ov-roles__table > thead > tr > th.ov-roles__num,
+.ov-roles__table > tbody > tr > td.ov-roles__num {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.ov-roles__name {
+  color: var(--orbital-ink);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.ov-roles__name:hover {
+  color: var(--orbital-accent-text);
+  text-decoration: underline;
+}
+
+.ov-roles__sub {
+  display: block;
+  color: var(--orbital-muted);
+  font-size: 0.75rem;
+}
+
+.ov-roles__focus {
+  margin-top: 4px;
+  border: 1px solid var(--orbital-line-input);
+  border-radius: 999px;
+  padding: 1px 10px;
+  background: transparent;
+  color: var(--orbital-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.5;
+  cursor: pointer;
+}
+
+.ov-roles__focus:hover {
+  color: var(--orbital-ink);
+}
+
+.ov-roles__focus[aria-pressed='true'] {
+  border-color: var(--orbital-accent);
+  color: var(--orbital-accent-text);
+}
+
+.ov-roles__focus:focus-visible {
+  outline: 2px solid var(--orbital-accent);
+  outline-offset: 2px;
+}
+
+.ov-roles__deadline {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid var(--orbital-line);
+  border-radius: 999px;
+  padding: 2px 8px;
+  color: var(--orbital-muted);
+  font-size: 0.75rem;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.ov-roles__deadline--overdue {
+  border-color: var(--orbital-danger);
+  color: var(--orbital-danger);
+}
+
+.ov-roles__positions {
+  display: grid;
+  gap: 4px;
+  min-width: 90px;
+}
+
+.ov-roles__filled {
+  font-variant-numeric: tabular-nums;
+}
+
+.ov-roles__track {
+  display: block;
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--orbital-surface-2);
+}
+
+.ov-roles__track i {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--orbital-signal);
+}
+
+.ov-roles__caption {
+  margin: 8px 0 0;
+  color: var(--orbital-muted);
+  font-size: 0.75rem;
+}
+
+@media (max-width: 720px) {
+  .ov-roles__table > thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+  }
+
+  .ov-roles__table,
+  .ov-roles__table > tbody,
+  .ov-roles__table > tbody > tr,
+  .ov-roles__table > tbody > tr > td {
+    display: block;
+  }
+
+  .ov-roles__table > tbody > tr {
+    border-bottom: 1px solid var(--orbital-line);
+    padding: 8px 0;
+  }
+
+  .ov-roles__table > tbody > tr:last-child {
+    border-bottom: 0;
+  }
+
+  .ov-roles__table > tbody > tr > td {
+    border-bottom: 0;
+    padding: 4px 8px;
+  }
+
+  .ov-roles__table > tbody > tr > td[data-label] {
+    display: grid;
+    grid-template-columns: minmax(80px, 110px) minmax(0, 1fr);
+    align-items: center;
+    gap: 8px;
+  }
+
+  .ov-roles__table > tbody > tr > td[data-label]::before {
+    content: attr(data-label);
+    color: var(--orbital-muted);
+    font-size: 0.75rem;
+    font-weight: 700;
+  }
+
+  .ov-roles__table > tbody > tr > td.ov-roles__num {
+    text-align: left;
+  }
+
+  .ov-roles__table > tbody > tr.is-selected > td {
+    background: transparent;
+  }
+
+  .ov-roles__table > tbody > tr.is-selected {
+    background: var(--orbital-accent-soft);
+  }
+}
