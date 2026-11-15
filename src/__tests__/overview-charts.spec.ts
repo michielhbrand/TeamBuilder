@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { h, nextTick } from 'vue'
 import { mount } from '@vue/test-utils'
 import QuarterChart from '@/components/QuarterChart.vue'
@@ -8,7 +8,14 @@ import StageBars from '@/components/StageBars.vue'
 import FlowRows from '@/components/FlowRows.vue'
 import ChartTooltip from '@/components/ChartTooltip.vue'
 import { clampTooltipTop, provideChartTooltip } from '@/lib/chart-tooltip'
-import { axisMaxDays, barPath, dayTickStep, niceTicks, thinStep } from '@/lib/chart-scale'
+import {
+  axisMaxDays,
+  barPath,
+  dayTickStep,
+  niceTicks,
+  rowLabelWidth,
+  thinStep,
+} from '@/lib/chart-scale'
 import type { QuarterPoint, RoleFlow } from '@/lib/overview'
 import type { HireRecord } from '@/types/history'
 
@@ -37,6 +44,14 @@ const quarters = ['2026-Q1', '2026-Q2', '2026-Q3']
 const views = ['strip', 'range', 'curve', 'trend'] as const
 
 describe('chart scale helpers', () => {
+  it('rowLabelWidth clamps between 88px and 38% of the chart width', () => {
+    expect(rowLabelWidth(['Design'], 300)).toBe(88)
+    expect(rowLabelWidth(['Engineering'], 300)).toBe(89)
+    expect(rowLabelWidth(['Customer success and sales'], 300)).toBe(114)
+    expect(rowLabelWidth(['Customer success and sales'], 1000)).toBe(194)
+    expect(rowLabelWidth([], 1000)).toBe(88)
+  })
+
   it('niceTicks keeps at most five gridlines and covers the max', () => {
     for (const max of [1, 3, 7, 12, 48, 130, 999]) {
       const { ticks, top } = niceTicks(max)
@@ -281,6 +296,103 @@ describe('HireTimeChart', () => {
     expect(small.findAll('svg text').map((node) => node.text())).toContain('40 days')
   })
 
+  describe('at a narrow width', () => {
+    const width = vi.spyOn(Element.prototype, 'clientWidth', 'get')
+
+    afterEach(() => {
+      width.mockReset()
+    })
+
+    it('keeps the department label column at least 88px and untruncated for short names', async () => {
+      width.mockReturnValue(300)
+      const wrapper = mount(HireTimeChart, {
+        props: {
+          hires: [
+            { applicantId: 'a', department: 'Engineering', hiredOn: '2026-02-01', daysToHire: 30 },
+          ],
+          departments: ['Engineering'],
+          view: 'strip',
+          quarters,
+        },
+      })
+
+      await nextTick()
+      const label = wrapper.findAll('svg text.ov-strong')[0]
+      expect(label?.text()).toBe('Engineering')
+      const leftEdge = Number(wrapper.get('svg line.ov-grid').attributes('x1'))
+      expect(leftEdge).toBeGreaterThanOrEqual(88)
+    })
+
+    it('truncates only names longer than the label column', async () => {
+      width.mockReturnValue(300)
+      const wrapper = mount(HireTimeChart, {
+        props: {
+          hires: [
+            {
+              applicantId: 'a',
+              department: 'Customer success and sales',
+              hiredOn: '2026-02-01',
+              daysToHire: 30,
+            },
+          ],
+          departments: ['Customer success and sales'],
+          view: 'range',
+          quarters,
+        },
+      })
+
+      await nextTick()
+      const text = wrapper.findAll('svg text.ov-strong')[0]?.text() ?? ''
+      expect(text.endsWith('…')).toBe(true)
+      expect(text.length).toBeGreaterThanOrEqual(12)
+    })
+
+    it('moves the half label left of its marker when the nine-in-ten line would cross it', async () => {
+      width.mockReturnValue(300)
+      const wrapper = mount(HireTimeChart, {
+        props: {
+          hires: [60, 62, 64, 66, 68, 70, 72, 74, 76, 78].map((daysToHire, index) => ({
+            applicantId: `a${index}`,
+            department: 'Design',
+            hiredOn: '2026-02-01',
+            daysToHire,
+          })),
+          departments: ['Design'],
+          view: 'curve',
+          quarters,
+        },
+      })
+
+      await nextTick()
+      const labels = wrapper.findAll('svg text.ov-halo')
+      expect(labels).toHaveLength(2)
+      expect(labels[0]?.attributes('text-anchor')).toBe('end')
+    })
+  })
+
+  it('draws curve value labels with a halo and keeps them above both marker lines', () => {
+    const curve = mount(HireTimeChart, {
+      props: { hires: hires(10), departments, view: 'curve', quarters },
+    })
+    const children = [...curve.get('svg').element.children]
+    const lastLine = children.map((node) => node.tagName).lastIndexOf('g')
+    const firstLabel = children.findIndex((node) => node.classList.contains('ov-halo'))
+    expect(firstLabel).toBeGreaterThan(lastLine)
+    expect(curve.findAll('svg text.ov-halo')).toHaveLength(2)
+  })
+
+  it('uses the singular day in curve labels', () => {
+    const curve = mount(HireTimeChart, {
+      props: {
+        hires: [{ applicantId: 'a', department: 'Design', hiredOn: '2026-02-01', daysToHire: 1 }],
+        departments,
+        view: 'curve',
+        quarters,
+      },
+    })
+    expect(curve.findAll('svg text').map((node) => node.text())).toContain('half within 1 day')
+  })
+
   it('labels the half and nine-in-ten markers on the curve and one dot per hire on the strip', () => {
     const curve = mount(HireTimeChart, {
       props: { hires: hires(10), departments, view: 'curve', quarters },
@@ -431,6 +543,31 @@ describe('StageBars', () => {
     expect(fills[0]).toContain('width: 100%')
     expect(fills[1]).toContain('width: 0%')
     expect(fills[2]).toContain('width: 25%')
+  })
+
+  it('uses the singular unit for a value of one', async () => {
+    const Host = {
+      setup() {
+        provideChartTooltip()
+        return () =>
+          h('div', [
+            h(StageBars, { rows: [{ name: 'Applied', value: 1, unit: 'days' }] }),
+            h(ChartTooltip),
+          ])
+      },
+    }
+    vi.stubGlobal('innerWidth', 1000)
+    const wrapper = mount(Host)
+
+    expect(wrapper.get('.ov-hbars__value').text()).toBe('1 day')
+    wrapper
+      .get('.ov-hbars__row')
+      .element.dispatchEvent(
+        new MouseEvent('pointerenter', { clientX: 200, clientY: 100, bubbles: true }),
+      )
+    await nextTick()
+    expect(wrapper.get('[role="tooltip"]').text()).toBe('Appliedmedian 1 day')
+    vi.unstubAllGlobals()
   })
 
   it('words the tooltip like the prototype and lets a row override it', async () => {

@@ -377,6 +377,30 @@ describe('attentionItems', () => {
     )
   })
 
+  it('uses singular days in the attention copy', () => {
+    const late = makeBoard({ deadline: dayOffset(-1), candidates: [] })
+    const final = makeBoard({
+      id: 'f',
+      name: 'Final role',
+      deadline: dayOffset(60),
+      candidates: [applicant('a', { stepId: 's3', stepEnteredAt: daysAgo(1) })],
+    })
+    const stalled = makeBoard({
+      id: 's',
+      name: 'Stalled role',
+      deadline: dayOffset(1),
+      candidates: [applicant('a')],
+    })
+
+    expect(attentionItems([late], now)[0]?.title).toBe(
+      'Product Designer is 1 day past its deadline',
+    )
+    expect(attentionItems([final], now)[0]?.detail).toBe('Median 1 day at this stage')
+    expect(attentionItems([stalled], now).find((item) => item.kind === 'stalled')?.detail).toBe(
+      '1 applicant, all in Applied · due tomorrow',
+    )
+  })
+
   it('yields several kinds for one board', () => {
     const board = makeBoard({
       deadline: dayOffset(-1),

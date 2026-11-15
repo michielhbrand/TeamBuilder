@@ -1,7 +1,14 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useChartHover } from '@/lib/chart-tooltip'
-import { axisMaxDays, dayTickStep, niceTicks, thinStep, truncateLabel } from '@/lib/chart-scale'
+import {
+  axisMaxDays,
+  dayTickStep,
+  niceTicks,
+  rowLabelWidth,
+  thinStep,
+  truncateLabel,
+} from '@/lib/chart-scale'
 import {
   medianByQuarter,
   percentile,
@@ -37,7 +44,7 @@ const hover = useChartHover()
 const isRows = computed(() => props.view === 'strip' || props.view === 'range')
 const left = computed(() => {
   if (isRows.value) {
-    return Math.round(Math.min(150, Math.max(84, width.value * 0.26)))
+    return rowLabelWidth(props.departments, width.value)
   }
   return props.view === 'curve' ? 46 : 52
 })
@@ -84,7 +91,7 @@ const rows = computed(() =>
 
     return {
       department,
-      name: truncateLabel(department, left.value - 12),
+      name: truncateLabel(department, left.value - 12, 7),
       cy,
       range,
       dots,
@@ -121,19 +128,26 @@ const curve = computed(() => {
     ] as const
   ).map(([share, name]) => {
     const value = round(percentile(days, share) as number)
-    const text = `${name} within ${value} days`
+    const text = `${name} within ${plural(value, 'day')}`
     const x = xFor(value)
-    const flip = x + 10 + text.length * 6.8 > width.value
     return {
       share,
       x,
       y: yFor(share),
       base: yFor(0),
       text,
-      flip,
+      flip: false,
       title: `${name} of hires`,
       tip: `made within ${plural(value, 'day')}`,
     }
+  })
+
+  markers.forEach((marker, index) => {
+    const length = marker.text.length * 7
+    const limit = (markers[index + 1]?.x ?? width.value) - 6
+    const fitsRight = marker.x + 10 + length <= limit
+    const fitsLeft = marker.x - 10 - length >= left.value - 4
+    marker.flip = !fitsRight && (fitsLeft || marker.x + 10 + length > width.value)
   })
 
   return {
@@ -237,7 +251,9 @@ const curveRows = computed(() =>
               :y1="PLOT_TOP"
               :y2="height - AXIS_BAND + 10"
             />
-            <text :x="xFor(tick)" :y="height - 8" text-anchor="middle">{{ tick }} days</text>
+            <text :x="xFor(tick)" :y="height - 8" text-anchor="middle">
+              {{ plural(tick, 'day') }}
+            </text>
           </g>
           <g v-for="row in rows" :key="row.department">
             <text class="ov-strong" x="0" :y="row.cy + (view === 'strip' ? 0 : 4)">
@@ -292,7 +308,7 @@ const curveRows = computed(() =>
               v-bind="
                 hover(
                   row.department,
-                  `Fastest ${row.range.min} · typical ${round(row.range.q1)} to ${round(row.range.q3)} · median ${round(row.range.median)} · slowest ${row.range.max} days`,
+                  `Fastest ${row.range.min} · typical ${round(row.range.q1)} to ${round(row.range.q3)} · median ${round(row.range.median)} · slowest ${plural(row.range.max, 'day')}`,
                 )
               "
             >
@@ -354,7 +370,7 @@ const curveRows = computed(() =>
             :y="height - 12"
             text-anchor="middle"
           >
-            {{ tick }} days
+            {{ plural(tick, 'day') }}
           </text>
           <polyline
             class="ov-stroke-accent"
@@ -363,34 +379,38 @@ const curveRows = computed(() =>
             stroke-linejoin="round"
             :points="curve.points"
           />
-          <g v-for="marker in curve.markers" :key="marker.share">
-            <g v-bind="hover(marker.title, marker.tip)">
-              <rect
-                class="ov-hit"
-                :x="marker.x - 10"
-                :y="marker.y - 10"
-                width="20"
-                :height="marker.base - marker.y + 10"
-              />
-              <line
-                class="ov-stroke-ink"
-                stroke-width="2"
-                :x1="marker.x"
-                :x2="marker.x"
-                :y1="marker.y"
-                :y2="marker.base"
-              />
-              <circle class="ov-fill-ink" r="5" :cx="marker.x" :cy="marker.y" />
-            </g>
-            <text
-              class="ov-strong"
-              :x="marker.flip ? marker.x - 10 : marker.x + 10"
-              :y="marker.y + 4"
-              :text-anchor="marker.flip ? 'end' : 'start'"
-            >
-              {{ marker.text }}
-            </text>
+          <g
+            v-for="marker in curve.markers"
+            :key="marker.share"
+            v-bind="hover(marker.title, marker.tip)"
+          >
+            <rect
+              class="ov-hit"
+              :x="marker.x - 10"
+              :y="marker.y - 10"
+              width="20"
+              :height="marker.base - marker.y + 10"
+            />
+            <line
+              class="ov-stroke-ink"
+              stroke-width="2"
+              :x1="marker.x"
+              :x2="marker.x"
+              :y1="marker.y"
+              :y2="marker.base"
+            />
+            <circle class="ov-fill-ink" r="5" :cx="marker.x" :cy="marker.y" />
           </g>
+          <text
+            v-for="marker in curve.markers"
+            :key="`label-${marker.share}`"
+            class="ov-strong ov-halo"
+            :x="marker.flip ? marker.x - 10 : marker.x + 10"
+            :y="marker.y + 4"
+            :text-anchor="marker.flip ? 'end' : 'start'"
+          >
+            {{ marker.text }}
+          </text>
         </template>
 
         <template v-else>

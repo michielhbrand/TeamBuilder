@@ -322,6 +322,11 @@ describe('OverviewView', () => {
     await chip(wrapper, 'Trend').trigger('click')
     expect(chip(wrapper, 'Trend').attributes('aria-pressed')).toBe('true')
     expect(chip(wrapper, 'Every hire').attributes('aria-pressed')).toBe('false')
+
+    await chip(wrapper, 'Speed curve').trigger('click')
+    expect(wrapper.text()).toContain(
+      'The share of hires made within a number of days. Steeper and further left is faster.',
+    )
   })
 
   it('lists only the activity of filtered boards', async () => {

@@ -4154,6 +4154,13 @@ body > .v-navigation-drawer__scrim {
   font-weight: 600;
 }
 
+.ov-svg text.ov-halo {
+  paint-order: stroke;
+  stroke: var(--orbital-surface);
+  stroke-linejoin: round;
+  stroke-width: 3px;
+}
+
 .ov-grid {
   stroke: var(--orbital-line);
   stroke-width: 1;
@@ -4449,6 +4456,30 @@ body > .v-navigation-drawer__scrim {
 @media (max-width: 640px) {
   .ov-kpis {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .ov-flow__row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 6px 12px;
+  }
+
+  .ov-flow__label {
+    grid-column: 1;
+    grid-row: 1;
+    overflow: visible;
+    text-overflow: clip;
+    white-space: normal;
+  }
+
+  .ov-flow__count {
+    grid-column: 2;
+    grid-row: 1;
+    text-align: right;
+  }
+
+  .ov-flow__bars {
+    grid-column: 1 / -1;
+    grid-row: 2;
   }
 }
 

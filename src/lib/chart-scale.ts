@@ -45,6 +45,13 @@ export function truncateLabel(text: string, pixels: number, charWidth = 6.8): st
   return text.length > chars ? `${text.slice(0, Math.max(1, chars - 1))}…` : text
 }
 
+export function rowLabelWidth(labels: string[], chartWidth: number): number {
+  const longest = Math.max(0, ...labels.map((label) => label.length))
+  const estimate = longest * 7 + 12
+
+  return Math.round(Math.max(88, Math.min(estimate, chartWidth * 0.38)))
+}
+
 export function barPath(
   x: number,
   y: number,

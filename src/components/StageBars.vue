@@ -14,8 +14,12 @@ const props = defineProps<{ rows: BarRow[] }>()
 const hover = useChartHover()
 const max = computed(() => Math.max(0, ...props.rows.map((row) => row.value ?? 0)))
 
+function unitFor(row: BarRow): string {
+  return row.value === 1 && row.unit ? row.unit.replace(/s$/, '') : (row.unit ?? '')
+}
+
 function valueText(row: BarRow): string {
-  return row.value === null ? '–' : `${row.value}${row.unit ? ` ${row.unit}` : ''}`
+  return row.value === null ? '–' : `${row.value}${row.unit ? ` ${unitFor(row)}` : ''}`
 }
 
 function widthFor(row: BarRow): number {
@@ -30,7 +34,7 @@ function tipFor(row: BarRow): string {
     return 'nobody here'
   }
   if (row.unit) {
-    return `median ${row.value} ${row.unit}`
+    return `median ${row.value} ${unitFor(row)}`
   }
   return `${row.value} active applicant${row.value === 1 ? '' : 's'}`
 }

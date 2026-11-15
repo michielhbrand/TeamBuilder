@@ -45,7 +45,7 @@ const hireViews: { value: HireView; label: string }[] = [
 const hireViewHelp: Record<HireView, string> = {
   strip: 'Each dot is one hire. The dark mark is the median.',
   range: 'Bar is the middle half of hires, dot is the median, line runs fastest to slowest.',
-  curve: 'How many hires were done within N days. Steeper and further left is faster.',
+  curve: 'The share of hires made within a number of days. Steeper and further left is faster.',
   trend: 'Median days to hire per quarter.',
 }
 
@@ -235,7 +235,7 @@ onMounted(() => {
         <OverviewKpi
           label="Time to a hire"
           :value="hireDays ?? '–'"
-          :unit="hireDays === null ? undefined : 'days'"
+          :unit="hireDays === null ? undefined : hireDays === 1 ? 'day' : 'days'"
           meta="median, board opened → hire"
           source="history"
         />
