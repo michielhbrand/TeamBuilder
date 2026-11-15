@@ -307,19 +307,6 @@ describe('boards store', () => {
     })
   })
 
-  it('derives past-deadline boards and totals', async () => {
-    const yesterday = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10)
-    mocks.fetchBoards.mockResolvedValue([
-      makeBoard({ id: 'b1', deadline: yesterday }),
-      makeBoard({ id: 'b2', name: 'Backend Engineer', deadline: '2099-01-01' }),
-    ])
-    const store = await initializedStore()
-
-    expect(store.summaries).toHaveLength(2)
-    expect(store.totals.overdue).toBe(1)
-    expect(store.needsAttention.map((summary) => summary.board.id)).toEqual(['b1'])
-  })
-
   it('resets loaded data', async () => {
     const store = await initializedStore()
 

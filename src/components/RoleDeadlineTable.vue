@@ -100,7 +100,7 @@ const rows = computed(() =>
                 role="progressbar"
                 aria-valuemin="0"
                 :aria-valuemax="row.open"
-                :aria-valuenow="row.hired"
+                :aria-valuenow="Math.min(row.hired, row.open)"
                 :aria-label="`Positions filled for ${row.board.name}`"
               >
                 <i :style="{ width: `${row.share * 100}%` }" />

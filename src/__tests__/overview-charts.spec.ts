@@ -251,6 +251,55 @@ describe('QuarterChart', () => {
   })
 })
 
+describe('QuarterChart labels and copy', () => {
+  const many = (count: number): QuarterPoint[] =>
+    Array.from({ length: count }, (_, index) => ({
+      key: `Q${index}`,
+      label: `Q${(index % 4) + 1} ${20 + Math.floor(index / 4)}`,
+      partial: index === count - 1,
+      applicantsIn: 10 + index,
+      hired: 2,
+      rejected: 3,
+    }))
+
+  it('thins labels from the end so the current quarter keeps its label', async () => {
+    const width = vi.spyOn(Element.prototype, 'clientWidth', 'get').mockReturnValue(300)
+    const wrapper = mount(QuarterChart, { props: { points: many(12), kind: 'applicants' } })
+    await nextTick()
+
+    const labels = wrapper
+      .findAll('svg text')
+      .map((node) => node.text())
+      .filter((text) => /^Q\d \d+\*?$/.test(text))
+    expect(labels.length).toBeLessThan(12)
+    expect(labels[labels.length - 1]).toBe('Q4 22*')
+    width.mockReset()
+  })
+
+  it('uses the supplied empty copy and groups thousands on the axis and in the tooltip', () => {
+    const empty = mount(QuarterChart, {
+      props: { points: many(2).map((p) => ({ ...p, applicantsIn: 0 })), kind: 'applicants' },
+    })
+    expect(empty.get('.ov-empty').text()).toBe('No history recorded yet.')
+
+    const custom = mount(QuarterChart, {
+      props: {
+        points: many(2).map((p) => ({ ...p, applicantsIn: 0 })),
+        kind: 'applicants',
+        emptyText: 'No history for this department yet.',
+      },
+    })
+    expect(custom.get('.ov-empty').text()).toBe('No history for this department yet.')
+
+    const big = mount(QuarterChart, {
+      props: { points: many(2).map((p) => ({ ...p, applicantsIn: 2500 })), kind: 'applicants' },
+    })
+    const ticks = big.findAll('svg text').map((node) => node.text())
+    expect(ticks).toContain('1,000')
+    expect(big.get('table.sr-only').text()).toContain('2,500')
+  })
+})
+
 describe('HireTimeChart', () => {
   for (const view of views) {
     it(`renders the ${view} view for 1, many and zero hires`, () => {
@@ -345,6 +394,35 @@ describe('HireTimeChart', () => {
       const text = wrapper.findAll('svg text.ov-strong')[0]?.text() ?? ''
       expect(text.endsWith('…')).toBe(true)
       expect(text.length).toBeGreaterThanOrEqual(12)
+    })
+
+    it('keeps the current quarter label on a thinned trend axis', async () => {
+      width.mockReturnValue(300)
+      const keys = ['2024', '2025', '2026'].flatMap((year) =>
+        [1, 2, 3, 4].map((quarter) => `${year}-Q${quarter}`),
+      )
+      const wrapper = mount(HireTimeChart, {
+        props: {
+          hires: keys.map((key, index) => ({
+            applicantId: `a${index}`,
+            department: 'Design',
+            hiredOn: `${key.slice(0, 4)}-${String((Number(key.slice(6)) - 1) * 3 + 2).padStart(2, '0')}-10`,
+            daysToHire: 20 + index,
+          })),
+          departments: ['Design'],
+          view: 'trend',
+          quarters: keys,
+          partialKey: '2026-Q4',
+        },
+      })
+      await nextTick()
+
+      const axisLabels = wrapper
+        .findAll('svg text:not(.ov-strong)')
+        .map((node) => node.text())
+        .filter((text) => /^Q\d \d+\*?$/.test(text))
+      expect(axisLabels.length).toBeLessThan(12)
+      expect(axisLabels[axisLabels.length - 1]).toBe('Q4 26*')
     })
 
     it('moves the half label left of its marker when the nine-in-ten line would cross it', async () => {

@@ -177,7 +177,7 @@ const trend = computed(() => {
     median: entry.median === null ? null : round(entry.median),
     x: xAt(index),
     y: entry.median === null ? 0 : yFor(entry.median),
-    showLabel: index % labelStep === 0,
+    showLabel: (medians.length - 1 - index) % labelStep === 0,
   }))
 
   return {

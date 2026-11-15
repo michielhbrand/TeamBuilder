@@ -209,6 +209,24 @@ describe('RoleDeadlineTable', () => {
     expect(bar.attributes('aria-label')).toBe('Positions filled for Soon role')
   })
 
+  it('clamps the progressbar value to the open positions but keeps the visible text', () => {
+    const over = board({
+      id: 'over',
+      name: 'Over role',
+      deadline: isoIn(5),
+      openPositions: 1,
+      candidates: [
+        candidate('o1', 'over', 'over-s1', 'hired'),
+        candidate('o2', 'over', 'over-s1', 'hired'),
+      ],
+    })
+    const wrapper = mountWith(RoleDeadlineTable, { boards: [over], selectedId: null })
+    const bar = wrapper.find('[role="progressbar"]')
+    expect(bar.attributes('aria-valuenow')).toBe('1')
+    expect(bar.attributes('aria-valuemax')).toBe('1')
+    expect(wrapper.text()).toContain('2 of 1')
+  })
+
   it('applies the danger class only to the past-deadline chip', () => {
     const wrapper = mountWith(RoleDeadlineTable, { boards: [late, soon], selectedId: null })
     const chips = wrapper.findAll('.ov-roles__deadline')

@@ -1,12 +1,12 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import * as api from '@/lib/boards-api'
-import { flattenBoards, groupBoards, summariseBoard, summariseBoards } from '@/lib/pipeline'
+import { flattenBoards, groupBoards } from '@/lib/pipeline'
 import { errorMessage } from '@/lib/store-errors'
 import { useApplicantActivityStore } from '@/stores/applicant-activity'
 import { useApplicantsStore } from '@/stores/applicants'
 import { useStorageStore } from '@/stores/storage'
-import type { Board, BoardInput, BoardSummary, PipelineStep } from '@/types/pipeline'
+import type { Board, BoardInput, PipelineStep } from '@/types/pipeline'
 
 export const useBoardsStore = defineStore('boards', () => {
   const boards = ref<Board[]>([])
@@ -17,20 +17,8 @@ export const useBoardsStore = defineStore('boards', () => {
 
   const groups = computed(() => groupBoards(boards.value))
   const orderedBoards = computed(() => flattenBoards(groups.value))
-  const summaries = computed(() => boards.value.map(summariseBoard))
-  const totals = computed(() => summariseBoards(boards.value))
-  const needsAttention = computed(() =>
-    summaries.value
-      .filter((summary) => summary.overdue)
-      .sort((a, b) => a.board.deadline.localeCompare(b.board.deadline)),
-  )
-
   function boardById(id: string): Board | undefined {
     return boards.value.find((board) => board.id === id)
-  }
-
-  function summaryById(id: string): BoardSummary | undefined {
-    return summaries.value.find((summary) => summary.board.id === id)
   }
 
   async function initialize(): Promise<void> {
@@ -288,11 +276,7 @@ export const useBoardsStore = defineStore('boards', () => {
     error,
     groups,
     orderedBoards,
-    summaries,
-    totals,
-    needsAttention,
     boardById,
-    summaryById,
     initialize,
     refresh,
     createBoard,
