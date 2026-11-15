@@ -14,6 +14,7 @@ import { useApplicantActivityStore } from '@/stores/applicant-activity'
 import { useApplicantsStore } from '@/stores/applicants'
 import { useBoardsStore } from '@/stores/boards'
 import { useFitStore } from '@/stores/fit'
+import { useHistoryStore } from '@/stores/history'
 import { useStorageStore } from '@/stores/storage'
 import { useUndoStore } from '@/stores/undo'
 
@@ -96,6 +97,7 @@ export const useAuthStore = defineStore('auth', () => {
     useApplicantActivityStore().reset()
     useStorageStore().reset()
     useFitStore().reset()
+    useHistoryStore().reset()
     useUndoStore().reset()
   }
 

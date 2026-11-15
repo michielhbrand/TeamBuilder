@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   deleteApplicant: vi.fn<(...args: unknown[]) => unknown>(),
   fetchApplicantEvents: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
   fetchApplicantNotes: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
+  fetchRecentEvents: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
   createApplicantNote: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
   actorName: 'Emma Brand',
 }))
@@ -29,6 +30,7 @@ vi.mock('@/lib/applicants-api', () => ({
 vi.mock('@/lib/activity-api', () => ({
   fetchApplicantEvents: mocks.fetchApplicantEvents,
   fetchApplicantNotes: mocks.fetchApplicantNotes,
+  fetchRecentEvents: mocks.fetchRecentEvents,
   createApplicantNote: mocks.createApplicantNote,
   recordApplicantEditEvent: vi.fn<(...args: unknown[]) => unknown>(),
 }))
@@ -98,6 +100,7 @@ describe('applicant activity store', () => {
     mocks.deleteApplicant.mockResolvedValue(undefined)
     mocks.fetchApplicantEvents.mockResolvedValue([])
     mocks.fetchApplicantNotes.mockResolvedValue([])
+    mocks.fetchRecentEvents.mockResolvedValue([])
     mocks.createApplicantNote.mockImplementation(async (input) => {
       const note = input as {
         boardId: string
@@ -225,5 +228,84 @@ describe('applicant activity store', () => {
     expect(created).toBeNull()
     expect(activity.error).toBe('notes unavailable')
     expect(applicants.error).toBe('Add a stage to this board before adding an applicant.')
+  })
+
+  describe('recent activity', () => {
+    const recentEvent = {
+      id: 'e9',
+      boardId: 'b1',
+      applicantId: 'c1',
+      actorName: 'Emma Brand',
+      action: 'moved',
+      message: 'Emma Brand moved Amara Okafor to Interview',
+      createdAt: '2026-11-10T10:00:00Z',
+    }
+
+    it('loads recent events with the default limit', async () => {
+      const { activity } = await initializedStores()
+      mocks.fetchRecentEvents.mockResolvedValue([recentEvent])
+
+      expect(activity.recentLoaded).toBe(false)
+      await activity.loadRecent()
+
+      expect(mocks.fetchRecentEvents).toHaveBeenCalledWith(30)
+      expect(activity.recent).toEqual([recentEvent])
+      expect(activity.recentError).toBeNull()
+      expect(activity.recentLoaded).toBe(true)
+    })
+
+    it('passes a custom limit', async () => {
+      const { activity } = await initializedStores()
+
+      await activity.loadRecent(5)
+
+      expect(mocks.fetchRecentEvents).toHaveBeenCalledWith(5)
+    })
+
+    it('keeps the previous list and sets recentError when the read fails', async () => {
+      const { activity } = await initializedStores()
+      mocks.fetchRecentEvents.mockResolvedValue([recentEvent])
+      await activity.loadRecent()
+      mocks.fetchRecentEvents.mockRejectedValue(new Error('recent unavailable'))
+
+      await activity.loadRecent()
+
+      expect(activity.recent).toEqual([recentEvent])
+      expect(activity.recentError).toBe('recent unavailable')
+      expect(activity.recentLoaded).toBe(true)
+      expect(activity.error).toBeNull()
+    })
+
+    it('clears recentError after a successful reload', async () => {
+      const { activity } = await initializedStores()
+      mocks.fetchRecentEvents.mockRejectedValueOnce(new Error('recent unavailable'))
+      await activity.loadRecent()
+
+      await activity.loadRecent()
+
+      expect(activity.recentError).toBeNull()
+    })
+
+    it('does not flip recentLoaded when the first read fails', async () => {
+      const { activity } = await initializedStores()
+      mocks.fetchRecentEvents.mockRejectedValue(new Error('recent unavailable'))
+
+      await activity.loadRecent()
+
+      expect(activity.recentLoaded).toBe(false)
+      expect(activity.recent).toEqual([])
+    })
+
+    it('reset clears recent activity', async () => {
+      const { activity } = await initializedStores()
+      mocks.fetchRecentEvents.mockResolvedValue([recentEvent])
+      await activity.loadRecent()
+
+      activity.reset()
+
+      expect(activity.recent).toEqual([])
+      expect(activity.recentError).toBeNull()
+      expect(activity.recentLoaded).toBe(false)
+    })
   })
 })

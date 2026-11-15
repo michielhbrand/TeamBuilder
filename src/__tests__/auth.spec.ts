@@ -13,6 +13,9 @@ const mocks = vi.hoisted(() => ({
   signOut: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
   fetchApplicantEvents: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
   fetchApplicantNotes: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
+  fetchRecentEvents: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
+  fetchHiringMonthly: vi.fn<() => Promise<unknown>>(),
+  fetchHireHistory: vi.fn<() => Promise<unknown>>(),
 }))
 
 vi.mock('@/lib/supabase', () => ({
@@ -20,9 +23,14 @@ vi.mock('@/lib/supabase', () => ({
     auth: mocks,
   },
 }))
+vi.mock('@/lib/history-api', () => ({
+  fetchHiringMonthly: mocks.fetchHiringMonthly,
+  fetchHireHistory: mocks.fetchHireHistory,
+}))
 vi.mock('@/lib/activity-api', () => ({
   fetchApplicantEvents: mocks.fetchApplicantEvents,
   fetchApplicantNotes: mocks.fetchApplicantNotes,
+  fetchRecentEvents: mocks.fetchRecentEvents,
   createApplicantNote: vi.fn<(...args: unknown[]) => unknown>(),
   recordApplicantEditEvent: vi.fn<(...args: unknown[]) => unknown>(),
 }))
@@ -31,6 +39,7 @@ import { useApplicantActivityStore } from '@/stores/applicant-activity'
 import { useApplicantsStore } from '@/stores/applicants'
 import { useAuthStore } from '@/stores/auth'
 import { useBoardsStore } from '@/stores/boards'
+import { useHistoryStore } from '@/stores/history'
 import { useUndoStore } from '@/stores/undo'
 
 const candidate: Candidate = {
@@ -286,6 +295,54 @@ describe('auth store', () => {
     expect(activity.notesFor('c1')).toEqual([])
     expect(applicants.pendingProfileValues('c1')).toBeUndefined()
     expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('signing out resets the history store', async () => {
+    mocks.getSession.mockResolvedValue({ data: { session }, error: null })
+    mocks.signOut.mockResolvedValue({ error: null })
+    mocks.fetchHiringMonthly.mockResolvedValue([
+      { month: '2026-10-01', department: 'Engineering', applicantsIn: 1, hired: 0, rejected: 0 },
+    ])
+    mocks.fetchHireHistory.mockResolvedValue([])
+    const auth = useAuthStore()
+    await auth.initialize()
+    const history = useHistoryStore()
+    await history.initialize()
+
+    await auth.signOut()
+
+    expect(history.initialized).toBe(false)
+    expect(history.months).toEqual([])
+  })
+
+  it('a signed-out session event resets recent activity', async () => {
+    let handler: ((event: string, nextSession: Session | null) => void) | undefined
+    mocks.onAuthStateChange.mockImplementation((callback) => {
+      handler = callback as (event: string, nextSession: Session | null) => void
+      return { data: { subscription: { unsubscribe: vi.fn<() => void>() } } }
+    })
+    mocks.getSession.mockResolvedValue({ data: { session }, error: null })
+    mocks.fetchRecentEvents.mockResolvedValue([
+      {
+        id: 'e1',
+        boardId: 'b1',
+        applicantId: 'c1',
+        actorName: 'Emma Brand',
+        action: 'created',
+        message: 'Emma Brand created Amara Okafor',
+        createdAt: '2026-11-09T10:00:00Z',
+      },
+    ])
+    const auth = useAuthStore()
+    await auth.initialize()
+    const activity = useApplicantActivityStore()
+    await activity.loadRecent()
+    expect(activity.recent).toHaveLength(1)
+
+    handler?.('SIGNED_OUT', null)
+
+    expect(activity.recent).toEqual([])
+    expect(activity.recentLoaded).toBe(false)
   })
 
   it('signing out resets the undo store', async () => {

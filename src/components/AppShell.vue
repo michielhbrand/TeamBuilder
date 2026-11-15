@@ -6,10 +6,14 @@ import FullNameDialog from '@/components/FullNameDialog.vue'
 import ThemeToggle from '@/components/ThemeToggle.vue'
 import UndoToast from '@/components/UndoToast.vue'
 import { useAuthStore } from '@/stores/auth'
+import { useApplicantActivityStore } from '@/stores/applicant-activity'
 import { useBoardsStore } from '@/stores/boards'
+import { useHistoryStore } from '@/stores/history'
 
 const auth = useAuthStore()
 const boards = useBoardsStore()
+const history = useHistoryStore()
+const activity = useApplicantActivityStore()
 
 const email = computed(() => auth.user?.email ?? 'Signed in')
 
@@ -24,6 +28,11 @@ const initials = computed(() => {
 
 function refreshWorkspace(): void {
   void boards.refresh()
+  void history.refresh()
+
+  if (activity.recentLoaded) {
+    void activity.loadRecent()
+  }
 }
 
 function onVisibilityChange(): void {

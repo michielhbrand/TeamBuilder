@@ -14,6 +14,9 @@ export const useApplicantActivityStore = defineStore('applicant-activity', () =>
   const applicantEventsLoading = ref<Record<string, boolean>>({})
   const applicantNotes = ref<Record<string, ApplicantNote[]>>({})
   const applicantNotesLoading = ref<Record<string, boolean>>({})
+  const recent = ref<ApplicantEvent[]>([])
+  const recentError = ref<string | null>(null)
+  const recentLoaded = ref(false)
 
   function eventsFor(candidateId: string): ApplicantEvent[] {
     return applicantEvents.value[candidateId] ?? []
@@ -107,6 +110,16 @@ export const useApplicantActivityStore = defineStore('applicant-activity', () =>
     }
   }
 
+  async function loadRecent(limit = 30): Promise<void> {
+    try {
+      recent.value = await api.fetchRecentEvents(limit)
+      recentError.value = null
+      recentLoaded.value = true
+    } catch (caught) {
+      recentError.value = errorMessage(caught)
+    }
+  }
+
   async function addNote(candidateId: string, body: string): Promise<boolean> {
     error.value = null
     const candidate = applicants.candidateById(candidateId)
@@ -149,17 +162,24 @@ export const useApplicantActivityStore = defineStore('applicant-activity', () =>
     applicantEventsLoading.value = {}
     applicantNotes.value = {}
     applicantNotesLoading.value = {}
+    recent.value = []
+    recentError.value = null
+    recentLoaded.value = false
     error.value = null
   }
 
   return {
     error,
+    recent,
+    recentError,
+    recentLoaded,
     eventsFor,
     eventsLoadingFor,
     notesFor,
     notesLoadingFor,
     loadEvents,
     loadNotes,
+    loadRecent,
     addNote,
     recordEdit,
     forgetCandidate,
