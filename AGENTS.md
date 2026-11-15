@@ -164,6 +164,12 @@ npm run build
 - `src/lib/pdf.ts` — shared PDF validation, client-side compression, and print helpers.
 - `src/lib/resume-import.ts` — local PDF text extraction, applicant heuristics, and lazy
   Tesseract OCR for scanned pages.
+- `src/lib/use-element-width.ts` — `useElementWidth(target, fallback)` measures an element with
+  `ResizeObserver` so SVG charts draw at real pixel widths.
+- `src/lib/chart-tooltip.ts` — `provideChartTooltip()` / `useChartTooltip()` shared hover tooltip
+  state; `src/components/ChartTooltip.vue` renders the single tooltip element.
+- `src/components/OverviewPanel.vue`, `OverviewKpi.vue`, `OverviewSourceTag.vue` — Overview panel
+  and KPI shells with the neutral "Live boards" / "History table" source tag (`.ov-*` styles).
 - `src/components/PipelineBar.vue` — per-stage applicant progress bar.
 - `src/components/DepartmentLoadChart.vue` — interactive department workload bars.
 - `src/components/OutcomeDonut.vue` — active, hired, and rejected outcome chart.
