@@ -9,10 +9,11 @@ deployment, or UI behavior.
 TeamBuilder is a Vue 3 + Supabase hiring pipeline workspace. It is hosted on GitHub Pages
 and exists to demonstrate a login screen, admin invitations that let users choose a
 password, in-memory sessions, a protected hiring portal, and sign-out. The portal has a
-dashboard overview, role boards grouped by department, a stage-column pipeline for each role,
+hiring dashboard overview (live board numbers plus quarterly hiring trends kept in a small
+history), role boards grouped by department, a stage-column pipeline for each role,
 a consent-gated CV analysis that lists similarities and gaps, an applicant audit trail, and an account page. Boards,
-pipeline stages, applicants, events, notes, and fit analyses are stored in Supabase Postgres
-and loaded through Pinia. Keep it focused; do not add unrelated product features.
+pipeline stages, applicants, events, notes, fit analyses, and the monthly hiring history are
+stored in Supabase Postgres and loaded through Pinia. Keep it focused; do not add unrelated product features.
 
 ## Commands
 
@@ -78,6 +79,8 @@ npm run build
   session becomes `null`.
 - `src/types/pipeline.ts` — board, stage, applicant, applicant event, and summary types.
 - `src/types/fit.ts` — applicant CV/job-spec analysis types.
+- `src/types/history.ts` — `HiringMonth` and `HireRecord`, the camel-cased rows of the history
+  tables.
 - `src/lib/career.ts` — structured education/work entries: normalising, serialising, month and
   duration formatting, total experience, employment gaps, the career-strip layout, and the
   plain-text formatter used for fit analysis fingerprints.
@@ -87,10 +90,13 @@ npm run build
   mappers.
 - `src/lib/boards-api.ts` — Supabase reads and writes for boards and stages.
 - `src/lib/applicants-api.ts` — Supabase create, update, and delete for applicants.
-- `src/lib/activity-api.ts` — Supabase reads and writes for applicant events and notes.
+- `src/lib/activity-api.ts` — Supabase reads and writes for applicant events and notes, plus
+  `fetchRecentEvents(limit)` for the newest events across all boards.
 - `src/lib/storage-api.ts` — Supabase Storage uploads, downloads, signed URLs, and object
   removal for applicant CVs and board job specs.
 - `src/lib/fit-api.ts` — Supabase reads for stored fit analyses and Edge Function invocation.
+- `src/lib/history-api.ts` — select-only reads of `public.hiring_monthly` and
+  `public.hire_history` with their row mappers. There are no history writes.
 - `src/lib/store-errors.ts` — shared friendly constraint messages and store error formatting.
 - `src/lib/applicant-events.ts` — fallback actor label, absolute timestamp formatting, and
   `formatRelativeTime` for the audit trail.
@@ -101,6 +107,16 @@ npm run build
 - `src/lib/pipeline.ts` — pure pipeline helpers for steps, deadlines and `deadlineLabel`,
   summaries, `stageBreakdown`, `sortBoards`, `applicantsInStage`, `reorderIds` (first stage
   locked), `applicantActions`, and department grouping.
+- `src/lib/overview.ts` — pure Overview helpers: percentiles and median, calendar-quarter keys
+  and labels, `quarterSeries`, `hireRate`, `hiresInQuarters`, `rangeByDepartment`, `speedCurve`,
+  `medianByQuarter`, `finalStageCount`, `attentionItems`, `roleFlow`, `filledShare`,
+  `openedDaysAgo`, and per-board `stageStats` / `slowestStage`. All "now" arithmetic is UTC.
+- `src/lib/chart-scale.ts` — pure chart geometry: `niceTicks`, `axisMaxDays`, `dayTickStep`,
+  `thinStep`, `truncateLabel`, `rowLabelWidth`, and `barPath`.
+- `src/lib/chart-tooltip.ts` — `provideChartTooltip()` / `useChartTooltip()` / `useChartHover()`
+  shared hover tooltip state and viewport clamping.
+- `src/lib/use-element-width.ts` — `useElementWidth(target, fallback)` measures an element with
+  `ResizeObserver` so SVG charts draw at real pixel widths.
 - `src/lib/validation.ts` — shared email and phone validation helpers.
 - `src/lib/use-media-query.ts` — `useMediaQuery(query)` composable returning a reactive
   `matchMedia` result that removes its listener when the scope stops.
@@ -109,14 +125,23 @@ npm run build
 - `src/stores/applicants.ts` — applicant lookup, applicant CRUD, moves, status changes,
   dirty-field debounced autosave, and edit snapshots.
 - `src/stores/applicant-activity.ts` — applicant events and notes with per-applicant loading
-  state; derives the note author from the auth store's `actorName`.
+  state; derives the note author from the auth store's `actorName`. `recent`, `recentError`,
+  `recentLoaded`, and `loadRecent(limit = 30)` hold the newest events across all boards for
+  the Overview; `AppShell` reloads them on focus only once they have been loaded.
 - `src/stores/storage.ts` — CV and job-spec uploads, removals, signed URLs, and blobs.
 - `src/stores/fit.ts` — persisted applicant CV-analysis state and actions.
+- `src/stores/history.ts` — read-only `months` (`hiring_monthly`) and `hires` (`hire_history`)
+  with `initialize`, `refresh`, and `reset`; its own `error`. The Overview initializes it on
+  mount (refreshing instead when already initialized) and `AppShell` refreshes it on focus and
+  visibility. Reset on sign-out.
 - `src/stores/undo.ts` — the single pending undo entry with an 8 second timer; the undo action
   reports failures through `applicants.error`. Reset on sign-out.
 - `src/components/UndoToast.vue` — bottom-left status toast with an Undo action, mounted once
   in `AppShell.vue`.
 - `supabase/migrations/` — Postgres tables, RLS policies, indexes, and board RPC functions.
+- `supabase/migrations/20261115000000_hiring_history.sql` — `public.hiring_monthly`,
+  `public.hire_history`, the `applicants_record_history` trigger and its security-definer
+  functions, and the backfill from live data.
 - `supabase/functions/fit-analysis/` — authenticated Edge Function that redacts CV fields,
   calls the free Kilo model, validates the similarities/gaps JSON, and upserts the shared
   analysis.
@@ -164,20 +189,33 @@ npm run build
 - `src/lib/pdf.ts` — shared PDF validation, client-side compression, and print helpers.
 - `src/lib/resume-import.ts` — local PDF text extraction, applicant heuristics, and lazy
   Tesseract OCR for scanned pages.
-- `src/lib/use-element-width.ts` — `useElementWidth(target, fallback)` measures an element with
-  `ResizeObserver` so SVG charts draw at real pixel widths.
-- `src/lib/chart-tooltip.ts` — `provideChartTooltip()` / `useChartTooltip()` shared hover tooltip
-  state; `src/components/ChartTooltip.vue` renders the single tooltip element.
 - `src/components/OverviewPanel.vue`, `OverviewKpi.vue`, `OverviewSourceTag.vue` — Overview panel
   and KPI shells with the neutral "Live boards" / "History table" source tag (`.ov-*` styles).
+- `src/components/ChartTooltip.vue` — the single hover tooltip element, mounted once in
+  `OverviewView.vue`.
+- `src/components/QuarterChart.vue` — quarterly SVG bars: hired stacked with rejected
+  (`decisions`) or applicants in (`applicants`).
+- `src/components/HireTimeChart.vue` — SVG "How long hires take" in four views: every hire,
+  typical range, speed curve, and trend.
+- `src/components/PipelineLine.vue` — 150px sparkline of one board's active applicants per stage
+  with a hover tooltip and a hidden table.
+- `src/components/StageBars.vue` — horizontal bar rows per stage (counts or median days) for the
+  focused board.
+- `src/components/FlowRows.vue` — per-role rows of applicants in, hired, rejected, and active;
+  selecting a row focuses that board.
+- `src/components/AttentionList.vue` — the "Needs your attention" rows with a total.
+- `src/components/ActivityFeed.vue` — the "Latest activity" rows from audit events.
+- `src/components/RoleDeadlineTable.vue` — roles sorted by deadline with deadline chip, positions
+  filled, active count, and `PipelineLine`; stacks into rows at 720px.
 - `src/components/PipelineBar.vue` — per-stage applicant progress bar.
 - `src/views/LoginView.vue` — login form and validation, with a Forgot password link.
 - `src/views/ForgotPasswordView.vue` — password reset request at `/forgot-password`; shows the
   same confirmation whether or not the account exists and throttles resend for 30 seconds.
 - `src/views/SetPasswordView.vue` — invite and password update form.
-- `src/views/OverviewView.vue` — post-login hiring dashboard: department chips, six KPIs, needs
-  attention and latest activity, roles by deadline, quarterly hiring charts and "How long hires
-  take" (history), and a "One board in focus" section with a board picker.
+- `src/views/OverviewView.vue` — post-login hiring dashboard: department chips (filter every
+  widget), six KPIs, needs attention and latest activity, roles by deadline, "Hiring over time"
+  and "How long hires take" (history, with a last-4-quarters / all-on-record range), and a "One
+  board in focus" section with a board picker for stage-level charts.
 - `src/views/BoardsView.vue` — all role boards grouped by department.
 - `src/views/BoardView.vue` — stage-column pipeline for one role: `PageHeader` with
   breadcrumb, switch-role button, meta chips, Job spec, Add applicant, and a Board menu; stage
@@ -249,6 +287,18 @@ See `docs/ARCHITECTURE.md` for the auth lifecycle and deployment pipeline.
   `applicants.education` and `applicants.experience`. Always replace the array immutably through
   `useApplicantsStore().updateCandidateEntries`; the autosave dirty-field logic compares by
   reference. Never store or send free-text education or experience.
+- Company-wide Overview numbers never depend on stage names, because every board has its own
+  stages. They use only open positions, applicant counts, hired and rejected, board creation
+  date, deadline, and "at final stage" (active applicants in each board's last stage). Stage-level
+  numbers live only in the single-board "One board in focus" section.
+- Overview charts are local SVG (no chart library) drawn in a viewBox equal to the container's
+  measured pixel width (`useElementWidth`), so SVG text stays at least 12px. Every mark has a
+  hover tooltip through the shared `chart-tooltip`, and every chart has `role="img"`, a summary
+  `aria-label`, and a visually hidden data table. Accent is work in progress, signal is
+  hired/filled, `line-input` is rejected, and danger is only for past-deadline.
+- Hiring history is maintained by the `applicants_record_history` trigger, never by clients. Do
+  not write `public.hiring_monthly` or `public.hire_history` from the app; the history store
+  and `history-api.ts` only read.
 - Use the locked Direction A / Orbital design system in `docs/DESIGN_SYSTEM.md`. Reuse its
   tokens and shared components; do not introduce colors, fonts, radii, gradients, or motifs
   from the other design directions.
@@ -347,6 +397,18 @@ See `docs/ARCHITECTURE.md` for the auth lifecycle and deployment pipeline.
   policies for the intended roles, explicitly grant table privileges to `authenticated`, and
   revoke them from `anon`. RLS does not replace table grants. Do not expose board data to
   `anon`.
+- Hiring history uses `public.hiring_monthly` (`month` as the first day of the month,
+  `department`, `applicants_in`, `hired`, `rejected`; primary key `(month, department)`) and
+  `public.hire_history` (`applicant_id` as an opaque primary key, `department`, `hired_on`,
+  `days_to_hire`). Neither table has foreign keys or personal data, so deleting boards or
+  applicants never touches them. RLS gives `authenticated` select only; `anon` has nothing and
+  clients cannot insert, update, or delete. The `applicants_record_history` trigger
+  (`after insert or update` on `public.applicants`) maintains them through security-definer
+  functions with execute revoked from everyone, in the same transaction as the applicant
+  change; the migration backfills them from live data. Accepted limits: history starts when the
+  migration shipped, a board's later department change leaves earlier counts under the old
+  department, there is no per-stage history, and applicants deleted without a decision still
+  count in `applicants_in`.
 - Audit events use `public.applicant_events`, scoped by `(board_id, applicant_id)`. The
   composite foreign key cascades from the applicant and board, so deleting either removes its
   events permanently. Events are immutable: clients may select them but cannot insert,
@@ -371,6 +433,8 @@ See `docs/ARCHITECTURE.md` for the auth lifecycle and deployment pipeline.
 - Do not add a local or paid fallback for CV analysis, and do not send CV data to Kilo
   without the consent dialog.
 - Do not let the browser validate model output or write `public.applicant_fit_analyses`.
+- Do not add client writes to `public.hiring_monthly` or `public.hire_history`, and do not add
+  per-stage history or personal data to them.
 - Do not add analytics, error reporting, or third-party scripts that handle auth data
   without documenting the privacy/security impact.
 - Do not change the deployment target, repo name assumptions, or base path without updating

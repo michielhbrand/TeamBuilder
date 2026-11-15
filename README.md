@@ -4,8 +4,8 @@ A Vue 3 + Supabase hiring pipeline workspace: email/password sign-in, invited us
 choose their own password, in-memory sessions, a protected hiring portal, and sign-out. The
 portal has a hiring dashboard, role boards grouped by department, a stage-column board for
 each role, a consent-gated CV analysis that lists similarities and gaps, and an account page. The frontend is deployed
-to GitHub Pages with GitHub Actions. Boards, pipeline stages, applicants, activity, notes, and
-fit analyses are stored in Supabase Postgres and loaded through Pinia.
+to GitHub Pages with GitHub Actions. Boards, pipeline stages, applicants, activity, notes,
+fit analyses, and the monthly hiring history are stored in Supabase Postgres and loaded through Pinia.
 
 - **Live demo:** https://michielhbrand.github.io/TeamBuilder/
 - **Repository:** https://github.com/michielhbrand/TeamBuilder
@@ -28,8 +28,9 @@ fit analyses are stored in Supabase Postgres and loaded through Pinia.
 - Admin invitations that let users choose their own password
 - In-memory session handling in Pinia with automatic token refresh
 - A router guard that protects the hiring portal
-- A hiring dashboard at `/overview` with workload, outcomes, role performance, deadlines, and
-  applicant watch lists
+- A hiring dashboard at `/overview` with six KPIs, a needs-attention list, latest activity,
+  roles by deadline, quarterly hiring charts and time-to-hire views that survive deleted boards
+  (kept in two small history tables), and a per-board stage view, filterable by department
 - Role boards grouped by department at `/boards`
 - A stage-column pipeline for each role with quiet applicant cards (time in stage, hover and
   keyboard actions, Hire and Reject with Undo), drag to an adjacent stage, deadline chips, and
@@ -368,6 +369,10 @@ src/
   lib/supabase.ts           Supabase client and environment validation
   lib/auth-link.ts          Detects invite/recovery links before Supabase consumes them
   lib/pipeline.ts           Pure pipeline helpers and summaries
+  lib/overview.ts           Pure Overview metrics: quarters, hire rate, attention, stage stats
+  lib/chart-scale.ts        Pure chart ticks, label thinning, and bar paths
+  lib/chart-tooltip.ts      Shared chart hover tooltip state
+  lib/use-element-width.ts  Reactive element width for pixel-accurate SVG charts
   lib/applicant-events.ts   Event message builders and timestamp formatting
   lib/pdf-text.ts           Shared PDF text extraction, OCR cache, and fingerprints
   lib/job-spec.ts           Job-spec PDF text extraction and cleanup
@@ -377,6 +382,7 @@ src/
   lib/boards-api.ts         Supabase reads/writes for boards and stages
   lib/applicants-api.ts     Supabase create, update, and delete for applicants
   lib/activity-api.ts       Supabase reads/writes for applicant events and notes
+  lib/history-api.ts        Read-only Supabase queries for the hiring history tables
   lib/storage-api.ts        Supabase Storage for CVs and job specs
   lib/fit-api.ts            Stored fit analyses and Edge Function invocation
   lib/api-shared.ts         Shared row types, selects, and domain mappers
@@ -387,9 +393,11 @@ src/
   stores/applicant-activity.ts Applicant events and notes with loading state
   stores/storage.ts         CV and job-spec upload, removal, and preview actions
   stores/fit.ts             Persisted CV analysis state and actions
+  stores/history.ts         Read-only hiring history for the Overview
   stores/undo.ts            Single pending undo entry for Hire and Reject
   types/pipeline.ts         Board, stage, applicant, and summary types
   types/fit.ts              CV analysis result and row types
+  types/history.ts          Monthly hiring and per-hire history types
   router/index.ts           Routes and authentication guard
   components/AppShell.vue   Top-bar navigation for protected pages
   components/AuthShell.vue  Shared Orbital auth layout
@@ -411,6 +419,11 @@ src/
   components/FullNameDialog.vue Blocking full-name capture for signed-in users
   components/ConfirmDialog.vue Shared destructive-action confirmation
   components/PipelineBar.vue Per-stage progress bar
+  components/OverviewPanel.vue, OverviewKpi.vue, OverviewSourceTag.vue  Overview shells and source tags
+  components/QuarterChart.vue, HireTimeChart.vue  Quarterly and time-to-hire SVG charts
+  components/PipelineLine.vue, StageBars.vue, FlowRows.vue  Per-board stage and role-flow charts
+  components/AttentionList.vue, ActivityFeed.vue, RoleDeadlineTable.vue  Overview lists and table
+  components/ChartTooltip.vue Shared hover tooltip for charts
   components/ThemeToggle.vue Light/dark mode toggle
   views/LoginView.vue       Login form
   views/ForgotPasswordView.vue  Password reset request
@@ -425,7 +438,7 @@ scripts/
   postbuild.mjs             GitHub Pages 404 fallback and .nojekyll
   validate-env.mjs          Deploy-time environment validation
 supabase/config.toml        Local Supabase configuration
-supabase/migrations/        Postgres schema, RLS policies, and board RPC functions
+supabase/migrations/        Postgres schema, RLS policies, board RPC functions, and hiring history
 supabase/functions/fit-analysis/  Kilo proxy, redaction, validation, and CV analysis
 supabase/functions/.env.example   Function secret placeholders
 design/ui-directions.html   UI direction exploration

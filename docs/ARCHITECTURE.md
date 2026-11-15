@@ -10,8 +10,8 @@ Supabase and can invite them by email; invited users choose their own password.
 
 The protected hiring portal is a board-based workspace. A board represents one open role,
 boards are grouped by department, and each board has its own ordered stages and applicants.
-Boards, stages, applicants, their audit events, notes, and fit analyses are stored in
-Supabase Postgres and loaded through Pinia. Every signed-in user shares the same workspace;
+Boards, stages, applicants, their audit events, notes, fit analyses, and a small hiring
+history are stored in Supabase Postgres and loaded through Pinia. Every signed-in user shares the same workspace;
 Row Level Security allows the `authenticated` role only.
 
 ```text
@@ -21,7 +21,7 @@ Browser
   v
 Supabase Auth  <---- session JWT issued to the browser
   |
-  +--> PostgREST / Postgres (RLS: authenticated only)  <---- boards, stages, applicants, events
+  +--> PostgREST / Postgres (RLS: authenticated only)  <---- boards, stages, applicants, events, history
 
 Build time:
 GitHub Actions secrets -> Vite env -> bundled publishable key + URL -> GitHub Pages
@@ -46,6 +46,12 @@ rule set; the selected reference is `design/ui-directions.html#orbital`.
   top-bar navigation for Overview, Boards, and Account.
 - `src/components/BoardList.vue`, `BoardColumn.vue`, `CandidateCard.vue`, `StageTabs.vue`,
   `BoardSwitcher.vue`, `ApplicantDrawer.vue`, and `PipelineBar.vue` implement the board UI.
+  The Overview is built from `OverviewPanel.vue`, `OverviewKpi.vue`, `OverviewSourceTag.vue`,
+  `QuarterChart.vue`, `HireTimeChart.vue`, `PipelineLine.vue`, `StageBars.vue`, `FlowRows.vue`,
+  `AttentionList.vue`, `ActivityFeed.vue`, `RoleDeadlineTable.vue`, and one `ChartTooltip.vue`;
+  the earlier workload chart, outcome donut, role performance table, and applicant watch lists
+  (`DepartmentLoadChart.vue`, `OutcomeDonut.vue`, `RolePerformanceTable.vue`,
+  `ApplicantWatchList.vue`) were removed, not kept alongside.
   `BoardView.vue` renders its header through `PageHeader` and uses
   `useMediaQuery('(max-width: 720px)')` from `src/lib/use-media-query.ts` to swap the stage
   grid for `StageTabs` and a single selected stage on phones. `CandidateCard.vue` moves an
@@ -72,8 +78,8 @@ rule set; the selected reference is `design/ui-directions.html#orbital`.
    local or session storage; a full reload starts a fresh sign-in.
 3. The store subscribes to `onAuthStateChange`; token refreshes and sign-out events update
    `session` in place. When the next session is `null`, the auth store resets the boards,
-   applicants, applicant-activity, storage, fit, and undo stores so no workspace data or pending
-   saves survive a sign-out.
+   applicants, applicant-activity, storage, fit, history, and undo stores so no workspace data or
+   pending saves survive a sign-out.
 4. Only after initialization does `main.ts` install the router and mount the app. This keeps
    the first navigation from racing the session lookup.
 5. `router.beforeEach` checks `to.meta.requiresAuth`. Unauthenticated visitors to a
@@ -150,6 +156,9 @@ The hiring workspace is split by domain, and each store owns its own `error` sta
   loading state.
 - `src/stores/storage.ts` owns CV and job-spec uploads, removals, signed URLs, and blobs.
 - `src/stores/fit.ts` owns persisted CV-analysis state.
+- `src/stores/history.ts` owns the read-only hiring history (`months` from
+  `public.hiring_monthly`, `hires` from `public.hire_history`) with `initialize`, `refresh`,
+  and `reset`.
 - `src/stores/undo.ts` owns the single pending undo entry (message, action, and an 8 second
   timer). A new entry replaces the current one; sign-out resets it. The undo action handles its own
   failures: a failed undo write rolls back and surfaces through `applicants.error`.
@@ -195,6 +204,16 @@ that no longer exist, and reapplies the applicant store's dirty profile fields s
 never discards text that is still being edited. The router guard still performs the initial
 `initialize()` load; refresh does not replace it.
 
+The history store follows the same pattern. `OverviewView.vue` calls `history.initialize()` on
+mount, or `history.refresh()` when it is already initialized, so returning to the Overview
+shows hires and decisions made meanwhile. `AppShell` also calls `history.refresh()` on window
+focus and visibility, next to `boards.refresh()`. A failed refresh sets `history.error` and
+keeps the previous rows. The Overview's "Latest activity" reads
+`useApplicantActivityStore().recent`: `loadRecent()` fetches the newest 30 audit events across
+all boards (one `applicant_events` query ordered by `created_at`), the view keeps those on the
+filtered boards and shows 6, and `AppShell` reloads them on focus only after they have been
+loaded once.
+
 Components render the store `error` values; they do not roll back or retry Supabase writes on
 their own.
 
@@ -237,6 +256,9 @@ The schema lives in `supabase/migrations/`:
   the Kilo model and prompt version, and the validated similarities/gaps JSON. Authenticated
   users can select; only the Edge Function with the service role writes.
 
+- `public.hiring_monthly` and `public.hire_history` — the hiring history, described under
+  [Hiring history](#hiring-history).
+
 The composite applicant foreign key `(board_id, column_id)` guarantees that an applicant is
 assigned to a stage on the same board. New boards start with `Applied`, `Interview`, and
 `Offer` stages. New applicants default to the stage named `Applied`, falling back to the
@@ -262,6 +284,57 @@ encoder and rewrites the PDF with compact object streams. Text, fonts, and vecto
 untouched, tiny files are skipped, and the original file is kept when compression does not
 make it smaller. This reduces storage for scanned CVs and job specs without adding a server
 or Edge Function.
+
+### Overview data sources
+
+`OverviewView.vue` mixes two sources and tags each KPI and panel with a neutral source label.
+
+- **Live boards** (`useBoardsStore`, filtered by the department chip): open positions, active
+  applicants, "At final stage" (active applicants in each board's last stage), needs your
+  attention, roles by deadline, and everything inside "One board in focus". Boards deleted by
+  a manager vanish from these.
+- **History table** (`useHistoryStore`): "Hired last 4 quarters", "Time to a hire" (median
+  `days_to_hire` of hires in the last 4 quarters), "Hire rate" (hired over hired plus rejected
+  across every recorded month), the two quarterly charts, and "How long hires take". These
+  keep counting after boards and applicants are deleted. The range control chooses the last 4
+  quarters or all quarters on record up to the latest 12, and drives both the quarterly charts
+  and "How long hires take". The current quarter is marked partial.
+
+Company-wide numbers use only counts, outcomes, dates, and each board's last stage, never stage
+names. Stage-level charts ("Where active applicants are", "Time in the current stage") read
+one board's own stages and are limited to the "One board in focus" picker. Charts are local SVG
+sized from the container's measured width; `OverviewView` provides one shared tooltip.
+
+### Hiring history
+
+Two tables hold privacy-safe history so trends survive deleted boards and applicants. Both have
+no foreign keys and no personal data.
+
+- `public.hiring_monthly` — one row per `(month, department)`, `month` being the first day of
+  the month, with `applicants_in`, `hired`, and `rejected` counters.
+- `public.hire_history` — one row per currently hired applicant: an opaque `applicant_id` (used
+  only to undo a hire on reopen), `department`, `hired_on`, and `days_to_hire`.
+
+Both are readable by `authenticated` only; clients cannot insert, update, or delete. The
+`applicants_record_history` trigger on `public.applicants` (`after insert or update`) maintains
+them through security-definer functions, in the same transaction as the applicant change:
+
+- Insert adds 1 to `applicants_in` in the month of `applied_at`.
+- A change to `hired` adds 1 to `hired` in the current month and upserts the `hire_history` row
+  (`days_to_hire` is whole days from the board's `created_at` to today, floored at 0 and capped
+  at 32767). A change to `rejected` adds 1 to `rejected` in the current month.
+- Leaving `hired` removes the `hire_history` row and subtracts 1 from `hired` in the month of
+  its stored `hired_on`. Leaving `rejected` subtracts 1 in the month of the applicant's latest
+  `rejected` event, falling back to the current month. Counters never go below zero, and a
+  direct hired to rejected change is an undo followed by the new decision.
+
+Months and dates use UTC. The migration backfills both tables from live applicants and their
+events. Deleting applicants or boards never touches them.
+
+Accepted limits: history starts when the migration shipped (earlier deleted boards are not
+recovered); a board's later department change leaves earlier counts under the old department;
+there is no per-stage history; and an applicant deleted without a decision still counts in
+`applicants_in`.
 
 ### Applicant CV import
 
@@ -495,6 +568,10 @@ Function secrets are separate from the Vite build:
 - No release after a push: the commit message is not a Conventional Commit or contains no
   release-worthy type. The deploy still succeeds; rewrite the commit or create a release
   manually only when recovering.
+- History read fails: the Overview shows `history.error` in an alert, keeps the previous
+  history rows, and the live widgets keep working. A failed recent-activity read replaces only
+  the "Latest activity" list with its message. With no history yet the history panels show
+  "History fills in as applicants are hired and rejected."
 - Fit analysis missing prerequisites: the tab explains whether the board needs a job spec,
   the applicant needs a CV, or the profile needs education or experience.
 - Fit analysis not configured: the Edge Function returns a configuration error when
@@ -514,8 +591,11 @@ Function secrets are separate from the Vite build:
   `storage-api.ts`, or `fit-api.ts`) and `api-shared.ts` mapping, and update both the domain
   types and the owning store. Enable RLS and add policies for the intended roles; keep the
   secret key server-side.
-- Keep the pure helpers in `src/lib/pipeline.ts` free of Supabase calls so pipeline behavior
-  stays unit-testable.
+- Keep the pure helpers in `src/lib/pipeline.ts`, `src/lib/overview.ts`, and
+  `src/lib/chart-scale.ts` free of Supabase calls so behavior stays unit-testable.
+- Never write `public.hiring_monthly` or `public.hire_history` from the app; change the
+  trigger in a new migration instead. Do not add per-stage history, because stage names differ
+  per board.
 - To change fit analysis, update the prompt/validation/redaction in
   `supabase/functions/fit-analysis`, bump `PROMPT_VERSION`, and keep the Edge Function as the
   only writer of `public.applicant_fit_analyses`.

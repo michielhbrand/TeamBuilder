@@ -28,28 +28,31 @@ scale, Orbital can read as a generic SaaS theme. Use the motif and the tokens de
 
 ## Source of truth
 
-| Concern             | File                                         |
-| ------------------- | -------------------------------------------- |
-| CSS tokens          | `src/styles/orbital.css`                     |
-| Vuetify themes      | `src/plugins/vuetify.ts`                     |
-| Fonts               | `src/main.ts` and `package.json`             |
-| Brand lockup        | `src/components/BrandMark.vue`               |
-| Auth page shell     | `src/components/AuthShell.vue`               |
-| App page shell      | `src/components/AppShell.vue`                |
-| Board list          | `src/components/BoardList.vue`               |
-| Board switcher      | `src/components/BoardSwitcher.vue`           |
-| Board column        | `src/components/BoardColumn.vue`             |
-| Candidate card      | `src/components/CandidateCard.vue`           |
-| Stage tabs          | `src/components/StageTabs.vue`               |
-| Applicant drawer    | `src/components/ApplicantDrawer.vue`         |
-| Drawer stage bar    | `src/components/ApplicantStageBar.vue`       |
-| Job spec dialog     | `src/components/JobSpecDialog.vue`           |
-| Confirmation dialog | `src/components/ConfirmDialog.vue`           |
-| Progress bar        | `src/components/PipelineBar.vue`             |
-| Overview widgets    | `src/components/Overview*.vue`, `*Chart.vue` |
-| Theme toggle        | `src/components/ThemeToggle.vue`             |
-| Visual exploration  | `design/ui-directions.html`                  |
-| Board concept       | `design/hiring-pipeline-step-columns.html`   |
+| Concern             | File                                                                                         |
+| ------------------- | -------------------------------------------------------------------------------------------- |
+| CSS tokens          | `src/styles/orbital.css`                                                                     |
+| Vuetify themes      | `src/plugins/vuetify.ts`                                                                     |
+| Fonts               | `src/main.ts` and `package.json`                                                             |
+| Brand lockup        | `src/components/BrandMark.vue`                                                               |
+| Auth page shell     | `src/components/AuthShell.vue`                                                               |
+| App page shell      | `src/components/AppShell.vue`                                                                |
+| Board list          | `src/components/BoardList.vue`                                                               |
+| Board switcher      | `src/components/BoardSwitcher.vue`                                                           |
+| Board column        | `src/components/BoardColumn.vue`                                                             |
+| Candidate card      | `src/components/CandidateCard.vue`                                                           |
+| Stage tabs          | `src/components/StageTabs.vue`                                                               |
+| Applicant drawer    | `src/components/ApplicantDrawer.vue`                                                         |
+| Drawer stage bar    | `src/components/ApplicantStageBar.vue`                                                       |
+| Job spec dialog     | `src/components/JobSpecDialog.vue`                                                           |
+| Confirmation dialog | `src/components/ConfirmDialog.vue`                                                           |
+| Progress bar        | `src/components/PipelineBar.vue`                                                             |
+| Overview shells     | `src/components/Overview{Panel,Kpi,SourceTag}.vue`                                           |
+| Overview charts     | `QuarterChart.vue`, `HireTimeChart.vue`, `PipelineLine.vue`, `StageBars.vue`, `FlowRows.vue` |
+| Overview lists      | `AttentionList.vue`, `ActivityFeed.vue`, `RoleDeadlineTable.vue`                             |
+| Chart tooltip       | `src/components/ChartTooltip.vue`                                                            |
+| Theme toggle        | `src/components/ThemeToggle.vue`                                                             |
+| Visual exploration  | `design/ui-directions.html`                                                                  |
+| Board concept       | `design/hiring-pipeline-step-columns.html`                                                   |
 
 The prototype is a reference, not an application dependency. Production styling lives in the
 files above. Change the tokens there first; do not copy one-off hex values into views.
@@ -211,13 +214,10 @@ Use `AppShell` for `/overview`, `/boards`, `/boards/:boardId`, and `/account`.
 - `PageHeader` (`title` prop; slots `breadcrumb`, `title-adornment`, `meta`, `actions`) renders
   the `2rem` page title with chips on the left and actions on the right, wrapping under `1024px`.
   Pages not yet migrated keep `.page-heading` with the same `.page-title`.
-- The Overview page is a hiring dashboard under a `PageHeader`. It has a department chip row,
-  six KPI cards (`.ov-kpis`: 6 columns, 3 at `1000px`, 2 at `640px`), a needs-attention list
-  beside the latest activity, a roles-by-deadline table, a "Hiring over time" band with two
-  quarterly charts and "How long hires take", and a "One board in focus" band with a board
-  picker. Panels and KPIs carry a neutral "Live boards" or "History table" source tag. Charts
-  are local SVG with one shared tooltip. Two-up grids become one column at `1000px`; the role
-  table becomes stacked rows on small screens.
+- The Overview page is a hiring dashboard under a `PageHeader` (see Overview dashboard below).
+  It has a department chip row, six KPI cards, a needs-attention list beside the latest
+  activity, a roles-by-deadline table, a "Hiring over time" band with two quarterly charts and
+  "How long hires take", and a "One board in focus" band with a board picker.
 - The Account page is one 640px column (`.account-column`) of four `.data-panel`s under a
   `PageHeader`: Profile (full name plus a read-only email with a lock icon), Password (new and
   confirm in two columns, one column at `720px`), Appearance (a Light / Dark segmented control
@@ -293,10 +293,44 @@ that prototype's palette, gradients, or Bricolage/Hanken fonts.
 - Build dashboard charts with small, local SVG/CSS components. Do not add a chart library
   without a product decision.
 - Use the Orbital tokens for chart fills. Accent is active work, signal is a positive outcome,
-  muted is closed or inactive, and danger is reserved for overdue deadlines and errors.
+  `line-input` or muted is rejected, closed, or inactive, and danger is reserved for overdue
+  deadlines and errors. The Overview recipe below has the full rules.
 - Show visible labels and values; color must never be the only cue. Give charts an
   `aria-label`, text summaries, and readable legends.
 - Keep charts static. No gradients, looping animation, dense grids, or decorative telemetry.
+
+### Overview dashboard
+
+- Layout: department chips (`.ov-chips`, single-select `aria-pressed` buttons) filter every
+  widget. Six KPI cards (`OverviewKpi`, `.ov-kpis`) follow: Open positions, Active applicants,
+  At final stage (live boards) and Hired last 4 quarters, Time to a hire, Hire rate (history
+  table). Hire rate adds a hired/rejected split bar. Then two-up panels (Needs your attention,
+  Latest activity), the full-width Roles by deadline panel, a "Hiring over time" band, and a
+  "One board in focus" band. Bands (`.ov-band`) pair a title and one line of copy with chip or
+  select controls.
+- Source tags: every KPI and panel shows a small neutral tag, "Live boards" or "History table"
+  (`OverviewSourceTag`). They never use an accent, signal, or danger color.
+- Panels use `OverviewPanel` (a `.data-panel` with a Manrope title, optional `.meta` subtitle,
+  source tag, and an optional actions slot). Chips are pill buttons; the pressed chip fills with the ink
+  token. Do not hand-roll panel borders or chip styles.
+- Company-wide widgets never depend on stage names. Stage-level charts (`StageBars`) appear
+  only in "One board in focus", for one board's own stages. `PipelineLine` shows each board's
+  own stages inside its role row.
+- Chart rules: charts are small local SVG components (`QuarterChart`, `HireTimeChart`,
+  `PipelineLine`) or token-colored CSS bars (`StageBars`, `FlowRows`). SVG charts measure their
+  container with `useElementWidth` and draw in a viewBox of that real pixel width, so SVG text
+  is never scaled below 12px. Chart text and strokes use tokens. Every mark has a hover tooltip
+  through the shared `ChartTooltip`. Every chart has `role="img"`, a summary `aria-label`, and a
+  visually hidden data table (`.sr-only`). Meaning is also in visible labels, never color alone.
+- Color roles: accent is work in progress (applicants in, active), signal is hired or filled
+  positions, `--orbital-line-input` is rejected, and danger is only for a deadline that has
+  passed. Never color by time in stage. The current quarter is marked partial with an asterisk.
+- Empty states are explicit: no boards, "History fills in as applicants are hired and
+  rejected.", no hires in the range, and nothing needs attention.
+- Mobile: the KPI grid is 6 columns wide, 3 columns at `1000px`, and 2 at `640px`. Two-up
+  panels collapse to one column at `1000px`. `FlowRows` rows put the label and count on one line with the bars below at
+  `640px`. `RoleDeadlineTable` becomes stacked rows at `720px`, with its header visually
+  hidden.
 
 ### Buttons
 
@@ -342,14 +376,15 @@ class. Keep the rules attached to the field.
 - The undo toast (`.undo-toast`) sits bottom-left in a `role="status"` `aria-live="polite"`
   region. It uses the neutral surface-2 fill, line border, ink text, an Undo text button, and a
   close icon; it carries no color accent and auto-dismisses after 8 seconds.
-- Badges are pill-shaped mono uppercase labels (`status-badge`, used on the Overview
-  dashboard) in the neutral style, for classification only.
+- Badges are pill-shaped mono uppercase labels (`status-badge`) in the neutral style, for
+  classification only. The class remains an available primitive; no screen currently uses it.
 - Notes use `.auth-note`: surface-2 fill, line border, 2 px accent left border, shield or
   lock icon, and small muted copy.
 
 ### Panels and data rows
 
-- Use `.auth-panel`, `.data-panel`, and `.stat-card`; do not reimplement their borders,
+- Use `.auth-panel` and `.data-panel` (and `.stat-card` if a stat tile is ever needed; no screen
+  currently uses it; the Overview uses `OverviewKpi`); do not reimplement their borders,
   radius, or shadow.
 - Panel header (`.data-panel-head`): a Manrope panel title with an optional muted hint line
   beneath it; there is no mono label or badge. The Account page uses this for Profile and

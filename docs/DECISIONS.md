@@ -394,3 +394,24 @@ Dates use ISO 8601. Status values are proposed, accepted, superseded, or depreca
   component was the fallback and was not needed.
 - **Consequences:** The CSS depends on Vuetify 4 field DOM; a Vuetify upgrade must re-check the
   label rule in light and dark at desktop and 390px widths.
+
+## ADR-028: Two-table hiring history for the Overview
+
+- **Date:** 2026-11-15
+- **Status:** Accepted
+- **Context:** The redesigned Overview shows hires and rejections per quarter and how long hires
+  take. Deleting a finished board or applicant erased those numbers, because the Overview was
+  computed from live boards only.
+- **Decision:** Keep two small tables, `public.hiring_monthly` (counters per month and
+  department) and `public.hire_history` (one row per hire: opaque id, department, `hired_on`,
+  `days_to_hire`), maintained by the `applicants_record_history` trigger in the same transaction
+  as each applicant change. Clients can only select. Two tables are needed because per-quarter
+  trends need event dates, which one row per board cannot give, and the per-hire views (every
+  hire, typical range, speed curve) need individual days to hire, which monthly counters cannot
+  give. Neither table has foreign keys or personal data, so deletes never touch them. The
+  migration backfills both from live data.
+- **Consequences:** Trends survive deleted boards and applicants. Accepted limits: history starts
+  when the migration shipped, a board's later department change leaves earlier counts under the
+  old department, there is no per-stage history (stage names differ per board, so company-wide
+  numbers never use them), and an applicant deleted without a decision still counts in
+  `applicants_in`. Changing the counting rules means a new migration to the trigger.
