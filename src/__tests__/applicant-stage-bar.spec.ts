@@ -40,6 +40,7 @@ function seed(overrides: Partial<Candidate> = {}): void {
       department: 'Engineering',
       openPositions: 1,
       deadline: '2026-12-01',
+      openedAt: '2026-01-01T00:00:00.000Z',
       steps,
       candidates: [candidate],
     },

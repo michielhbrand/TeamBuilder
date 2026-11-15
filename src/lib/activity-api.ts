@@ -25,6 +25,18 @@ export async function fetchApplicantEvents(
   return ((data ?? []) as unknown as ApplicantEventRow[]).map(mapApplicantEvent)
 }
 
+export async function fetchRecentEvents(limit: number): Promise<ApplicantEvent[]> {
+  const { data, error } = await supabase
+    .from('applicant_events')
+    .select(APPLICANT_EVENT_SELECT)
+    .order('created_at', { ascending: false })
+    .limit(limit)
+
+  fail(error)
+
+  return ((data ?? []) as unknown as ApplicantEventRow[]).map(mapApplicantEvent)
+}
+
 export async function recordApplicantEditEvent(applicantId: string): Promise<void> {
   const { error } = await supabase.rpc('record_applicant_edit_event', {
     p_applicant_id: applicantId,

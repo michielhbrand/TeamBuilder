@@ -76,6 +76,7 @@ function makeBoard(overrides: Partial<Board> = {}): Board {
     department: 'Engineering',
     openPositions: 1,
     deadline: '2026-12-31',
+    openedAt: '2026-01-01T00:00:00.000Z',
     steps: [
       { id: 's1', name: 'Applied', position: 0 },
       { id: 's2', name: 'Interview', position: 1 },

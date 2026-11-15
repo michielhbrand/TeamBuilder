@@ -19,6 +19,7 @@ export interface BoardRow {
   department: string
   open_positions: number
   deadline: string
+  created_at: string
   job_spec_path: string | null
   job_spec_name: string | null
   board_columns: ColumnRow[] | null
@@ -151,6 +152,7 @@ export const BOARD_SELECT = `
   department,
   open_positions,
   deadline,
+  created_at,
   job_spec_path,
   job_spec_name,
   board_columns ( id, board_id, name, position ),
@@ -284,6 +286,7 @@ export function mapBoard(row: BoardRow): Board {
     department: row.department as Department,
     openPositions: row.open_positions,
     deadline: row.deadline,
+    openedAt: row.created_at,
     steps,
     candidates,
     jobSpecPath: row.job_spec_path,

@@ -56,6 +56,7 @@ export interface Board {
   department: Department
   openPositions: number
   deadline: string
+  openedAt: string
   steps: PipelineStep[]
   candidates: Candidate[]
   jobSpecPath?: string | null

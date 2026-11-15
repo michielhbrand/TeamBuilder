@@ -17,6 +17,7 @@ const boardData = (): Board => ({
   department: 'Engineering',
   openPositions: 1,
   deadline: '2026-12-01',
+  openedAt: '2026-01-01T00:00:00.000Z',
   steps: ['Applied', 'Screening', 'Interview', 'Offer'].map((name, position) => ({
     id: name.toLowerCase(),
     name,

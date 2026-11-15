@@ -41,6 +41,7 @@ function board(item: Candidate): Board {
     department: 'Engineering',
     openPositions: 2,
     deadline: '2026-12-01',
+    openedAt: '2026-01-01T00:00:00.000Z',
     steps,
     candidates: [item],
   }
