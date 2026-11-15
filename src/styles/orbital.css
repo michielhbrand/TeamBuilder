@@ -4976,7 +4976,7 @@ body > .v-navigation-drawer__scrim {
 }
 
 .ov-flow__row:hover {
-  background: var(--orbital-surface-2);
+  box-shadow: inset 0 0 0 1px var(--orbital-line-input);
 }
 
 .ov-flow__row:focus-visible {
@@ -4985,7 +4985,7 @@ body > .v-navigation-drawer__scrim {
 }
 
 .ov-flow__row[aria-pressed='true'] {
-  background: var(--orbital-surface-2);
+  box-shadow: inset 0 0 0 1px var(--orbital-accent);
 }
 
 .ov-flow__label {

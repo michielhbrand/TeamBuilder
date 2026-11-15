@@ -6,6 +6,7 @@ interface BarRow {
   name: string
   value: number | null
   unit?: string
+  tip?: string
 }
 
 const props = defineProps<{ rows: BarRow[] }>()
@@ -21,6 +22,19 @@ function widthFor(row: BarRow): number {
   return max.value > 0 && row.value !== null ? (row.value / max.value) * 100 : 0
 }
 
+function tipFor(row: BarRow): string {
+  if (row.tip) {
+    return row.tip
+  }
+  if (row.value === null || (row.unit && row.value === 0)) {
+    return 'nobody here'
+  }
+  if (row.unit) {
+    return `median ${row.value} ${row.unit}`
+  }
+  return `${row.value} active applicant${row.value === 1 ? '' : 's'}`
+}
+
 const summary = computed(
   () => `Values by stage: ${props.rows.map((row) => `${row.name} ${valueText(row)}`).join(', ')}`,
 )
@@ -33,7 +47,7 @@ const summary = computed(
         v-for="row in rows"
         :key="row.name"
         class="ov-hbars__row"
-        v-bind="hover(row.name, row.value === null ? 'No data' : valueText(row))"
+        v-bind="hover(row.name, tipFor(row))"
       >
         <span class="ov-hbars__name" :title="row.name">{{ row.name }}</span>
         <span class="ov-hbars__track">

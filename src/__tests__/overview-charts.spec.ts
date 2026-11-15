@@ -8,7 +8,7 @@ import StageBars from '@/components/StageBars.vue'
 import FlowRows from '@/components/FlowRows.vue'
 import ChartTooltip from '@/components/ChartTooltip.vue'
 import { clampTooltipTop, provideChartTooltip } from '@/lib/chart-tooltip'
-import { axisMaxDays, dayTickStep, niceTicks, thinStep } from '@/lib/chart-scale'
+import { axisMaxDays, barPath, dayTickStep, niceTicks, thinStep } from '@/lib/chart-scale'
 import type { QuarterPoint, RoleFlow } from '@/lib/overview'
 import type { HireRecord } from '@/types/history'
 
@@ -64,6 +64,17 @@ describe('chart scale helpers', () => {
   })
 })
 
+describe('barPath', () => {
+  it('draws a flat rectangle without rounding', () => {
+    expect(barPath(10, 20, 30, 40, false)).toBe('M10,20H40V60H10Z')
+  })
+
+  it('rounds only the top corners by 4px and clamps the radius to the height', () => {
+    expect(barPath(10, 20, 30, 40, true)).toBe('M10,60V24Q10,20 14,20H36Q40,20 40,24V60Z')
+    expect(barPath(10, 20, 30, 2, true)).toBe('M10,22V22Q10,20 12,20H38Q40,20 40,22V22Z')
+  })
+})
+
 describe('chart tooltip position', () => {
   it('clampTooltipTop places the tooltip below the pointer and flips above near the bottom', () => {
     expect(clampTooltipTop(100, 800)).toBe(116)
@@ -99,6 +110,81 @@ describe('QuarterChart', () => {
     expect(wrapper.get('svg').attributes('aria-label')).toBe(
       'Applicants in per quarter, 3 quarters',
     )
+  })
+
+  describe('bar geometry', () => {
+    function bounds(wrapper: ReturnType<typeof mount>, selector: string) {
+      const paths = wrapper.findAll(selector)
+      expect(paths).toHaveLength(1)
+      const d = paths[0]?.attributes('d') as string
+      const rounded = d.match(/^M[\d.]+,([\d.]+)V[\d.]+Q[\d.]+,([\d.]+) /)
+      if (rounded) {
+        return { rounded: true, top: Number(rounded[2]), bottom: Number(rounded[1]) }
+      }
+      const flat = d.match(/^M[\d.]+,([\d.]+)H[\d.]+V([\d.]+)H/) as RegExpMatchArray
+      return { rounded: false, top: Number(flat[1]), bottom: Number(flat[2]) }
+    }
+
+    const point = (hired: number, rejected: number): QuarterPoint => ({
+      key: '2026-Q1',
+      label: 'Q1 26',
+      partial: false,
+      applicantsIn: 0,
+      hired,
+      rejected,
+    })
+    const hiredPath = '.ov-qbar path.ov-fill-signal'
+    const rejectedPath = '.ov-qbar path.ov-fill-line-input'
+
+    it('stacks a flat hired bar below a rounded rejected bar with a 2px gap', () => {
+      const wrapper = mount(QuarterChart, {
+        props: { points: [point(10, 30)], kind: 'decisions' },
+      })
+      const hired = bounds(wrapper, hiredPath)
+      const rejected = bounds(wrapper, rejectedPath)
+
+      expect(hired.bottom).toBe(190)
+      expect(hired.top).toBe(145)
+      expect(hired.rounded).toBe(false)
+      expect(rejected.rounded).toBe(true)
+      expect(rejected.top).toBe(10)
+      expect(hired.top - rejected.bottom).toBe(2)
+    })
+
+    it('rounds the lone segment and anchors it to the baseline when one side is zero', () => {
+      const onlyRejected = mount(QuarterChart, {
+        props: { points: [point(0, 20)], kind: 'decisions' },
+      })
+      expect(onlyRejected.find(hiredPath).exists()).toBe(false)
+      expect(bounds(onlyRejected, rejectedPath)).toMatchObject({ rounded: true, bottom: 190 })
+
+      const onlyHired = mount(QuarterChart, {
+        props: { points: [point(20, 0)], kind: 'decisions' },
+      })
+      expect(onlyHired.find(rejectedPath).exists()).toBe(false)
+      expect(bounds(onlyHired, hiredPath)).toMatchObject({ rounded: true, bottom: 190 })
+    })
+
+    it('keeps a tiny stacked segment at least 1px tall', () => {
+      const wrapper = mount(QuarterChart, {
+        props: { points: [point(100, 1)], kind: 'decisions' },
+      })
+      const rejected = bounds(wrapper, rejectedPath)
+      const hired = bounds(wrapper, hiredPath)
+
+      expect(rejected.bottom - rejected.top).toBe(1)
+      expect(hired.top - rejected.bottom).toBe(2)
+    })
+
+    it('draws applicant bars rounded on the baseline', () => {
+      const wrapper = mount(QuarterChart, {
+        props: { points: [{ ...point(0, 0), applicantsIn: 12 }], kind: 'applicants' },
+      })
+      expect(bounds(wrapper, '.ov-qbar path.ov-fill-accent')).toMatchObject({
+        rounded: true,
+        bottom: 190,
+      })
+    })
   })
 
   it('never draws more than five gridlines', () => {
@@ -209,6 +295,71 @@ describe('HireTimeChart', () => {
     expect(strip.findAll('.ov-dot')).toHaveLength(7)
   })
 
+  describe('trend view', () => {
+    const record = (id: string, hiredOn: string, daysToHire: number): HireRecord => ({
+      applicantId: id,
+      department: 'Design',
+      hiredOn,
+      daysToHire,
+    })
+    const markers = (wrapper: ReturnType<typeof mount>) =>
+      wrapper.findAll('svg circle.ov-fill-accent.ov-stroke-surface')
+
+    it('labels each known median and skips quarters without hires', () => {
+      const wrapper = mount(HireTimeChart, {
+        props: {
+          hires: [
+            record('a', '2026-02-10', 30),
+            record('b', '2026-03-01', 50),
+            record('c', '2026-08-10', 61),
+          ],
+          departments: ['Design'],
+          view: 'trend',
+          quarters,
+        },
+      })
+
+      const values = wrapper.findAll('svg text.ov-strong').map((node) => node.text())
+      expect(values).toEqual(['40', '61'])
+      expect(markers(wrapper)).toHaveLength(2)
+      const rows = wrapper
+        .findAll('table tbody tr')
+        .map((row) => row.findAll('th, td').map((cell) => cell.text()))
+      expect(rows).toEqual([
+        ['Q1 26', '40'],
+        ['Q2 26', '–'],
+        ['Q3 26', '61'],
+      ])
+    })
+
+    it('draws a single known quarter as one point', () => {
+      const wrapper = mount(HireTimeChart, {
+        props: {
+          hires: [record('a', '2026-02-10', 30)],
+          departments: ['Design'],
+          view: 'trend',
+          quarters: ['2026-Q1'],
+        },
+      })
+
+      expect(markers(wrapper)).toHaveLength(1)
+      expect(wrapper.findAll('svg text.ov-strong').map((node) => node.text())).toEqual(['30'])
+    })
+
+    it('shows the empty message when no quarter has hires', () => {
+      const wrapper = mount(HireTimeChart, {
+        props: {
+          hires: [record('a', '2025-02-10', 30)],
+          departments: ['Design'],
+          view: 'trend',
+          quarters,
+        },
+      })
+
+      expect(wrapper.get('.ov-empty').text()).toBe('No hires in this range.')
+    })
+  })
+
   it('draws every svg text node at 12px or larger', () => {
     for (const view of views) {
       const wrapper = mount(HireTimeChart, {
@@ -259,6 +410,47 @@ describe('StageBars', () => {
     expect(fills[0]).toContain('width: 100%')
     expect(fills[1]).toContain('width: 0%')
     expect(fills[2]).toContain('width: 25%')
+  })
+
+  it('words the tooltip like the prototype and lets a row override it', async () => {
+    const Host = {
+      setup() {
+        provideChartTooltip()
+        return () =>
+          h('div', [
+            h(StageBars, {
+              rows: [
+                { name: 'Applied', value: 1 },
+                { name: 'Screen', value: 5 },
+                { name: 'Offer', value: 12, unit: 'days' },
+                { name: 'Hired', value: null, unit: 'days' },
+                { name: 'Custom', value: 2, tip: 'Custom wording' },
+              ],
+            }),
+            h(ChartTooltip),
+          ])
+      },
+    }
+    vi.stubGlobal('innerWidth', 1000)
+    const wrapper = mount(Host)
+    const tip = wrapper.get('[role="tooltip"]')
+    const rows = wrapper.findAll('.ov-hbars__row')
+    const expected = [
+      'Applied1 active applicant',
+      'Screen5 active applicants',
+      'Offermedian 12 days',
+      'Hirednobody here',
+      'CustomCustom wording',
+    ]
+
+    for (const [index, row] of rows.entries()) {
+      row.element.dispatchEvent(
+        new MouseEvent('pointerenter', { clientX: 200, clientY: 100, bubbles: true }),
+      )
+      await nextTick()
+      expect(tip.text()).toBe(expected[index])
+    }
+    vi.unstubAllGlobals()
   })
 
   it('keeps zero-width bars when the max is 0', () => {
