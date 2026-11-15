@@ -49,7 +49,7 @@ const sheets: SheetModel[] = [
     ],
     rows: [
       ['=SUM(1,2)', '0821234567', longText, new Date(Date.UTC(2026, 0, 31)), -4, 45000, 0.5],
-      ['Ada', null, null, null, null, null, null],
+      ['Ada', null, null, null, 12, null, null],
     ],
   },
   {
@@ -76,6 +76,38 @@ async function readParts(blob: Blob): Promise<Record<string, string>> {
 
 function columnWidths(sheetXml: string): number[] {
   return [...sheetXml.matchAll(/<col [^>]*width="([\d.]+)"/g)].map((match) => Number(match[1]))
+}
+
+interface CellStyle {
+  bold: boolean
+  italic: boolean
+  size: number
+  fontColor: string | null
+  fill: string | null
+  bottomBorder: string | null
+}
+
+function styleOf(parts: Record<string, string>, sheetFile: string, ref: string): CellStyle {
+  const parse = (xml: string) => new DOMParser().parseFromString(xml, 'application/xml')
+  const styles = parse(parts['xl/styles.xml']!)
+  const sheet = parse(parts[sheetFile]!)
+  const cell = [...sheet.getElementsByTagName('c')].find((entry) => entry.getAttribute('r') === ref)
+  const index = Number(cell?.getAttribute('s'))
+  const xf = styles.getElementsByTagName('cellXfs')[0]!.children[index]!
+  const at = (tag: string, attribute: string) =>
+    styles.getElementsByTagName(tag)[0]!.children[Number(xf.getAttribute(attribute))]!
+  const font = at('fonts', 'fontId')
+  const fill = at('fills', 'fillId').getElementsByTagName('fgColor')[0]
+  const bottom = at('borders', 'borderId').getElementsByTagName('bottom')[0]
+
+  return {
+    bold: font.getElementsByTagName('b').length > 0,
+    italic: font.getElementsByTagName('i').length > 0,
+    size: Number(font.getElementsByTagName('sz')[0]!.getAttribute('val')),
+    fontColor: font.getElementsByTagName('color')[0]?.getAttribute('rgb') ?? null,
+    fill: fill?.getAttribute('rgb') ?? null,
+    bottomBorder: bottom?.getElementsByTagName('color')[0]?.getAttribute('rgb') ?? null,
+  }
 }
 
 describe('buildXlsxBlob', () => {
@@ -115,7 +147,38 @@ describe('buildXlsxBlob', () => {
     expect(parts['xl/worksheets/sheet1.xml']).toMatch(/showGridLines="(0|false)"/)
     expect(parts['xl/worksheets/sheet2.xml']).not.toContain('showGridLines')
     expect(parts['xl/worksheets/sheet2.xml']).toContain('orientation="landscape"')
+    expect(parts['xl/worksheets/sheet1.xml']).not.toContain('orientation="landscape"')
     expect(parts['xl/worksheets/sheet3.xml']).not.toContain('orientation="landscape"')
+  })
+
+  it('styles table headers and body cells', async () => {
+    const parts = await readParts(await buildXlsxBlob(sheets))
+    const sheet = 'xl/worksheets/sheet2.xml'
+    const header = styleOf(parts, sheet, 'A1')
+    const overdue = styleOf(parts, sheet, 'E2')
+    const upcoming = styleOf(parts, sheet, 'E3')
+    const body = styleOf(parts, sheet, 'A2')
+
+    expect(header).toMatchObject({ bold: true, fill: 'FF0A1B2E', fontColor: 'FFFFFFFF' })
+    expect(overdue.fontColor).toBe('FFB42318')
+    expect(upcoming.fontColor).not.toBe('FFB42318')
+    expect(body.bottomBorder).toBe('FFD9E1EA')
+    expect(body.fill).toBeNull()
+  })
+
+  it('styles the summary title, table header and note', async () => {
+    const parts = await readParts(await buildXlsxBlob(sheets))
+    const sheet = 'xl/worksheets/sheet1.xml'
+    const title = styleOf(parts, sheet, 'A1')
+    const label = styleOf(parts, sheet, 'A2')
+    const tableHeader = styleOf(parts, sheet, 'B5')
+    const note = styleOf(parts, sheet, 'A7')
+
+    expect(title).toMatchObject({ bold: true, size: 16, fill: null })
+    expect(label.bold).toBe(true)
+    expect(tableHeader).toMatchObject({ bold: true, fill: 'FF0A1B2E', fontColor: 'FFFFFFFF' })
+    expect(note).toMatchObject({ italic: true, fontColor: 'FF58687A' })
+    expect(parts[sheet]).not.toContain('state="frozen"')
   })
 
   it('defines bold header, ink fill, number and date formats', async () => {

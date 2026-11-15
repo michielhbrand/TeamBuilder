@@ -160,12 +160,12 @@ export async function buildXlsxBlob(sheets: SheetModel[]): Promise<Blob> {
       data: summary ? summaryData(model) : tableData(model),
       columns: summary ? summaryWidths(model) : tableWidths(model),
       stickyRowsCount: summary ? 0 : 1,
-      orientation: model.landscape ? ('landscape' as const) : ('portrait' as const),
+      ...(model.landscape ? { orientation: 'landscape' as const } : {}),
       ...(summary ? { showGridLines: false } : {}),
     }
   })
 
-  return writeXlsxFile(workbook as Parameters<typeof writeXlsxFile>[0], {
+  return writeXlsxFile(workbook, {
     fontFamily: 'Calibri',
     fontSize: 11,
   }).toBlob()
