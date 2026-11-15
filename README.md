@@ -31,6 +31,10 @@ fit analyses, and the monthly hiring history are stored in Supabase Postgres and
 - A hiring dashboard at `/overview` with six KPIs, a needs-attention list, latest activity,
   roles by deadline, quarterly hiring charts and time-to-hire views that survive deleted boards
   (kept in two small history tables), and a per-board stage view, filterable by department
+- An "Export to Excel" button on the Overview that downloads a six-sheet workbook (Summary,
+  Active roles, Applicants, Pipeline, Hiring by quarter, Time to hire) for the selected
+  department, generated in the browser with nothing sent to a server. It includes applicant
+  contact details and salary expectations, so handle the file as personal data.
 - Role boards grouped by department at `/boards`
 - A stage-column pipeline for each role with quiet applicant cards (time in stage, hover and
   keyboard actions, Hire and Reject with Undo), drag to an adjacent stage, deadline chips, and
@@ -370,6 +374,8 @@ src/
   lib/auth-link.ts          Detects invite/recovery links before Supabase consumes them
   lib/pipeline.ts           Pure pipeline helpers and summaries
   lib/overview.ts           Pure Overview metrics: quarters, hire rate, attention, stage stats
+  lib/export-sheets.ts      Pure Excel export sheet models, column widths, and file name
+  lib/export-xlsx.ts        Lazy-loaded workbook writer and browser download
   lib/chart-scale.ts        Pure chart ticks, label thinning, and bar paths
   lib/chart-tooltip.ts      Shared chart hover tooltip state
   lib/use-element-width.ts  Reactive element width for pixel-accurate SVG charts

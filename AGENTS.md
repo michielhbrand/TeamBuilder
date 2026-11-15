@@ -10,8 +10,8 @@ TeamBuilder is a Vue 3 + Supabase hiring pipeline workspace. It is hosted on Git
 and exists to demonstrate a login screen, admin invitations that let users choose a
 password, in-memory sessions, a protected hiring portal, and sign-out. The portal has a
 hiring dashboard overview (live board numbers plus quarterly hiring trends kept in a small
-history), role boards grouped by department, a stage-column pipeline for each role,
-a consent-gated CV analysis that lists similarities and gaps, an applicant audit trail, and an account page. Boards,
+history) with an Excel export, role boards grouped by department, a stage-column pipeline for
+each role, a consent-gated CV analysis that lists similarities and gaps, an applicant audit trail, and an account page. Boards,
 pipeline stages, applicants, events, notes, fit analyses, and the monthly hiring history are
 stored in Supabase Postgres and loaded through Pinia. Keep it focused; do not add unrelated product features.
 
@@ -116,6 +116,13 @@ npm run build
   `medianByQuarter`, `finalStageCount`, `attentionItems`, `roleFlow`, `filledShare`,
   `openedDaysAgo`, per-board `stageStats` / `slowestStage`, `historyWindowStart`, and
   `formatCount` (groups thousands, en-US). All "now" arithmetic is UTC.
+- `src/lib/export-sheets.ts` — pure Excel export models: `buildWorkbookModel` turns boards,
+  history months, hire records, and the department filter into the six `SheetModel`s;
+  `columnWidth` applies the column width rule and `exportFileName` builds the download name.
+  No Supabase, DOM, or writer imports.
+- `src/lib/export-xlsx.ts` — the writer: `buildXlsxBlob` lazy-imports
+  `write-excel-file/universal` and styles the sheet models, `downloadBlob` triggers the browser
+  download, and `exportWorkbook` combines the two. The library stays out of the main bundle.
 - `src/lib/chart-scale.ts` — pure chart geometry: `niceTicks`, `axisMaxDays`, `dayTickStep`,
   `thinStep`, `truncateLabel`, `rowLabelWidth`, and `barPath`.
 - `src/lib/chart-tooltip.ts` — `provideChartTooltip()` / `useChartTooltip()` / `useChartHover()`
@@ -314,6 +321,13 @@ See `docs/ARCHITECTURE.md` for the auth lifecycle and deployment pipeline.
   have `role="img"` and a summary `aria-label`, plus a visually hidden data table where they plot
   data; `StageBars` and `FlowRows` are accessible lists and buttons with `sr-only` text. Accent is work in progress, signal is
   hired/filled, `line-input` is rejected, and danger is only for past-deadline.
+- "Export to Excel" in the Overview `PageHeader` actions builds the workbook entirely in the
+  browser from data the stores already loaded (live boards, history months, hire records); no
+  request is made and nothing is sent to a server. It honors the department chip. Sheets, in
+  order: Summary, Active roles, Applicants, Pipeline, Hiring by quarter, Time to hire. Cell text
+  is written as typed strings (`format: '@'`) with no value mangling, so phone numbers, leading
+  zeros, and values that look like formulas or dates stay as typed. Failures show "The export
+  could not be created. Try again." and never change store state.
 - Hiring history is maintained by the `applicants_record_history` trigger, never by clients. Do
   not write `public.hiring_monthly` or `public.hire_history` from the app; the history store
   and `history-api.ts` only read.
@@ -440,6 +454,11 @@ See `docs/ARCHITECTURE.md` for the auth lifecycle and deployment pipeline.
   a cascading composite foreign key. Notes are append-only free text: clients may select and
   insert, but there are no update or delete policies. Insert `author_name` from the signed-in
   user's full name and let `author_id` default to `auth.uid()`.
+- The Excel export contains personal data: applicant name, email, phone, current role, notice
+  period, and salary expectation (a product owner decision). It is created on the user's device
+  and saved wherever they choose, so treat the file as personal data. The export adds no new
+  access, because every signed-in user can already see this data. It excludes notes, activity
+  events, CVs, career entries, fit analyses, and internal ids.
 - Use the publishable key for client access. Never introduce a service-role client into the
   browser bundle.
 - Keep `supabase/config.toml` redirect URLs aligned with local and Pages origins.
@@ -453,6 +472,9 @@ See `docs/ARCHITECTURE.md` for the auth lifecycle and deployment pipeline.
 - Do not let the browser validate model output or write `public.applicant_fit_analyses`.
 - Do not add client writes to `public.hiring_monthly` or `public.hire_history`, and do not add
   per-stage history or personal data to them.
+- Do not add a third-party or server-side export service, and do not send export data
+  anywhere. Do not add notes, CVs, activity events, career entries, or fit analyses to the
+  export without a product decision.
 - Do not add analytics, error reporting, or third-party scripts that handle auth data
   without documenting the privacy/security impact.
 - Do not change the deployment target, repo name assumptions, or base path without updating

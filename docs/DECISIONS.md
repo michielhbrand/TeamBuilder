@@ -415,3 +415,22 @@ Dates use ISO 8601. Status values are proposed, accepted, superseded, or depreca
   old department, there is no per-stage history (stage names differ per board, so company-wide
   numbers never use them), and an applicant deleted without a decision still counts in
   `applicants_in`. Changing the counting rules means a new migration to the trigger.
+
+## ADR-029: Browser-generated Excel export of the Overview
+
+- **Date:** 2026-11-15
+- **Status:** Accepted
+- **Context:** Managers want to take the Overview numbers and applicant list into Excel. The
+  data is already loaded in the browser under RLS, and the workbook includes applicant contact
+  details and salary expectations (a product owner decision).
+- **Decision:** Export `.xlsx`, not CSV, because it carries column widths, number and date
+  formats, and several sheets. Generate it in the browser from the loaded stores rather than in
+  an Edge Function, so personal data takes no extra hop and no new access is created. Use
+  `write-excel-file` (MIT, small, loaded lazily through `write-excel-file/universal`) instead of
+  ExcelJS or SheetJS, which are larger. Sheet content is pure (`export-sheets.ts`); the writer
+  is separate (`export-xlsx.ts`). Notes, activity events, CVs, career entries, fit analyses,
+  and internal ids are excluded.
+- **Consequences:** Accepted limits: the library cannot write Excel filter dropdowns, and the
+  Time to hire sheet covers only the last 12 quarters of hires that the history store reads.
+  The downloaded file is personal data outside the app's control. Revisit with a backend
+  function if scheduled or emailed reports are wanted.

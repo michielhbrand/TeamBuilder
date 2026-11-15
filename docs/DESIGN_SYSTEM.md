@@ -336,6 +336,23 @@ that prototype's palette, gradients, or Bricolage/Hanken fonts.
   `640px`. `RoleDeadlineTable` becomes stacked rows at `720px`, with its header visually
   hidden.
 
+### Excel export
+
+- The "Export to Excel" button is an outlined `v-btn` with `mdi-microsoft-excel` in the Overview
+  `PageHeader` actions slot, shown when there are live boards or history. It uses the Vuetify
+  `loading` prop and is disabled while the file is created. It never replaces its label.
+- A failure shows an `orbital-alert` error: "The export could not be created. Try again."
+- Workbook presentation (set in `src/lib/export-xlsx.ts`):
+  - Header row: bold white text on `#0a1b2e`, frozen on every table sheet.
+  - Column width: `clamp(max(header, longest value) + 2, 8, 48)` characters; the Summary label
+    column is fixed.
+  - Formats: dates `dd/mm/yyyy`, rand `"R" #,##0`, counts and days `#,##0`, rates `0%`; text
+    cells are written as text (`@`).
+  - Active roles and Applicants print landscape; the Summary hides gridlines.
+  - Only a negative "Days to deadline" is colored, in danger `#b42318`. There is no other
+    color coding, and nothing is colored by time in stage.
+  - No Excel filter dropdowns.
+
 ### Buttons
 
 - Primary: accent fill, accent-ink text, `48px` height, `8px` radius, 700 weight, sentence

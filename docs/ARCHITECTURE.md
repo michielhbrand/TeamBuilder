@@ -313,6 +313,49 @@ departments known only from history. Stage-level charts ("Where active applicant
 one board's own stages and are limited to the "One board in focus" picker. Charts are local SVG
 sized from the container's measured width; `OverviewView` provides one shared tooltip.
 
+### Excel export
+
+The Overview's "Export to Excel" button downloads a workbook generated entirely in the browser.
+Nothing is sent to a server; no Edge Function is involved.
+
+Data flow: the boards and history stores (already loaded, read under RLS) feed
+`buildWorkbookModel` in `src/lib/export-sheets.ts`, which returns pure `SheetModel`s. `exportWorkbook`
+in `src/lib/export-xlsx.ts` styles them with `write-excel-file` (MIT), turns the result into a
+`Blob`, and `downloadBlob` saves it through a temporary object URL. The library is loaded with
+`import('write-excel-file/universal')` on click, so it sits in its own lazy chunk and never
+loads with the page. `fflate` is a dev dependency only.
+
+Scope rules:
+
+- The department chip applies to every sheet; with a department selected the file name carries
+  it (`TeamBuilder-overview-<department>-<yyyy-mm-dd>.xlsx`), otherwise `all-departments`.
+- Live sheets include every live board in scope. Hiring by quarter uses every history month in
+  full. Time to hire uses the hire records the history store reads, which are limited to the
+  last 12 quarters (see Hiring history). "All departments" total rows appear only when no
+  department is selected.
+- Date arithmetic uses UTC, with one `now` shared by all sheets in a workbook build.
+
+Sheets, in order:
+
+- **Summary** — title, as-at date, scope, six headline figures, a by-department table, and a
+  note when history starts.
+- **Active roles** — one row per live role: deadline, days to deadline, opened date, stage
+  count, and active, hired, rejected, and final-stage counts.
+- **Applicants** — one row per applicant: role, department, stage, status, name, email, phone,
+  current role, applied date, days in stage (active only), notice period, salary expectation,
+  and favorite.
+- **Pipeline** — active applicants per stage for each role.
+- **Hiring by quarter** — applicants in, hired, rejected, and hire rate per quarter and
+  department.
+- **Time to hire** — hires and median, fastest, slowest, quartile 1 and 3 days per department,
+  plus the median for the last 4 quarters.
+
+Excluded: notes, activity events, CVs, career entries, fit analyses, and internal ids.
+
+Presentation rules are in `docs/DESIGN_SYSTEM.md`. Cell text is written as typed strings with
+no value mangling. Excel filter dropdowns are not offered because the library cannot write
+them. A failed export shows an inline alert and leaves all state unchanged.
+
 ### Hiring history
 
 Two tables hold privacy-safe history so trends survive deleted boards and applicants. Both have
@@ -606,6 +649,9 @@ Function secrets are separate from the Vite build:
   secret key server-side.
 - Keep the pure helpers in `src/lib/pipeline.ts`, `src/lib/overview.ts`, and
   `src/lib/chart-scale.ts` free of Supabase calls so behavior stays unit-testable.
+- Keep the export generated in the browser. Sheet content and widths belong in
+  `export-sheets.ts`, styling and the writer in `export-xlsx.ts`; keep the library behind the
+  lazy import.
 - Never write `public.hiring_monthly` or `public.hire_history` from the app; change the
   trigger in a new migration instead. Do not add per-stage history, because stage names differ
   per board.
