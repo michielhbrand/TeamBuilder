@@ -364,5 +364,149 @@ describe('OverviewView', () => {
 
     expect(wrapper.text()).toContain('history unavailable')
     expect(wrapper.find('.v-alert').exists()).toBe(true)
+    expect(wrapper.text()).not.toContain('History fills in as applicants are hired and rejected.')
+  })
+
+  it('keeps the picker, table and fallback in name order for all and for one department', async () => {
+    const wrapper = await seed([
+      board('z', 'Zeta role', 'Engineering', []),
+      board('d', 'Design role', 'Design', []),
+      board('a', 'Alpha role', 'Engineering', []),
+    ])
+    const options = () =>
+      picker(wrapper)
+        .findAll('option')
+        .map((node) => node.text())
+
+    expect(options()).toEqual(['Alpha role', 'Zeta role', 'Design role'])
+    expect((picker(wrapper).element as HTMLSelectElement).value).toBe('a')
+
+    await picker(wrapper).setValue('d')
+    await chip(wrapper, 'Engineering').trigger('click')
+
+    expect(options()).toEqual(['Alpha role', 'Zeta role'])
+    expect((picker(wrapper).element as HTMLSelectElement).value).toBe('a')
+    const rows = wrapper.findAll('.ov-roles__table > tbody > tr').map((node) => node.text())
+    expect(rows).toHaveLength(2)
+  })
+
+  it('refreshes history when the view is mounted again after history was loaded', async () => {
+    mocks.fetchHiringMonthly.mockResolvedValue([month('Engineering', 2, 1)])
+    mocks.fetchHireHistory.mockResolvedValue([hire('h1', 'Engineering', 25)])
+    await seed(sampleBoards())
+    expect(mocks.fetchHiringMonthly).toHaveBeenCalledTimes(1)
+
+    mountView()
+    await flushPromises()
+
+    expect(mocks.fetchHiringMonthly).toHaveBeenCalledTimes(2)
+    expect(mocks.fetchHireHistory).toHaveBeenCalledTimes(2)
+    expect(mocks.fetchRecentEvents).toHaveBeenCalledTimes(2)
+  })
+
+  it('shows live KPI values for the selected department only', async () => {
+    const wrapper = await seed(sampleBoards())
+    const values = () =>
+      ['Open positions', 'Active applicants', 'At final stage'].map((label) =>
+        kpi(wrapper, label).get('.ov-kpi__value').text(),
+      )
+
+    expect(values()).toEqual(['6', '3', '1'])
+
+    await chip(wrapper, 'Design').trigger('click')
+    expect(values()).toEqual(['2', '1', '0'])
+    expect(kpi(wrapper, 'Open positions').text()).toContain('across 1 role')
+
+    await chip(wrapper, 'Engineering').trigger('click')
+    expect(values()).toEqual(['4', '2', '1'])
+  })
+
+  it('lists attention items for the selected department only', async () => {
+    const late = board('late', 'Late designer', 'Design', [
+      candidate('x1', 'late', 'late-s2', 'active'),
+    ])
+    late.deadline = isoIn(-3)
+    const boards = [
+      board('b1', 'Backend Engineer', 'Engineering', [
+        candidate('c2', 'b1', 'b1-s3', 'active'),
+        candidate('c1', 'b1', 'b1-s2', 'active'),
+      ]),
+      late,
+    ]
+    const wrapper = await seed(boards)
+    const queue = () => wrapper.get('.ov-queue').text()
+
+    expect(queue()).toContain('Late designer is 3 days past its deadline')
+    expect(queue()).toContain('Backend Engineer')
+
+    await chip(wrapper, 'Design').trigger('click')
+    expect(queue()).toContain('Late designer is 3 days past its deadline')
+    expect(queue()).not.toContain('Backend Engineer')
+
+    await chip(wrapper, 'Engineering').trigger('click')
+    expect(queue()).toContain('Backend Engineer')
+    expect(queue()).not.toContain('Late designer')
+  })
+
+  describe('range and last-four-quarter rules', () => {
+    const old = new Date()
+    old.setUTCMonth(old.getUTCMonth() - 18, 1)
+    const oldMonth = old.toISOString().slice(0, 10)
+    const oldHire = {
+      applicantId: 'old',
+      department: 'Engineering',
+      hiredOn: oldMonth,
+      daysToHire: 200,
+    }
+
+    beforeEach(() => {
+      mocks.fetchHiringMonthly.mockResolvedValue([
+        month('Engineering', 2, 1),
+        { ...month('Engineering', 4, 0), month: oldMonth },
+      ])
+      mocks.fetchHireHistory.mockResolvedValue([
+        hire('h1', 'Engineering', 20),
+        hire('h2', 'Engineering', 40),
+        oldHire,
+      ])
+    })
+
+    const quarterRows = (wrapper: ReturnType<typeof mountView>) =>
+      wrapper
+        .findAll('.ov-panel')
+        .find((node) => node.text().includes('Hired and rejected, per quarter'))!
+        .findAll('table.sr-only tbody tr')
+    const hireCount = (wrapper: ReturnType<typeof mountView>) =>
+      wrapper
+        .findAll('.ov-panel')
+        .find((node) => node.text().includes('How long hires take'))!
+        .findAll('table.sr-only tbody tr')[0]!
+        .findAll('td')[0]!
+        .text()
+
+    it('excludes data older than four quarters until "All on record" is chosen', async () => {
+      const wrapper = await seed(sampleBoards())
+
+      expect(quarterRows(wrapper)).toHaveLength(4)
+      expect(hireCount(wrapper)).toBe('2')
+
+      await chip(wrapper, 'All on record').trigger('click')
+
+      expect(quarterRows(wrapper)).toHaveLength(7)
+      expect(quarterRows(wrapper)[0]!.text()).toContain('4')
+      expect(hireCount(wrapper)).toBe('3')
+
+      await chip(wrapper, 'Last 4 quarters').trigger('click')
+      expect(quarterRows(wrapper)).toHaveLength(4)
+      expect(hireCount(wrapper)).toBe('2')
+    })
+
+    it('ignores older hires in the time-to-a-hire and last-four-quarter KPIs', async () => {
+      const wrapper = await seed(sampleBoards())
+
+      expect(kpi(wrapper, 'Time to a hire').get('.ov-kpi__value').text()).toContain('30')
+      expect(kpi(wrapper, 'Hired last 4 quarters').get('.ov-kpi__value').text()).toBe('2')
+      expect(kpi(wrapper, 'Hired last 4 quarters').text()).toContain('6 since records began')
+    })
   })
 })

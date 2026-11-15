@@ -4414,7 +4414,7 @@ body > .v-navigation-drawer__scrim {
   width: 10px;
   height: 10px;
   flex: none;
-  border-radius: 3px;
+  border-radius: var(--orbital-radius-xs);
 }
 
 .ov-legend__swatch--in {

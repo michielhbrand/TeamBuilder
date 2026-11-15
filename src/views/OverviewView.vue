@@ -64,9 +64,9 @@ const focusBoardId = ref<string | null>(null)
 const departments = computed(() => store.groups.map((group) => group.department))
 
 const filteredBoards = computed(() =>
-  department.value === 'all'
-    ? store.orderedBoards
-    : store.boards.filter((board) => board.department === department.value),
+  store.orderedBoards.filter(
+    (board) => department.value === 'all' || board.department === department.value,
+  ),
 )
 
 const focusBoard = computed(
@@ -156,7 +156,7 @@ watch(departments, (names) => {
 })
 
 onMounted(() => {
-  void history.initialize()
+  void (history.initialized ? history.refresh() : history.initialize())
   void activity.loadRecent()
 })
 </script>
@@ -301,7 +301,10 @@ onMounted(() => {
         </div>
       </div>
 
-      <p v-if="!history.months.length && !history.loading" class="ov-empty">
+      <p
+        v-if="history.initialized && !history.loading && !history.error && !history.months.length"
+        class="ov-empty"
+      >
         History fills in as applicants are hired and rejected.
       </p>
       <template v-else>
