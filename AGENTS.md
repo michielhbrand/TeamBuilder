@@ -96,7 +96,11 @@ npm run build
   removal for applicant CVs and board job specs.
 - `src/lib/fit-api.ts` — Supabase reads for stored fit analyses and Edge Function invocation.
 - `src/lib/history-api.ts` — select-only reads of `public.hiring_monthly` and
-  `public.hire_history` with their row mappers. There are no history writes.
+  `public.hire_history` with their row mappers. Both fetchers page through `fetchAllPages` in
+  1000-row `.range()` pages (the API caps a response at 1000 rows), and `fetchHireHistory` only
+  reads hires from `historyWindowStart()` (the first day of the quarter 11 quarters back, the
+  most the Overview can show), newest first, then returns them oldest first. There are no history
+  writes.
 - `src/lib/store-errors.ts` — shared friendly constraint messages and store error formatting.
 - `src/lib/applicant-events.ts` — fallback actor label, absolute timestamp formatting, and
   `formatRelativeTime` for the audit trail.
@@ -110,17 +114,19 @@ npm run build
 - `src/lib/overview.ts` — pure Overview helpers: percentiles and median, calendar-quarter keys
   and labels, `quarterSeries`, `hireRate`, `hiresInQuarters`, `rangeByDepartment`, `speedCurve`,
   `medianByQuarter`, `finalStageCount`, `attentionItems`, `roleFlow`, `filledShare`,
-  `openedDaysAgo`, and per-board `stageStats` / `slowestStage`. All "now" arithmetic is UTC.
+  `openedDaysAgo`, per-board `stageStats` / `slowestStage`, `historyWindowStart`, and
+  `formatCount` (groups thousands, en-US). All "now" arithmetic is UTC.
 - `src/lib/chart-scale.ts` — pure chart geometry: `niceTicks`, `axisMaxDays`, `dayTickStep`,
   `thinStep`, `truncateLabel`, `rowLabelWidth`, and `barPath`.
 - `src/lib/chart-tooltip.ts` — `provideChartTooltip()` / `useChartTooltip()` / `useChartHover()`
   shared hover tooltip state and viewport clamping.
 - `src/lib/use-element-width.ts` — `useElementWidth(target, fallback)` measures an element with
-  `ResizeObserver` so SVG charts draw at real pixel widths.
+  `ResizeObserver` so `QuarterChart` and `HireTimeChart` draw at real pixel widths. `PipelineLine`
+  is a fixed 150 x 34 sparkline and does not measure.
 - `src/lib/validation.ts` — shared email and phone validation helpers.
 - `src/lib/use-media-query.ts` — `useMediaQuery(query)` composable returning a reactive
   `matchMedia` result that removes its listener when the scope stops.
-- `src/stores/boards.ts` — persisted board and stage state, derived groups/summaries/totals,
+- `src/stores/boards.ts` — persisted board and stage state, derived `groups` / `orderedBoards`,
   board actions, and the focus/visibility refresh used to keep the shared workspace current.
 - `src/stores/applicants.ts` — applicant lookup, applicant CRUD, moves, status changes,
   dirty-field debounced autosave, and edit snapshots.
@@ -287,14 +293,26 @@ See `docs/ARCHITECTURE.md` for the auth lifecycle and deployment pipeline.
   `applicants.education` and `applicants.experience`. Always replace the array immutably through
   `useApplicantsStore().updateCandidateEntries`; the autosave dirty-field logic compares by
   reference. Never store or send free-text education or experience.
-- Company-wide Overview numbers never depend on stage names, because every board has its own
-  stages. They use only open positions, applicant counts, hired and rejected, board creation
-  date, deadline, and "at final stage" (active applicants in each board's last stage). Stage-level
-  numbers live only in the single-board "One board in focus" section.
+- No cross-board Overview logic depends on stage names, because every board has its own stages.
+  Company-wide numbers use open positions, applicant counts, hired and rejected, board creation
+  date, deadline, and "at final stage" (active applicants in each board's last stage). The Roles
+  table draws each board's own stages as a line, and attention copy names a board's last stage as
+  display text only. Stage-level numbers live in the single-board "One board in focus" section.
+- "Needs your attention" lists, in order: boards past their deadline (most overdue first), boards
+  with applicants at the final stage (most applicants first, then board name), boards where every
+  active applicant is still in the first stage and the board is at least 7 days old, and boards
+  due within 14 days (soonest first). It shows the first 6 and the full count. "Latest activity"
+  filters the 30 most recent events to the selected department's boards and shows the first 6.
+- With no live boards the Overview shows "No role boards yet." in place of the live KPIs,
+  attention, activity, roles table, and board focus, and still renders the history KPIs and
+  charts whenever history exists. Department chips also include departments known only from
+  history.
 - Overview charts are local SVG (no chart library) drawn in a viewBox equal to the container's
-  measured pixel width (`useElementWidth`), so SVG text stays at least 12px. Every mark has a
-  hover tooltip through the shared `chart-tooltip`, and every chart has `role="img"`, a summary
-  `aria-label`, and a visually hidden data table. Accent is work in progress, signal is
+  measured pixel width (`useElementWidth`, used by `QuarterChart` and `HireTimeChart`; `PipelineLine`
+  is a fixed sparkline), so SVG text stays at least 12px. Every mark has a hover tooltip through
+  the shared `chart-tooltip`. The SVG charts (`QuarterChart`, `HireTimeChart`, `PipelineLine`)
+  have `role="img"` and a summary `aria-label`, plus a visually hidden data table where they plot
+  data; `StageBars` and `FlowRows` are accessible lists and buttons with `sr-only` text. Accent is work in progress, signal is
   hired/filled, `line-input` is rejected, and danger is only for past-deadline.
 - Hiring history is maintained by the `applicants_record_history` trigger, never by clients. Do
   not write `public.hiring_monthly` or `public.hire_history` from the app; the history store

@@ -147,7 +147,7 @@ updates consistent.
 
 The hiring workspace is split by domain, and each store owns its own `error` state:
 
-- `src/stores/boards.ts` owns boards, stages (`board_columns`), and the derived groups, summaries, and totals.
+- `src/stores/boards.ts` owns boards, stages (`board_columns`), and the derived groups and ordered boards.
 - `src/stores/applicants.ts` owns applicant lookup, applicant CRUD, moves, status changes,
   debounced autosave (`retryCandidateSave` retries a failed save without touching the edit
   snapshot; `flushCandidate` saves and records the profile-edit event on close), and edit
@@ -300,8 +300,16 @@ or Edge Function.
   quarters or all quarters on record up to the latest 12, and drives both the quarterly charts
   and "How long hires take". The current quarter is marked partial.
 
-Company-wide numbers use only counts, outcomes, dates, and each board's last stage, never stage
-names. Stage-level charts ("Where active applicants are", "Time in the current stage") read
+No cross-board logic depends on stage names: company-wide numbers use counts, outcomes, dates,
+and each board's last stage. The Roles table draws each board's own stages as a line, and
+attention copy names a board's last stage as display text only. "Needs your attention" lists
+boards past their deadline (most overdue first), boards with applicants at the final stage (most
+applicants first), boards where every active applicant is still in the first stage and that are
+at least 7 days old, and boards due within 14 days (soonest first); it shows 6 and the total.
+"Latest activity" filters the 30 most recent events to the selected department's boards and
+shows 6. With no live boards, the Overview replaces the live sections with "No role boards yet."
+and still renders the history KPIs and charts when history exists; department chips include
+departments known only from history. Stage-level charts ("Where active applicants are", "Time in the current stage") read
 one board's own stages and are limited to the "One board in focus" picker. Charts are local SVG
 sized from the container's measured width; `OverviewView` provides one shared tooltip.
 
@@ -330,6 +338,11 @@ them through security-definer functions, in the same transaction as the applican
 
 Months and dates use UTC. The migration backfills both tables from live applicants and their
 events. Deleting applicants or boards never touches them.
+
+The API returns at most 1000 rows per request (`max_rows`), so `history-api.ts` pages through
+every read with `.range()`. `fetchHireHistory` also limits the read to hires on or after
+`historyWindowStart()` (the first day of the quarter 11 quarters back, the widest range the
+Overview shows) and reads newest first, so the window itself can never drop the latest hires.
 
 Accepted limits: history starts when the migration shipped (earlier deleted boards are not
 recovered); a board's later department change leaves earlier counts under the old department;
@@ -422,8 +435,8 @@ sharing row types, select fragments, and domain mappers through `src/lib/api-sha
 `src/stores/boards.ts` is the source of truth for boards and stages:
 
 - `boards`, `loading`, `initialized`, and `error`.
-- derived `groups`, `orderedBoards`, `summaries`, `totals`, and `needsAttention` (boards past
-  their deadline).
+- derived `groups` (department groups, boards sorted by name) and `orderedBoards` (the flattened
+  list).
 - `initialize`, `refresh`, `createBoard`, `updateBoard`, `deleteBoard`, `addColumn`,
   `renameColumn`, `reorderColumns`, `deleteColumn`, and `reset`.
 

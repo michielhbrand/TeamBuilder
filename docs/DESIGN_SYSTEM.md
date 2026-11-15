@@ -81,28 +81,28 @@ on banned user-facing phrases in `src/**/*.vue`.
 
 Role names are stable. Use the CSS variable rather than the hex value in components.
 
-| Role        | CSS variable            | Light     | Dark                     | Use                                     |
-| ----------- | ----------------------- | --------- | ------------------------ | --------------------------------------- |
-| Canvas      | `--orbital-canvas`      | `#F5F7FA` | `#07111F`                | Page background                         |
-| Surface     | `--orbital-surface`     | `#FFFFFF` | `#0B1728`                | Cards, panels, fields                   |
-| Surface 2   | `--orbital-surface-2`   | `#EEF2F7` | `#101F34`                | Notes, readouts, inset bands            |
-| Ink         | `--orbital-ink`         | `#0A1B2E` | `#EAF1FA`                | Primary text and strong values          |
-| Muted       | `--orbital-muted`       | `#58687A` | `#91A3B7`                | Secondary text, labels, metadata        |
-| Line        | `--orbital-line`        | `#D9E1EA` | `#1E3148`                | Hairline borders and dividers           |
-| Accent      | `--orbital-accent`      | `#1D4ED8` | `#60A5FA`                | Primary action, focus, orbital ring     |
-| Accent text | `--orbital-accent-text` | `#1D4ED8` | `#93C5FD`                | Accent text and links on surfaces       |
-| Accent ink  | `--orbital-accent-ink`  | `#FFFFFF` | `#06111F`                | Text and icons on accent                |
-| Accent soft | `--orbital-accent-soft` | `#E6ECFF` | `rgba(96,165,250,0.16)`  | Focus rings, selected and badge fills   |
-| Signal      | `--orbital-signal`      | `#0E8F7E` | `#2DD4BF`                | Success, active session, healthy status |
-| Signal soft | `--orbital-signal-soft` | `#E0F5F1` | `rgba(45,212,191,0.13)`  | Signal badge fills and status halo      |
-| Signal text | `--orbital-signal-text` | `#0A7565` | `#2DD4BF`                | Signal-colored text, icons, badge text  |
-| Input line  | `--orbital-line-input`  | `#7B8BA0` | `#5B7390`                | Input borders (at least 3:1 on surface) |
-| Warn        | `--orbital-warn`        | `#9A4A06` | `#FBBF24`                | Warning alerts only                     |
-| Warn soft   | `--orbital-warn-soft`   | `#FEF3E2` | `rgba(251,191,36,0.12)`  | Warning alert fills                     |
-| Danger      | `--orbital-danger`      | `#B42318` | `#FDA4AF`                | Errors and destructive text             |
-| Danger soft | `--orbital-danger-soft` | `#FEECE9` | `rgba(253,164,175,0.12)` | Error fills                             |
-| Shadow      | `--orbital-shadow`      | soft navy | deep black               | Auth and app panels                     |
-| Shadow soft | `--orbital-shadow-soft` | 2 px navy | 2 px black               | Stat cards and quiet surfaces           |
+| Role        | CSS variable            | Light     | Dark                     | Use                                                                 |
+| ----------- | ----------------------- | --------- | ------------------------ | ------------------------------------------------------------------- |
+| Canvas      | `--orbital-canvas`      | `#F5F7FA` | `#07111F`                | Page background                                                     |
+| Surface     | `--orbital-surface`     | `#FFFFFF` | `#0B1728`                | Cards, panels, fields                                               |
+| Surface 2   | `--orbital-surface-2`   | `#EEF2F7` | `#101F34`                | Notes, readouts, inset bands                                        |
+| Ink         | `--orbital-ink`         | `#0A1B2E` | `#EAF1FA`                | Primary text and strong values                                      |
+| Muted       | `--orbital-muted`       | `#58687A` | `#91A3B7`                | Secondary text, labels, metadata                                    |
+| Line        | `--orbital-line`        | `#D9E1EA` | `#1E3148`                | Hairline borders and dividers                                       |
+| Accent      | `--orbital-accent`      | `#1D4ED8` | `#60A5FA`                | Primary action, focus, orbital ring                                 |
+| Accent text | `--orbital-accent-text` | `#1D4ED8` | `#93C5FD`                | Accent text and links on surfaces                                   |
+| Accent ink  | `--orbital-accent-ink`  | `#FFFFFF` | `#06111F`                | Text and icons on accent                                            |
+| Accent soft | `--orbital-accent-soft` | `#E6ECFF` | `rgba(96,165,250,0.16)`  | Focus rings, selected and badge fills                               |
+| Signal      | `--orbital-signal`      | `#0E8F7E` | `#2DD4BF`                | Success, active session, healthy status                             |
+| Signal soft | `--orbital-signal-soft` | `#E0F5F1` | `rgba(45,212,191,0.13)`  | Signal badge fills and status halo                                  |
+| Signal text | `--orbital-signal-text` | `#0A7565` | `#2DD4BF`                | Signal-colored text, icons, badge text                              |
+| Input line  | `--orbital-line-input`  | `#7B8BA0` | `#5B7390`                | Input borders (at least 3:1 on surface)                             |
+| Warn        | `--orbital-warn`        | `#9A4A06` | `#FBBF24`                | Warning alerts only                                                 |
+| Warn soft   | `--orbital-warn-soft`   | `#FEF3E2` | `rgba(251,191,36,0.12)`  | Warning alert fills                                                 |
+| Danger      | `--orbital-danger`      | `#B42318` | `#FDA4AF`                | Errors and destructive text                                         |
+| Danger soft | `--orbital-danger-soft` | `#FEECE9` | `rgba(253,164,175,0.12)` | Error fills                                                         |
+| Shadow      | `--orbital-shadow`      | soft navy | deep black               | Auth and app panels                                                 |
+| Shadow soft | `--orbital-shadow-soft` | 2 px navy | 2 px black               | Stat cards, data panels, board cards, candidate tray, Overview KPIs |
 
 Exact shadows:
 
@@ -313,18 +313,22 @@ that prototype's palette, gradients, or Bricolage/Hanken fonts.
 - Panels use `OverviewPanel` (a `.data-panel` with a Manrope title, optional `.meta` subtitle,
   source tag, and an optional actions slot). Chips are pill buttons; the pressed chip fills with the ink
   token. Do not hand-roll panel borders or chip styles.
-- Company-wide widgets never depend on stage names. Stage-level charts (`StageBars`) appear
-  only in "One board in focus", for one board's own stages. `PipelineLine` shows each board's
-  own stages inside its role row.
+- No cross-board logic depends on stage names. Stage-level charts (`StageBars`) appear only in
+  "One board in focus", for one board's own stages. `PipelineLine` shows each board's own stages
+  inside its role row, and attention copy may name a board's last stage as display text.
 - Chart rules: charts are small local SVG components (`QuarterChart`, `HireTimeChart`,
-  `PipelineLine`) or token-colored CSS bars (`StageBars`, `FlowRows`). SVG charts measure their
-  container with `useElementWidth` and draw in a viewBox of that real pixel width, so SVG text
-  is never scaled below 12px. Chart text and strokes use tokens. Every mark has a hover tooltip
-  through the shared `ChartTooltip`. Every chart has `role="img"`, a summary `aria-label`, and a
-  visually hidden data table (`.sr-only`). Meaning is also in visible labels, never color alone.
+  `PipelineLine`) or token-colored CSS bars (`StageBars`, `FlowRows`). `QuarterChart` and `HireTimeChart`
+  measure their container with `useElementWidth` and draw in a viewBox of that real pixel width,
+  so SVG text is never scaled below 12px; `PipelineLine` is a fixed 150 x 34 sparkline. Chart
+  text and strokes use tokens. Every mark has a hover tooltip through the shared `ChartTooltip`.
+  The SVG charts have `role="img"` and a summary `aria-label`, plus a visually hidden data table
+  (`.sr-only`) where they plot data; `StageBars` and `FlowRows` are accessible lists and buttons
+  with `sr-only` text. Meaning is also in visible labels, never color alone.
 - Color roles: accent is work in progress (applicants in, active), signal is hired or filled
   positions, `--orbital-line-input` is rejected, and danger is only for a deadline that has
   passed. Never color by time in stage. The current quarter is marked partial with an asterisk.
+- With no live boards the page keeps its history KPIs and charts (when history exists) under the
+  "No role boards yet." empty state.
 - Empty states are explicit: no boards, "History fills in as applicants are hired and
   rejected.", no hires in the range, and nothing needs attention.
 - Mobile: the KPI grid is 6 columns wide, 3 columns at `1000px`, and 2 at `640px`. Two-up
