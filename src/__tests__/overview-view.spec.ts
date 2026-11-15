@@ -277,11 +277,8 @@ describe('OverviewView', () => {
     expect((picker(wrapper).element as HTMLSelectElement).value).toBe(firstEngineering)
   })
 
-  it('focuses a board from the role table and from the flow rows', async () => {
+  it('focuses a board from the flow rows', async () => {
     const wrapper = await seed(sampleBoards())
-
-    await wrapper.get('button[aria-label="Focus Product Designer"]').trigger('click')
-    expect((picker(wrapper).element as HTMLSelectElement).value).toBe('b2')
 
     const flowRow = wrapper
       .findAll('.ov-flow__row')

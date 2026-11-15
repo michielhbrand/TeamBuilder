@@ -186,7 +186,6 @@ describe('RoleDeadlineTable', () => {
   it('sorts rows by deadline', () => {
     const wrapper = mountWith(RoleDeadlineTable, {
       boards: [single, soon, late],
-      selectedId: null,
     })
     const names = wrapper
       .findAll('.ov-roles__table > tbody > tr')
@@ -195,12 +194,12 @@ describe('RoleDeadlineTable', () => {
   })
 
   it('links the role name to its board', () => {
-    const wrapper = mountWith(RoleDeadlineTable, { boards: [late], selectedId: null })
+    const wrapper = mountWith(RoleDeadlineTable, { boards: [late] })
     expect(wrapper.find('.ov-roles__table > tbody a').attributes('href')).toBe('/boards/late')
   })
 
   it('shows positions text and progressbar values', () => {
-    const wrapper = mountWith(RoleDeadlineTable, { boards: [late, soon], selectedId: null })
+    const wrapper = mountWith(RoleDeadlineTable, { boards: [late, soon] })
     const rows = wrapper.findAll('.ov-roles__table > tbody > tr')
     expect(rows[0]!.text()).toContain('0 of 2')
     expect(rows[1]!.text()).toContain('1 of 3')
@@ -222,7 +221,7 @@ describe('RoleDeadlineTable', () => {
         candidate('o2', 'over', 'over-s1', 'hired'),
       ],
     })
-    const wrapper = mountWith(RoleDeadlineTable, { boards: [over], selectedId: null })
+    const wrapper = mountWith(RoleDeadlineTable, { boards: [over] })
     const bar = wrapper.find('[role="progressbar"]')
     expect(bar.attributes('aria-valuenow')).toBe('1')
     expect(bar.attributes('aria-valuemax')).toBe('1')
@@ -230,7 +229,7 @@ describe('RoleDeadlineTable', () => {
   })
 
   it('applies the danger class only to the past-deadline chip', () => {
-    const wrapper = mountWith(RoleDeadlineTable, { boards: [late, soon], selectedId: null })
+    const wrapper = mountWith(RoleDeadlineTable, { boards: [late, soon] })
     const chips = wrapper.findAll('.ov-roles__deadline')
     expect(chips[0]!.classes()).toContain('ov-roles__deadline--overdue')
     expect(chips[0]!.text()).toContain('4 days overdue')
@@ -238,39 +237,32 @@ describe('RoleDeadlineTable', () => {
   })
 
   it('counts active applicants and shows the stage line', () => {
-    const wrapper = mountWith(RoleDeadlineTable, { boards: [late], selectedId: null })
+    const wrapper = mountWith(RoleDeadlineTable, { boards: [late] })
     expect(wrapper.find('td.ov-roles__num').text()).toBe('2')
     expect(wrapper.find('svg[aria-label="Applicants per stage for Late role"]').exists()).toBe(true)
   })
 
   it('renders a board with a single stage', () => {
-    const wrapper = mountWith(RoleDeadlineTable, { boards: [single], selectedId: null })
+    const wrapper = mountWith(RoleDeadlineTable, { boards: [single] })
     expect(wrapper.text()).toContain('1 stage')
     expect(wrapper.text()).not.toContain('1 stages')
     expect(wrapper.find('svg').exists()).toBe(true)
   })
 
-  it('emits select from the focus button and marks the selected row', async () => {
-    const wrapper = mountWith(RoleDeadlineTable, { boards: [late, soon], selectedId: 'soon' })
-    const rows = wrapper.findAll('.ov-roles__table > tbody > tr')
-    expect(rows[1]!.classes()).toContain('is-selected')
-    expect(rows[0]!.classes()).not.toContain('is-selected')
-    const button = rows[0]!.find('button.ov-roles__focus')
-    expect(button.attributes('aria-label')).toBe('Focus Late role')
-    expect(rows[1]!.find('button.ov-roles__focus').attributes('aria-pressed')).toBe('true')
-    await button.trigger('click')
-    expect(wrapper.emitted('select')).toEqual([['late']])
+  it('does not render a focus button', () => {
+    const wrapper = mountWith(RoleDeadlineTable, { boards: [late, soon] })
+    expect(wrapper.find('.ov-roles__focus').exists()).toBe(false)
   })
 
   it('shows the caption', () => {
-    const wrapper = mountWith(RoleDeadlineTable, { boards: [late], selectedId: null })
+    const wrapper = mountWith(RoleDeadlineTable, { boards: [late] })
     expect(wrapper.text()).toContain(
       "Each line runs from the board's first stage to its last stage, so boards with different stages stay comparable. Hover for the stage names.",
     )
   })
 
   it('shows the empty message and no table', () => {
-    const wrapper = mountWith(RoleDeadlineTable, { boards: [], selectedId: null })
+    const wrapper = mountWith(RoleDeadlineTable, { boards: [] })
     expect(wrapper.text()).toContain('No role boards in this department.')
     expect(wrapper.find('table').exists()).toBe(false)
   })

@@ -7,11 +7,6 @@ import type { Board } from '@/types/pipeline'
 
 const props = defineProps<{
   boards: Board[]
-  selectedId: string | null
-}>()
-
-const emit = defineEmits<{
-  select: [boardId: string]
 }>()
 
 function plural(count: number, singular: string): string {
@@ -54,11 +49,7 @@ const rows = computed(() =>
         </tr>
       </thead>
       <tbody>
-        <tr
-          v-for="row in rows"
-          :key="row.board.id"
-          :class="{ 'is-selected': row.board.id === selectedId }"
-        >
+        <tr v-for="row in rows" :key="row.board.id">
           <td class="ov-roles__role">
             <RouterLink
               class="ov-roles__name"
@@ -67,15 +58,6 @@ const rows = computed(() =>
               {{ row.board.name }}
             </RouterLink>
             <span class="ov-roles__sub">{{ row.sub }}</span>
-            <button
-              type="button"
-              class="ov-roles__focus"
-              :aria-pressed="row.board.id === selectedId"
-              :aria-label="`Focus ${row.board.name}`"
-              @click="emit('select', row.board.id)"
-            >
-              Focus
-            </button>
           </td>
           <td data-label="Deadline">
             <span

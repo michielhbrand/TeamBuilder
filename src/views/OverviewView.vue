@@ -351,11 +351,7 @@ onMounted(() => {
             subtitle="The line shows how applicants are spread across each board's own stages"
             source="live"
           >
-            <RoleDeadlineTable
-              :boards="filteredBoards"
-              :selected-id="focusBoard?.id ?? null"
-              @select="focusBoardId = $event"
-            />
+            <RoleDeadlineTable :boards="filteredBoards" />
           </OverviewPanel>
         </template>
 
