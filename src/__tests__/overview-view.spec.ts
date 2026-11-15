@@ -3,6 +3,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { createRouter, createMemoryHistory } from 'vue-router'
 import { createVuetify } from 'vuetify'
+import type { SheetModel } from '@/lib/export-sheets'
 import type { HireRecord, HiringMonth } from '@/types/history'
 import type { ApplicantEvent, Board, Candidate } from '@/types/pipeline'
 
@@ -11,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   fetchHiringMonthly: vi.fn<() => Promise<unknown>>(),
   fetchHireHistory: vi.fn<() => Promise<unknown>>(),
   fetchRecentEvents: vi.fn<(limit: number) => Promise<unknown>>(),
+  exportWorkbook: vi.fn<(sheets: SheetModel[], fileName: string) => Promise<void>>(),
 }))
 
 vi.mock('@/lib/boards-api', () => ({ fetchBoards: mocks.fetchBoards }))
@@ -21,6 +23,7 @@ vi.mock('@/lib/history-api', () => ({
 vi.mock('@/lib/activity-api', () => ({ fetchRecentEvents: mocks.fetchRecentEvents }))
 vi.mock('@/lib/applicants-api', () => ({}))
 vi.mock('@/lib/storage-api', () => ({}))
+vi.mock('@/lib/export-xlsx', () => ({ exportWorkbook: mocks.exportWorkbook }))
 
 import OverviewView from '@/views/OverviewView.vue'
 import { useBoardsStore } from '@/stores/boards'
@@ -158,6 +161,8 @@ describe('OverviewView', () => {
     mocks.fetchHiringMonthly.mockResolvedValue([])
     mocks.fetchHireHistory.mockResolvedValue([])
     mocks.fetchRecentEvents.mockResolvedValue([])
+    mocks.exportWorkbook.mockReset()
+    mocks.exportWorkbook.mockResolvedValue(undefined)
   })
 
   async function seed(boards: Board[]) {
@@ -599,6 +604,100 @@ describe('OverviewView', () => {
       await flushPromises()
 
       expect(chip(wrapper, 'All departments').attributes('aria-pressed')).toBe('true')
+    })
+  })
+
+  describe('Excel export', () => {
+    const EXPORT_ERROR = 'The export could not be created. Try again.'
+    const exportButton = (wrapper: ReturnType<typeof mountView>) =>
+      wrapper.findAll('button').find((node) => node.text() === 'Export to Excel')
+
+    const activeRoleNames = (sheets: SheetModel[]) => {
+      const sheet = sheets.find((entry) => entry.name === 'Active roles')!
+      const index = sheet.columns.findIndex((entry) => entry.header === 'Role')
+      return sheet.rows.map((row) => row[index])
+    }
+
+    it('exports a workbook for all departments with a dated file name', async () => {
+      const wrapper = await seed(sampleBoards())
+
+      await exportButton(wrapper)!.trigger('click')
+      await flushPromises()
+
+      expect(mocks.exportWorkbook).toHaveBeenCalledOnce()
+      const [sheets, fileName] = mocks.exportWorkbook.mock.calls[0]!
+      expect(sheets[0]!.name).toBe('Summary')
+      expect(fileName).toMatch(/^TeamBuilder-overview-all-departments-\d{4}-\d{2}-\d{2}\.xlsx$/)
+      expect(activeRoleNames(sheets)).toHaveLength(3)
+      expect(wrapper.text()).not.toContain('The export could not be created.')
+    })
+
+    it('exports only the selected department', async () => {
+      const wrapper = await seed(sampleBoards())
+
+      await chip(wrapper, 'Design').trigger('click')
+      await exportButton(wrapper)!.trigger('click')
+      await flushPromises()
+
+      const [sheets, fileName] = mocks.exportWorkbook.mock.calls[0]!
+      expect(activeRoleNames(sheets)).toEqual(['Product Designer'])
+      expect(fileName).toContain('design')
+    })
+
+    it('ignores a second click while the export is pending', async () => {
+      let resolve!: () => void
+      mocks.exportWorkbook.mockReturnValue(new Promise<void>((done) => (resolve = done)))
+      const wrapper = await seed(sampleBoards())
+
+      await exportButton(wrapper)!.trigger('click')
+      await exportButton(wrapper)!.trigger('click')
+
+      expect(mocks.exportWorkbook).toHaveBeenCalledOnce()
+      expect(exportButton(wrapper)!.attributes('disabled')).toBeDefined()
+      expect(wrapper.find('.v-btn--loading').exists()).toBe(true)
+
+      resolve()
+      await flushPromises()
+
+      expect(exportButton(wrapper)!.attributes('disabled')).toBeUndefined()
+      expect(wrapper.find('.v-btn--loading').exists()).toBe(false)
+    })
+
+    it('shows an alert when the export fails and clears it on the next attempt', async () => {
+      mocks.exportWorkbook.mockRejectedValueOnce(new Error('boom'))
+      const wrapper = await seed(sampleBoards())
+
+      await exportButton(wrapper)!.trigger('click')
+      await flushPromises()
+
+      const alert = wrapper.findAll('.v-alert').find((node) => node.text() === EXPORT_ERROR)
+      expect(alert).toBeTruthy()
+      expect(exportButton(wrapper)!.attributes('disabled')).toBeUndefined()
+
+      await exportButton(wrapper)!.trigger('click')
+      await flushPromises()
+
+      expect(mocks.exportWorkbook).toHaveBeenCalledTimes(2)
+      expect(wrapper.text()).not.toContain(EXPORT_ERROR)
+    })
+
+    it('is hidden when there are neither boards nor history', async () => {
+      const wrapper = await seed([])
+
+      expect(exportButton(wrapper)).toBeUndefined()
+    })
+
+    it('is available when only history exists', async () => {
+      mocks.fetchHiringMonthly.mockResolvedValue([month('Engineering', 3, 1)])
+      mocks.fetchHireHistory.mockResolvedValue([hire('h1', 'Engineering', 25)])
+      const wrapper = await seed([])
+
+      expect(exportButton(wrapper)).toBeTruthy()
+
+      await exportButton(wrapper)!.trigger('click')
+      await flushPromises()
+
+      expect(mocks.exportWorkbook).toHaveBeenCalledOnce()
     })
   })
 

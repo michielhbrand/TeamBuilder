@@ -13,6 +13,8 @@ import QuarterChart from '@/components/QuarterChart.vue'
 import RoleDeadlineTable from '@/components/RoleDeadlineTable.vue'
 import StageBars from '@/components/StageBars.vue'
 import { provideChartTooltip } from '@/lib/chart-tooltip'
+import { buildWorkbookModel, exportFileName } from '@/lib/export-sheets'
+import { exportWorkbook } from '@/lib/export-xlsx'
 import {
   attentionItems,
   finalStageCount,
@@ -62,6 +64,8 @@ const department = ref<string>('all')
 const range = ref<4 | 12>(4)
 const hireView = ref<HireView>('strip')
 const focusBoardId = ref<string | null>(null)
+const exporting = ref(false)
+const exportError = ref(false)
 
 const hasBoards = computed(() => store.boards.length > 0)
 const hasHistory = computed(() => history.months.length > 0)
@@ -164,6 +168,29 @@ function toggleDepartment(name: string): void {
   department.value = department.value === name ? 'all' : name
 }
 
+async function exportToExcel(): Promise<void> {
+  if (exporting.value) {
+    return
+  }
+
+  exporting.value = true
+  exportError.value = false
+
+  try {
+    const sheets = buildWorkbookModel({
+      boards: store.boards,
+      months: history.months,
+      hires: history.hires,
+      department: department.value,
+    })
+    await exportWorkbook(sheets, exportFileName(department.value))
+  } catch {
+    exportError.value = true
+  } finally {
+    exporting.value = false
+  }
+}
+
 function onPick(event: Event): void {
   focusBoardId.value = (event.target as HTMLSelectElement).value
 }
@@ -188,6 +215,9 @@ onMounted(() => {
     <v-alert v-if="history.error" class="orbital-alert mb-6" type="error" density="compact">
       {{ history.error }}
     </v-alert>
+    <v-alert v-if="exportError" class="orbital-alert mb-6" type="error" density="compact">
+      The export could not be created. Try again.
+    </v-alert>
 
     <PageHeader class="ov-header" title="Overview">
       <template #meta>
@@ -195,6 +225,18 @@ onMounted(() => {
           {{ department === 'all' ? 'All departments' : department }} &middot;
           {{ plural(filteredBoards.length, 'live role') }}, plus history from closed roles
         </span>
+      </template>
+
+      <template v-if="hasBoards || hasHistory" #actions>
+        <v-btn
+          prepend-icon="mdi-microsoft-excel"
+          variant="outlined"
+          :loading="exporting"
+          :disabled="exporting"
+          @click="exportToExcel"
+        >
+          Export to Excel
+        </v-btn>
       </template>
     </PageHeader>
 
