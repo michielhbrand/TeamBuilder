@@ -79,6 +79,10 @@ declare
   v_hired_department text;
   v_rejected_month date;
 begin
+  if tg_op = 'UPDATE' and new.status is not distinct from old.status then
+    return new;
+  end if;
+
   select department, (created_at at time zone 'utc')::date
   into v_department, v_board_created
   from public.boards
@@ -95,10 +99,6 @@ begin
     return new;
   end if;
 
-  if new.status is not distinct from old.status then
-    return new;
-  end if;
-
   if old.status = 'hired' then
     delete from public.hire_history
     where applicant_id = new.id
@@ -111,7 +111,8 @@ begin
     select (created_at at time zone 'utc')::date
     into v_rejected_month
     from public.applicant_events
-    where applicant_id = new.id
+    where board_id = new.board_id
+      and applicant_id = new.id
       and action = 'rejected'
     order by created_at desc
     limit 1;
