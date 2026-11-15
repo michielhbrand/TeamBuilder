@@ -663,6 +663,62 @@ describe('OverviewView', () => {
       expect(wrapper.find('.v-btn--loading').exists()).toBe(false)
     })
 
+    it('guards against re-entry even when the click bypasses the disabled button', async () => {
+      let resolve!: () => void
+      mocks.exportWorkbook.mockReturnValue(new Promise<void>((done) => (resolve = done)))
+      const wrapper = await seed(sampleBoards())
+      const button = wrapper.findAllComponents({ name: 'VBtn' }).find((node) => {
+        return node.text() === 'Export to Excel'
+      })!
+
+      button.vm.$emit('click', new MouseEvent('click'))
+      button.vm.$emit('click', new MouseEvent('click'))
+      await flushPromises()
+
+      expect(mocks.exportWorkbook).toHaveBeenCalledOnce()
+
+      resolve()
+      await flushPromises()
+    })
+
+    it('is disabled while history is loading and enabled once it has loaded', async () => {
+      let resolve!: (value: unknown[]) => void
+      mocks.fetchHiringMonthly.mockReturnValue(new Promise((done) => (resolve = done)))
+      const wrapper = await seed(sampleBoards())
+
+      expect(exportButton(wrapper)!.attributes('disabled')).toBeDefined()
+      expect(wrapper.find('.v-btn--loading').exists()).toBe(false)
+      await exportButton(wrapper)!.trigger('click')
+      expect(mocks.exportWorkbook).not.toHaveBeenCalled()
+
+      resolve([])
+      await flushPromises()
+
+      expect(exportButton(wrapper)!.attributes('disabled')).toBeUndefined()
+    })
+
+    it('is disabled when history failed to load', async () => {
+      mocks.fetchHiringMonthly.mockRejectedValue(new Error('history unavailable'))
+      const wrapper = await seed(sampleBoards())
+
+      expect(exportButton(wrapper)).toBeTruthy()
+      expect(exportButton(wrapper)!.attributes('disabled')).toBeDefined()
+      expect(wrapper.text()).toContain('history unavailable')
+    })
+
+    it('clears a stale export error when the department changes', async () => {
+      mocks.exportWorkbook.mockRejectedValueOnce(new Error('boom'))
+      const wrapper = await seed(sampleBoards())
+
+      await exportButton(wrapper)!.trigger('click')
+      await flushPromises()
+      expect(wrapper.text()).toContain(EXPORT_ERROR)
+
+      await chip(wrapper, 'Design').trigger('click')
+
+      expect(wrapper.text()).not.toContain(EXPORT_ERROR)
+    })
+
     it('shows an alert when the export fails and clears it on the next attempt', async () => {
       mocks.exportWorkbook.mockRejectedValueOnce(new Error('boom'))
       const wrapper = await seed(sampleBoards())

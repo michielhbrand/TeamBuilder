@@ -69,6 +69,9 @@ const exportError = ref(false)
 
 const hasBoards = computed(() => store.boards.length > 0)
 const hasHistory = computed(() => history.months.length > 0)
+const historyNotReady = computed(
+  () => history.loading || !history.initialized || history.error !== null,
+)
 
 const departments = computed(() => {
   const names = new Set([
@@ -169,7 +172,7 @@ function toggleDepartment(name: string): void {
 }
 
 async function exportToExcel(): Promise<void> {
-  if (exporting.value) {
+  if (exporting.value || historyNotReady.value) {
     return
   }
 
@@ -194,6 +197,10 @@ async function exportToExcel(): Promise<void> {
 function onPick(event: Event): void {
   focusBoardId.value = (event.target as HTMLSelectElement).value
 }
+
+watch(department, () => {
+  exportError.value = false
+})
 
 watch(departments, (names) => {
   if (department.value !== 'all' && !names.includes(department.value)) {
@@ -232,7 +239,7 @@ onMounted(() => {
           prepend-icon="mdi-microsoft-excel"
           variant="outlined"
           :loading="exporting"
-          :disabled="exporting"
+          :disabled="exporting || historyNotReady"
           @click="exportToExcel"
         >
           Export to Excel
