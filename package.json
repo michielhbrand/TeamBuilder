@@ -45,7 +45,8 @@
     "tesseract.js": "^7.0.0",
     "vue": "^3.5.42",
     "vue-router": "^5.3.1",
-    "vuetify": "^4.3.1"
+    "vuetify": "^4.3.1",
+    "write-excel-file": "4.1.1"
   },
   "devDependencies": {
     "@semantic-release/commit-analyzer": "^13.0.1",
@@ -63,6 +64,7 @@
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-oxlint": "~1.82.0",
     "eslint-plugin-vue": "~10.11.0",
+    "fflate": "^0.8.3",
     "jiti": "^2.7.0",
     "jsdom": "^30.0.1",
     "npm-run-all2": "^9.0.3",
