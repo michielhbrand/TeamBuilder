@@ -737,47 +737,7 @@ onBeforeUnmount(() => {
             />
           </div>
 
-          <section class="applicant-section">
-            <p class="eyebrow">CV</p>
-
-            <div v-if="candidate.cvPath" class="applicant-cv-card">
-              <v-icon class="applicant-cv-card__icon" icon="mdi-file-pdf-box" size="36" />
-              <div class="applicant-cv-card__copy">
-                <p class="candidate-name">{{ candidate.cvName || 'CV.pdf' }}</p>
-                <p class="candidate-source">PDF document</p>
-              </div>
-              <v-btn
-                variant="outlined"
-                prepend-icon="mdi-eye-outline"
-                :height="40"
-                @click="activeTab = 'cv'"
-              >
-                Open
-              </v-btn>
-            </div>
-
-            <div v-else class="applicant-cv-card applicant-cv-card--empty">
-              <v-icon class="applicant-cv-card__icon" icon="mdi-file-upload-outline" size="32" />
-              <div class="applicant-cv-card__copy">
-                <p class="candidate-name">No CV yet</p>
-                <p class="candidate-source">PDFs are compressed in your browser before upload.</p>
-              </div>
-              <v-btn
-                variant="outlined"
-                prepend-icon="mdi-upload"
-                :height="40"
-                :disabled="cvBusy"
-                :loading="cvBusy"
-                @click="chooseCv"
-              >
-                Upload CV
-              </v-btn>
-            </div>
-
-            <v-alert v-if="cvError" class="orbital-alert" type="error" density="compact">
-              {{ cvError }}
-            </v-alert>
-          </section>
+          
 
           <section class="applicant-section">
             <p class="eyebrow">
