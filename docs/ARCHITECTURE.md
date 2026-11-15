@@ -323,7 +323,8 @@ Data flow: the boards and history stores (already loaded, read under RLS) feed
 in `src/lib/export-xlsx.ts` styles them with `write-excel-file` (MIT), turns the result into a
 `Blob`, and `downloadBlob` saves it through a temporary object URL. The library is loaded with
 `import('write-excel-file/universal')` on click, so it sits in its own lazy chunk and never
-loads with the page. `fflate` is a dev dependency only.
+loads with the page. `fflate` is a runtime dependency of `write-excel-file` (bundled in the lazy
+chunk) and is also listed in `devDependencies` for tests that unzip the workbook.
 
 Scope rules:
 
@@ -346,15 +347,19 @@ Sheets, in order:
   and favorite.
 - **Pipeline** — active applicants per stage for each role.
 - **Hiring by quarter** — applicants in, hired, rejected, and hire rate per quarter and
-  department.
-- **Time to hire** — hires and median, fastest, slowest, quartile 1 and 3 days per department,
+  department. Quarters are sortable text such as `2026 Q3`; departments follow the known
+  department order.
+- **Time to hire** — hires (last 12 quarters) and median, fastest, slowest, quartile 1 and 3 days per department,
   plus the median for the last 4 quarters.
 
 Excluded: notes, activity events, CVs, career entries, fit analyses, and internal ids.
 
 Presentation rules are in `docs/DESIGN_SYSTEM.md`. Cell text is written as typed strings with
-no value mangling. Excel filter dropdowns are not offered because the library cannot write
-them. A failed export shows an inline alert and leaves all state unchanged.
+no changes apart from XML-invalid control characters (stripped by the library) and one trailing
+space on values that equal a JavaScript built-in property name such as `constructor` or
+`toString` (a workaround for a shared-string bug in the library). Excel filter dropdowns are not offered because the library cannot write
+them. The button is disabled until the history store has loaded without an error, so the file never
+silently omits history. A failed export shows an inline alert and leaves all state unchanged.
 
 ### Hiring history
 

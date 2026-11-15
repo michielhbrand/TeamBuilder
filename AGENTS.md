@@ -323,10 +323,13 @@ See `docs/ARCHITECTURE.md` for the auth lifecycle and deployment pipeline.
   hired/filled, `line-input` is rejected, and danger is only for past-deadline.
 - "Export to Excel" in the Overview `PageHeader` actions builds the workbook entirely in the
   browser from data the stores already loaded (live boards, history months, hire records); no
-  request is made and nothing is sent to a server. It honors the department chip. Sheets, in
+  data is sent to a server (the lazy export chunk is fetched on the first click). The button
+  stays disabled until history has loaded without an error. It honors the department chip. Sheets, in
   order: Summary, Active roles, Applicants, Pipeline, Hiring by quarter, Time to hire. Cell text
-  is written as typed strings (`format: '@'`) with no value mangling, so phone numbers, leading
-  zeros, and values that look like formulas or dates stay as typed. Failures show "The export
+  is written as typed strings (`format: '@'`) with no changes apart from XML-invalid control characters (stripped by the library) and one
+  trailing space on values that equal a JavaScript built-in property name (a library bug
+  workaround, `guardSharedString`), so phone numbers, leading zeros, and values that look like
+  formulas or dates stay as typed. Failures show "The export
   could not be created. Try again." and never change store state.
 - Hiring history is maintained by the `applicants_record_history` trigger, never by clients. Do
   not write `public.hiring_monthly` or `public.hire_history` from the app; the history store

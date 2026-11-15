@@ -432,5 +432,9 @@ Dates use ISO 8601. Status values are proposed, accepted, superseded, or depreca
   and internal ids are excluded.
 - **Consequences:** Accepted limits: the library cannot write Excel filter dropdowns, and the
   Time to hire sheet covers only the last 12 quarters of hires that the history store reads.
+  `write-excel-file` keeps its shared strings in a plain object, so a text value equal to a
+  JavaScript built-in property name (`constructor`, `toString`, `__proto__`, ...) would corrupt
+  the file; `guardSharedString` appends one trailing space to such values instead of patching
+  the dependency.
   The downloaded file is personal data outside the app's control. Revisit with a backend
   function if scheduled or emailed reports are wanted.
