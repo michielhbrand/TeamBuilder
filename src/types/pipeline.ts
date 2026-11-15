@@ -37,6 +37,8 @@ export interface Candidate {
   email: string
   phone: string
   currentRole: string
+  remChannel: string
+  salaryBand: string
   noticePeriodMonths: number
   salaryExpectationCents: number
   favorite: boolean

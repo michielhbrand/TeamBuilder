@@ -52,6 +52,8 @@ function makeCandidate(overrides: Partial<Candidate> = {}): Candidate {
     email: 'amara@example.com',
     phone: '+1 555 010 2000',
     currentRole: 'Product Designer',
+    remChannel: '',
+    salaryBand: '',
     noticePeriodMonths: 0,
     salaryExpectationCents: 0,
     favorite: false,
@@ -252,7 +254,7 @@ describe('applicants store', () => {
     expect(patch).not.toHaveProperty('columnId')
   })
 
-  it('persists notice period and salary expectation as changed fields', async () => {
+  it('persists notice period, salary expectation, REM channel, and salary band', async () => {
     const { applicants } = await initializedStores()
     const candidate = applicants.candidateById('c1')
 
@@ -260,15 +262,21 @@ describe('applicants store', () => {
     if (!candidate) return
 
     applicants.beginCandidateEdit(candidate.id)
+    applicants.updateCandidateField(candidate.id, 'remChannel', 'LinkedIn')
+    applicants.updateCandidateField(candidate.id, 'salaryBand', 'R60k–R80k')
     applicants.updateCandidateNumber(candidate.id, 'noticePeriodMonths', 1.5)
     applicants.updateCandidateNumber(candidate.id, 'salaryExpectationCents', 2500050)
 
+    expect(candidate.remChannel).toBe('LinkedIn')
+    expect(candidate.salaryBand).toBe('R60k–R80k')
     expect(candidate.noticePeriodMonths).toBe(1.5)
     expect(candidate.salaryExpectationCents).toBe(2500050)
 
     await applicants.flushCandidate(candidate.id)
 
     expect(mocks.updateApplicant).toHaveBeenCalledExactlyOnceWith(candidate.id, {
+      remChannel: 'LinkedIn',
+      salaryBand: 'R60k–R80k',
       noticePeriodMonths: 1.5,
       salaryExpectationCents: 2500050,
     })

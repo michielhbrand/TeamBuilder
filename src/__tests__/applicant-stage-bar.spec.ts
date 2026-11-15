@@ -21,6 +21,8 @@ function seed(overrides: Partial<Candidate> = {}): void {
     email: '',
     phone: '',
     currentRole: 'Software engineer',
+    remChannel: '',
+    salaryBand: '',
     noticePeriodMonths: 0,
     salaryExpectationCents: 0,
     favorite: false,

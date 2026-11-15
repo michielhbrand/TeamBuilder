@@ -41,6 +41,8 @@ export interface ApplicantRow {
   email: string
   phone: string
   job_title: string
+  rem_channel: string
+  salary_band: string
   notice_period_months: number
   salary_expectation_cents: number
   education: unknown
@@ -77,6 +79,8 @@ export interface ApplicantPatch {
   email?: string
   phone?: string
   currentRole?: string
+  remChannel?: string
+  salaryBand?: string
   noticePeriodMonths?: number
   salaryExpectationCents?: number
   education?: CareerEntry[]
@@ -134,6 +138,8 @@ export const APPLICANT_SELECT = `
   email,
   phone,
   job_title,
+  rem_channel,
+  salary_band,
   notice_period_months,
   salary_expectation_cents,
   education,
@@ -199,6 +205,8 @@ export function mapApplicant(row: ApplicantRow): Candidate {
     email: row.email,
     phone: row.phone,
     currentRole: row.job_title,
+    remChannel: row.rem_channel,
+    salaryBand: row.salary_band,
     noticePeriodMonths: Number(row.notice_period_months ?? 0),
     salaryExpectationCents: Number(row.salary_expectation_cents ?? 0),
     favorite: row.favorite,
@@ -312,6 +320,8 @@ export function applicantPatch(input: ApplicantPatch): Record<string, unknown> {
   if (input.email !== undefined) patch.email = input.email
   if (input.phone !== undefined) patch.phone = input.phone
   if (input.currentRole !== undefined) patch.job_title = input.currentRole
+  if (input.remChannel !== undefined) patch.rem_channel = input.remChannel
+  if (input.salaryBand !== undefined) patch.salary_band = input.salaryBand
   if (input.noticePeriodMonths !== undefined) {
     patch.notice_period_months = input.noticePeriodMonths
   }

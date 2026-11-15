@@ -40,6 +40,8 @@ function candidate(id: string, boardId: string, stepId: string, status: Candidat
     email: '',
     phone: '',
     currentRole: '',
+    remChannel: '',
+    salaryBand: '',
     noticePeriodMonths: 0,
     salaryExpectationCents: 0,
     favorite: false,

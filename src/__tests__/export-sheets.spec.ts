@@ -31,6 +31,8 @@ function applicant(id: string, overrides: Partial<Candidate> = {}): Candidate {
     email: '',
     phone: '',
     currentRole: '',
+    remChannel: '',
+    salaryBand: '',
     noticePeriodMonths: 0,
     salaryExpectationCents: 0,
     favorite: false,

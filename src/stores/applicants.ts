@@ -22,7 +22,8 @@ interface CandidateContext {
   candidate: Candidate
 }
 
-export type EditableCandidateField = 'name' | 'email' | 'phone' | 'currentRole'
+export type EditableCandidateField =
+  'name' | 'email' | 'phone' | 'currentRole' | 'remChannel' | 'salaryBand'
 
 export type EditableCandidateNumberField = 'noticePeriodMonths' | 'salaryExpectationCents'
 
@@ -36,6 +37,8 @@ type ProfileSnapshot = Pick<
   | 'email'
   | 'phone'
   | 'currentRole'
+  | 'remChannel'
+  | 'salaryBand'
   | 'noticePeriodMonths'
   | 'salaryExpectationCents'
   | 'education'
@@ -80,6 +83,8 @@ export const useApplicantsStore = defineStore('applicants', () => {
       email: candidate.email,
       phone: candidate.phone,
       currentRole: candidate.currentRole,
+      remChannel: candidate.remChannel,
+      salaryBand: candidate.salaryBand,
       noticePeriodMonths: candidate.noticePeriodMonths,
       salaryExpectationCents: candidate.salaryExpectationCents,
       education: candidate.education,

@@ -31,6 +31,8 @@ function candidate(overrides: Partial<Candidate> = {}): Candidate {
     email: 'amara.okafor@example.com',
     phone: '+1 555 010 2000',
     currentRole: 'Product Designer',
+    remChannel: '',
+    salaryBand: '',
     noticePeriodMonths: 0,
     salaryExpectationCents: 0,
     favorite: false,

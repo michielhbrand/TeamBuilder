@@ -91,6 +91,8 @@ const form = reactive<Record<EditableCandidateField, string>>({
   email: '',
   phone: '',
   currentRole: '',
+  remChannel: '',
+  salaryBand: '',
 })
 const fieldErrors = reactive({
   email: '',
@@ -172,6 +174,8 @@ function syncForm(): void {
   form.email = current?.email ?? ''
   form.phone = current?.phone ?? ''
   form.currentRole = current?.currentRole ?? ''
+  form.remChannel = current?.remChannel ?? ''
+  form.salaryBand = current?.salaryBand ?? ''
   numericForm.noticePeriodMonths = formatNoticePeriod(current?.noticePeriodMonths ?? 0)
   numericForm.salaryExpectationCents = formatSalaryCents(current?.salaryExpectationCents ?? 0)
   fieldErrors.email = ''
@@ -698,6 +702,22 @@ onBeforeUnmount(() => {
               @update:model-value="updateField('currentRole', $event)"
             />
             <v-text-field
+              label="Email (optional)"
+              type="email"
+              :model-value="form.email"
+              :error-messages="fieldErrors.email"
+              hide-details="auto"
+              @update:model-value="updateField('email', $event)"
+            />
+            <v-text-field
+              label="Phone (optional)"
+              type="tel"
+              :model-value="form.phone"
+              :error-messages="fieldErrors.phone"
+              hide-details="auto"
+              @update:model-value="updateField('phone', $event)"
+            />
+            <v-text-field
               label="Notice period (months)"
               type="number"
               min="0"
@@ -720,24 +740,18 @@ onBeforeUnmount(() => {
               @blur="formatSalaryExpectationField"
             />
             <v-text-field
-              label="Email (optional)"
-              type="email"
-              :model-value="form.email"
-              :error-messages="fieldErrors.email"
-              hide-details="auto"
-              @update:model-value="updateField('email', $event)"
+              label="REM channel"
+              :model-value="form.remChannel"
+              hide-details
+              @update:model-value="updateField('remChannel', $event)"
             />
             <v-text-field
-              label="Phone (optional)"
-              type="tel"
-              :model-value="form.phone"
-              :error-messages="fieldErrors.phone"
-              hide-details="auto"
-              @update:model-value="updateField('phone', $event)"
+              label="Salary band"
+              :model-value="form.salaryBand"
+              hide-details
+              @update:model-value="updateField('salaryBand', $event)"
             />
           </div>
-
-          
 
           <section class="applicant-section">
             <p class="eyebrow">
