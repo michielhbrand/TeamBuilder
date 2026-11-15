@@ -43,19 +43,19 @@ function typedCell(
     return { type: Date, value: value as Date, format: 'dd/mm/yyyy', align: 'left', ...extra }
   }
 
-  const format = {
+  const formats: Partial<Record<CellKind, string>> = {
     integer: '#,##0',
-    decimal: '0.#',
     rand: '"R" #,##0',
     percent: '0%',
     days: '#,##0',
-  }[kind]
+  }
+  const format = formats[kind]
   const overdue = kind === 'days' && header === 'Days to deadline' && Number(value) < 0
 
   return {
     type: Number,
     value: Number(value),
-    format,
+    ...(format ? { format } : {}),
     ...(overdue ? { textColor: DANGER } : {}),
     ...extra,
   }

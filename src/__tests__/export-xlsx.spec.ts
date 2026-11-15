@@ -307,6 +307,42 @@ describe('built-in property names as text', () => {
   })
 })
 
+describe('summary note row', () => {
+  it('guards a single-cell text row that equals a built-in property name', async () => {
+    const note: SheetModel[] = [
+      {
+        name: 'Summary',
+        layout: 'summary',
+        landscape: false,
+        columns: [
+          { header: 'Label', kind: 'text', key: 'label' },
+          { header: 'Value', kind: 'text', key: 'value' },
+        ],
+        rows: [
+          ['Title', null],
+          ['By department', 'Live roles'],
+          ['Engineering', 3],
+          ['constructor', null],
+        ],
+        kinds: [
+          ['text', null],
+          ['text', 'text'],
+          ['text', 'integer'],
+          ['text', null],
+        ],
+      },
+    ]
+    const parts = await readParts(await buildXlsxBlob(note))
+    const strings = [...parts['xl/sharedStrings.xml']!.matchAll(/<t[^>]*>([^<]*)<\/t>/g)].map(
+      (match) => match[1],
+    )
+
+    expect(strings).toContain('constructor ')
+    expect(strings).not.toContain('constructor')
+    expect(parts['xl/worksheets/sheet1.xml']).not.toContain('function')
+  })
+})
+
 describe('decimal cells', () => {
   const decimals: SheetModel[] = [
     {
@@ -318,13 +354,13 @@ describe('decimal cells', () => {
     },
   ]
 
-  it('keeps fractions and uses the 0.# number format', async () => {
+  it('keeps fractions and uses no custom number format', async () => {
     const parts = await readParts(await buildXlsxBlob(decimals))
     const sheet = parts['xl/worksheets/sheet1.xml']!
     const values = [...sheet.matchAll(/<c r="A[2-4]"[^>]*>\s*<v>([^<]*)<\/v>/g)].map((m) => m[1])
 
     expect(values).toEqual(['1.5', '0', '3'])
-    expect(parts['xl/styles.xml']).toContain('formatCode="0.#"')
+    expect(parts['xl/styles.xml']).not.toContain('0.#')
   })
 })
 
