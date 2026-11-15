@@ -3,12 +3,19 @@ import type { CellKind, ExportValue, SheetModel } from '@/lib/export-sheets'
 
 type SheetCell = Record<string, unknown> | null
 
+const REVOKE_DELAY_MS = 30_000
 const INK = '#0a1b2e'
 const BORDER = '#d9e1ea'
 const DANGER = '#b42318'
 const MUTED = '#58687a'
 const SUMMARY_LABEL_WIDTH = 34
 const SUMMARY_HEADER_LABEL = 'By department'
+
+export function guardSharedString(value: string): string {
+  return value === '__proto__' || Object.prototype.hasOwnProperty.call(Object.prototype, value)
+    ? `${value} `
+    : value
+}
 
 const bodyStyle = { bottomBorderColor: BORDER, bottomBorderStyle: 'thin' }
 const headerStyle = {
@@ -29,14 +36,20 @@ function typedCell(
   }
 
   if (kind === 'text') {
-    return { type: String, value: String(value), format: '@', ...extra }
+    return { type: String, value: guardSharedString(String(value)), format: '@', ...extra }
   }
 
   if (kind === 'date') {
     return { type: Date, value: value as Date, format: 'dd/mm/yyyy', align: 'left', ...extra }
   }
 
-  const format = { integer: '#,##0', rand: '"R" #,##0', percent: '0%', days: '#,##0' }[kind]
+  const format = {
+    integer: '#,##0',
+    decimal: '0.#',
+    rand: '"R" #,##0',
+    percent: '0%',
+    days: '#,##0',
+  }[kind]
   const overdue = kind === 'days' && header === 'Days to deadline' && Number(value) < 0
 
   return {
@@ -49,7 +62,7 @@ function typedCell(
 }
 
 function headerCell(text: string): SheetCell {
-  return { type: String, value: text, format: '@', ...headerStyle }
+  return { type: String, value: guardSharedString(text), format: '@', ...headerStyle }
 }
 
 function tableData(model: SheetModel): SheetCell[][] {
@@ -88,7 +101,7 @@ function summaryData(model: SheetModel): SheetCell[][] {
       if (rowIndex === 0) {
         return {
           type: String,
-          value: String(value),
+          value: guardSharedString(String(value)),
           fontWeight: 'bold',
           fontSize: 16,
           alignVertical: 'center',
@@ -102,7 +115,7 @@ function summaryData(model: SheetModel): SheetCell[][] {
       if (isNote) {
         return {
           type: String,
-          value: String(value),
+          value: guardSharedString(String(value)),
           format: '@',
           fontStyle: 'italic',
           textColor: MUTED,
@@ -180,7 +193,7 @@ export function downloadBlob(blob: Blob, fileName: string): void {
   document.body.appendChild(anchor)
   anchor.click()
   anchor.remove()
-  URL.revokeObjectURL(url)
+  setTimeout(() => URL.revokeObjectURL(url), REVOKE_DELAY_MS)
 }
 
 export async function exportWorkbook(sheets: SheetModel[], fileName: string): Promise<void> {

@@ -365,6 +365,54 @@ describe('buildWorkbookModel', () => {
     expect(column(applicants, 'Days in stage')).toEqual([3, 7, null, 3, 3, 3, null])
   })
 
+  it('keeps fractional notice periods and uses a decimal column kind', () => {
+    const half = makeBoard({
+      id: 'b9',
+      name: 'Half',
+      candidates: [
+        applicant('a', { boardId: 'b9', name: 'A', noticePeriodMonths: 1.5 }),
+        applicant('b', { boardId: 'b9', name: 'B', noticePeriodMonths: 0 }),
+        applicant('c', { boardId: 'b9', name: 'C', noticePeriodMonths: 3 }),
+      ],
+    })
+    const applicants = sheet(build('all', { boards: [half] }), 'Applicants')
+
+    expect(
+      applicants.columns.find((entry) => entry.header === 'Notice period (months)')?.kind,
+    ).toBe('decimal')
+    expect(column(applicants, 'Notice period (months)')).toEqual([1.5, 0, 3])
+  })
+
+  it('orders departments by the known order, then alphabetically, in the history sheets', () => {
+    const models = build('all', {
+      months: [
+        month('2026-10-01', 'Zoology', 1, 0, 0),
+        month('2026-10-01', 'Design', 1, 0, 0),
+        month('2026-10-01', 'Aviation', 1, 0, 0),
+        month('2026-10-01', 'Engineering', 1, 0, 0),
+      ],
+      hires: [
+        hire('a', 'Zoology', '2026-10-05', 5),
+        hire('b', 'Design', '2026-10-05', 5),
+        hire('c', 'Aviation', '2026-10-05', 5),
+        hire('d', 'Engineering', '2026-10-05', 5),
+      ],
+    })
+    const order = ['Engineering', 'Design', 'Aviation', 'Zoology', 'All departments']
+
+    expect(column(sheet(models, 'Hiring by quarter'), 'Department')).toEqual(order)
+    expect(column(sheet(models, 'Time to hire'), 'Department')).toEqual(order)
+  })
+
+  it('leaves the summary hire rate empty when nobody is decided', () => {
+    const summary = sheet(
+      build('all', { months: [month('2026-10-01', 'Design', 3, 0, 0)] }),
+      'Summary',
+    )
+
+    expect(summary.rows[8]).toEqual(['Hire rate', null, null, null, null, null])
+  })
+
   it('lists every stage in order with active counts only', () => {
     const pipeline = sheet(build(), 'Pipeline')
 
@@ -398,22 +446,22 @@ describe('buildWorkbookModel', () => {
     ])
     expect(quarters.columns[5]?.kind).toBe('percent')
     expect(quarters.rows).toEqual([
-      ['Q2 25', 'Design', 4, 3, 1, 0.75],
-      ['Q2 25', 'All departments', 4, 3, 1, 0.75],
-      ['Q1 26', 'Design', 5, 1, 2, 1 / 3],
-      ['Q1 26', 'All departments', 5, 1, 2, 1 / 3],
-      ['Q2 26', 'Design', 3, 0, 0, null],
-      ['Q2 26', 'All departments', 3, 0, 0, null],
-      ['Q4 26', 'Design', 4, 1, 1, 0.5],
-      ['Q4 26', 'Engineering', 8, 2, 0, 1],
-      ['Q4 26', 'All departments', 12, 3, 1, 0.75],
+      ['2025 Q2', 'Design', 4, 3, 1, 0.75],
+      ['2025 Q2', 'All departments', 4, 3, 1, 0.75],
+      ['2026 Q1', 'Design', 5, 1, 2, 1 / 3],
+      ['2026 Q1', 'All departments', 5, 1, 2, 1 / 3],
+      ['2026 Q2', 'Design', 3, 0, 0, null],
+      ['2026 Q2', 'All departments', 3, 0, 0, null],
+      ['2026 Q4', 'Engineering', 8, 2, 0, 1],
+      ['2026 Q4', 'Design', 4, 1, 1, 0.5],
+      ['2026 Q4', 'All departments', 12, 3, 1, 0.75],
     ])
   })
 
   it('omits the all row for a single department', () => {
     const quarters = sheet(build('Engineering'), 'Hiring by quarter')
 
-    expect(quarters.rows).toEqual([['Q4 26', 'Engineering', 8, 2, 0, 1]])
+    expect(quarters.rows).toEqual([['2026 Q4', 'Engineering', 8, 2, 0, 1]])
   })
 
   it('summarises time to hire per department with the last four quarters median', () => {
@@ -421,7 +469,7 @@ describe('buildWorkbookModel', () => {
 
     expect(times.columns.map((entry) => entry.header)).toEqual([
       'Department',
-      'Hires',
+      'Hires (last 12 quarters)',
       'Median days',
       'Fastest',
       'Slowest',
@@ -430,8 +478,8 @@ describe('buildWorkbookModel', () => {
       'Median (last 4 quarters)',
     ])
     expect(times.rows).toEqual([
-      ['Design', 3, 30, 20, 40, 25, 35, 30],
       ['Engineering', 3, 50, 10, 100, 30, 75, 30],
+      ['Design', 3, 30, 20, 40, 25, 35, 30],
       ['All departments', 6, 35, 10, 100, 23, 48, 30],
     ])
   })
@@ -472,7 +520,7 @@ describe('buildWorkbookModel', () => {
     expect(sheet(models, 'Active roles').rows).toEqual([])
     expect(sheet(models, 'Applicants').rows).toEqual([])
     expect(sheet(models, 'Pipeline').rows).toEqual([])
-    expect(sheet(models, 'Hiring by quarter').rows.map((row) => row[0])).toContain('Q2 25')
+    expect(sheet(models, 'Hiring by quarter').rows.map((row) => row[0])).toContain('2025 Q2')
 
     const summary = sheet(models, 'Summary')
 
@@ -565,7 +613,7 @@ describe('Summary sheet', () => {
       ['At final stage', 1, null, null, null, null],
       ['Hired last 4 quarters', 4, null, null, null, null],
       ['Time to a hire (median days, last 4 quarters)', 30, null, null, null, null],
-      ['Hire rate', 0.64, null, null, null, null],
+      ['Hire rate', 7 / 11, null, null, null, null],
       [null, null, null, null, null, null],
       [
         'By department',
@@ -644,6 +692,9 @@ describe('columnWidth', () => {
   it('uses the rendered length of typed values', () => {
     expect(columnWidth('Deadline', [new Date('2026-11-15T00:00:00Z')], 'date')).toBe(12)
     expect(columnWidth('Hires', [1234567], 'integer')).toBe(11)
+    expect(columnWidth('Notice', [1.5], 'decimal')).toBe(8)
+    expect(columnWidth('Notice period (months)', [12.5], 'decimal')).toBe(24)
+    expect(columnWidth('N', [1234.56], 'decimal')).toBe(8)
     expect(columnWidth('Days', [-12], 'days')).toBe(8)
     expect(columnWidth('Salary', [1234567], 'rand')).toBe(13)
     expect(columnWidth('Rate', [0.5], 'percent')).toBe(8)

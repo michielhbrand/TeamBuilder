@@ -4,7 +4,6 @@ import {
   median,
   percentile,
   quarterKey,
-  quarterLabel,
   quarterSeries,
   recentQuarters,
   finalStageCount,
@@ -18,7 +17,7 @@ import {
   type CandidateStatus,
 } from '@/types/pipeline'
 
-export type CellKind = 'text' | 'date' | 'integer' | 'rand' | 'percent' | 'days'
+export type CellKind = 'text' | 'date' | 'integer' | 'decimal' | 'rand' | 'percent' | 'days'
 
 export interface ExportColumn {
   header: string
@@ -198,7 +197,7 @@ function buildApplicants(boards: Board[], now: Date): SheetModel {
       column('Current role', 'text'),
       column('Applied', 'date'),
       column('Days in stage', 'days'),
-      column('Notice period (months)', 'integer'),
+      column('Notice period (months)', 'decimal'),
       column('Salary expectation (rand)', 'rand'),
       column('Favorite', 'text'),
     ],
@@ -239,6 +238,10 @@ function buildPipeline(boards: Board[]): SheetModel {
   }
 }
 
+function exportQuarter(key: string): string {
+  return key.replace('-', ' ')
+}
+
 function buildHiringByQuarter(months: HiringMonth[], department: string | 'all'): SheetModel {
   const totals = new Map<string, Map<string, [number, number, number]>>()
 
@@ -262,17 +265,17 @@ function buildHiringByQuarter(months: HiringMonth[], department: string | 'all')
     const quarter = totals.get(key) as Map<string, [number, number, number]>
     const sum: [number, number, number] = [0, 0, 0]
 
-    for (const name of [...quarter.keys()].sort((a, b) => a.localeCompare(b))) {
+    for (const name of [...quarter.keys()].sort(byDepartment)) {
       const [applicantsIn, hired, rejected] = quarter.get(name) as [number, number, number]
 
-      rows.push([quarterLabel(key), name, applicantsIn, hired, rejected, rate(hired, rejected)])
+      rows.push([exportQuarter(key), name, applicantsIn, hired, rejected, rate(hired, rejected)])
       sum[0] += applicantsIn
       sum[1] += hired
       sum[2] += rejected
     }
 
     if (department === 'all') {
-      rows.push([quarterLabel(key), ALL_DEPARTMENTS, sum[0], sum[1], sum[2], rate(sum[1], sum[2])])
+      rows.push([exportQuarter(key), ALL_DEPARTMENTS, sum[0], sum[1], sum[2], rate(sum[1], sum[2])])
     }
   }
 
@@ -314,9 +317,7 @@ function timeToHireRow(name: string, records: HireRecord[], recent: string[]): E
 
 function buildTimeToHire(hires: HireRecord[], department: string | 'all', now: Date): SheetModel {
   const recent = recentQuarters(now, 4)
-  const names = [...new Set(hires.map((record) => record.department))].sort((a, b) =>
-    a.localeCompare(b),
-  )
+  const names = [...new Set(hires.map((record) => record.department))].sort(byDepartment)
   const rows = names.map((name) =>
     timeToHireRow(
       name,
@@ -335,7 +336,7 @@ function buildTimeToHire(hires: HireRecord[], department: string | 'all', now: D
     landscape: false,
     columns: [
       column('Department', 'text'),
-      column('Hires', 'integer'),
+      column('Hires (last 12 quarters)', 'integer'),
       column('Median days', 'days'),
       column('Fastest', 'days'),
       column('Slowest', 'days'),
@@ -405,7 +406,11 @@ function buildSummary(
       hiresInQuarters(hires, department, recentQuarters(now, 4)).map((record) => record.daysToHire),
     ),
   )
-  const rate = hireRate(months, department).percent
+  const decisions = hireRate(months, department)
+  const rate =
+    decisions.hired + decisions.rejected > 0
+      ? decisions.hired / (decisions.hired + decisions.rejected)
+      : null
 
   add(['TeamBuilder hiring overview'], ['text'])
   add(['As at', utcDay(now)], ['text', 'date'])
@@ -415,7 +420,7 @@ function buildSummary(
   add(['At final stage', finalStage], ['text', 'integer'])
   add(['Hired last 4 quarters', hiredRecently], ['text', 'integer'])
   add(['Time to a hire (median days, last 4 quarters)', hireDays], ['text', 'days'])
-  add(['Hire rate', rate === null ? null : rate / 100], ['text', 'percent'])
+  add(['Hire rate', rate], ['text', 'percent'])
   add([], [])
   add(
     [
@@ -493,6 +498,10 @@ function renderedLength(value: ExportValue, kind: CellKind): number {
 
   if (kind === 'percent') {
     return 4
+  }
+
+  if (kind === 'decimal') {
+    return String(Math.round(Number(value) * 10) / 10).length
   }
 
   if (typeof value === 'number') {

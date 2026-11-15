@@ -1,6 +1,6 @@
 import { unzipSync, strFromU8 } from 'fflate'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { buildXlsxBlob, downloadBlob, exportWorkbook } from '@/lib/export-xlsx'
+import { buildXlsxBlob, downloadBlob, exportWorkbook, guardSharedString } from '@/lib/export-xlsx'
 import type { SheetModel } from '@/lib/export-sheets'
 
 const longText = 'A very long current role description that keeps going and going '.repeat(2)
@@ -222,13 +222,121 @@ describe('buildXlsxBlob', () => {
   })
 })
 
+describe('guardSharedString', () => {
+  it('appends a trailing space to built-in property names', () => {
+    for (const name of [
+      'constructor',
+      'toString',
+      'valueOf',
+      'hasOwnProperty',
+      'isPrototypeOf',
+      '__proto__',
+    ]) {
+      expect(guardSharedString(name)).toBe(`${name} `)
+    }
+  })
+
+  it('leaves ordinary values unchanged', () => {
+    for (const value of ['Constructor', 'Anna', '', 'constructors', ' constructor']) {
+      expect(guardSharedString(value)).toBe(value)
+    }
+  })
+})
+
+describe('built-in property names as text', () => {
+  const trap: SheetModel[] = [
+    {
+      name: 'Summary',
+      layout: 'summary',
+      landscape: false,
+      columns: [
+        { header: 'Label', kind: 'text', key: 'label' },
+        { header: 'Value', kind: 'text', key: 'value' },
+      ],
+      rows: [
+        ['valueOf', null],
+        ['By department', 'Live roles'],
+        ['hasOwnProperty', 3],
+      ],
+      kinds: [
+        ['text', null],
+        ['text', 'text'],
+        ['text', 'integer'],
+      ],
+    },
+    {
+      name: 'Applicants',
+      layout: 'table',
+      landscape: false,
+      columns: [
+        { header: 'constructor', kind: 'text', key: 'constructor' },
+        { header: 'Name', kind: 'text', key: 'name' },
+        { header: 'Other', kind: 'text', key: 'other' },
+      ],
+      rows: [
+        ['toString', '__proto__', 'Constructor'],
+        ['Anna', 'constructor', null],
+      ],
+    },
+  ]
+
+  it('writes them as real strings with a trailing space and never as function source', async () => {
+    const parts = await readParts(await buildXlsxBlob(trap))
+    const xml = Object.entries(parts)
+      .filter(([name]) => name.startsWith('xl/worksheets/') || name === 'xl/sharedStrings.xml')
+      .map(([, content]) => content)
+      .join('')
+    const strings = [
+      ...(parts['xl/sharedStrings.xml'] ?? '').matchAll(/<t[^>]*>([^<]*)<\/t>/g),
+    ].map((match) => match[1])
+
+    for (const value of [
+      'constructor ',
+      'toString ',
+      '__proto__ ',
+      'valueOf ',
+      'hasOwnProperty ',
+      'Constructor',
+      'Anna',
+    ]) {
+      expect(strings).toContain(value)
+    }
+    expect(xml).not.toContain('function Object')
+    expect(xml).not.toContain('[object Object]')
+    expect(xml).not.toContain('function')
+  })
+})
+
+describe('decimal cells', () => {
+  const decimals: SheetModel[] = [
+    {
+      name: 'Applicants',
+      layout: 'table',
+      landscape: false,
+      columns: [{ header: 'Notice period (months)', kind: 'decimal', key: 'notice' }],
+      rows: [[1.5], [0], [3]],
+    },
+  ]
+
+  it('keeps fractions and uses the 0.# number format', async () => {
+    const parts = await readParts(await buildXlsxBlob(decimals))
+    const sheet = parts['xl/worksheets/sheet1.xml']!
+    const values = [...sheet.matchAll(/<c r="A[2-4]"[^>]*>\s*<v>([^<]*)<\/v>/g)].map((m) => m[1])
+
+    expect(values).toEqual(['1.5', '0', '3'])
+    expect(parts['xl/styles.xml']).toContain('formatCode="0.#"')
+  })
+})
+
 describe('downloadBlob', () => {
   afterEach(() => {
+    vi.useRealTimers()
     vi.restoreAllMocks()
     document.body.innerHTML = ''
   })
 
-  it('clicks a temporary anchor with the file name and revokes the URL', () => {
+  it('clicks a temporary anchor with the file name and revokes the URL later', () => {
+    vi.useFakeTimers()
     const createObjectURL = vi.fn<(blob: Blob) => string>(() => 'blob:test')
     const revokeObjectURL = vi.fn<(url: string) => void>()
 
@@ -252,6 +360,12 @@ describe('downloadBlob', () => {
     expect(createObjectURL).toHaveBeenCalledWith(blob)
     expect(clicks).toEqual([{ download: 'report.xlsx', href: 'blob:test', attached: true }])
     expect(document.body.querySelector('a')).toBeNull()
+    expect(revokeObjectURL).not.toHaveBeenCalled()
+
+    vi.advanceTimersByTime(29_999)
+    expect(revokeObjectURL).not.toHaveBeenCalled()
+
+    vi.advanceTimersByTime(1)
     expect(revokeObjectURL).toHaveBeenCalledWith('blob:test')
   })
 
