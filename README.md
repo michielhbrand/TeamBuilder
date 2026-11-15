@@ -1,6 +1,6 @@
 # TeamBuilder
 
-A Vue 3 + Supabase hiring pipeline workspace: email/password sign-in, invited users who
+A Vue 3 + Supabase recruitment platform workspace: email/password sign-in, invited users who
 choose their own password, in-memory sessions, a protected hiring portal, and sign-out. The
 portal has a hiring dashboard, role boards grouped by department, a stage-column board for
 each role, a consent-gated CV analysis that lists similarities and gaps, and an account page. The frontend is deployed

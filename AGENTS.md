@@ -6,7 +6,7 @@ deployment, or UI behavior.
 
 ## Purpose
 
-TeamBuilder is a Vue 3 + Supabase hiring pipeline workspace. It is hosted on GitHub Pages
+TeamBuilder is a Vue 3 + Supabase recruitment platform workspace. It is hosted on GitHub Pages
 and exists to demonstrate a login screen, admin invitations that let users choose a
 password, in-memory sessions, a protected hiring portal, and sign-out. The portal has a
 hiring dashboard overview (live board numbers plus quarterly hiring trends kept in a small

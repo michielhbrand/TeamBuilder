@@ -192,7 +192,7 @@ Dates use ISO 8601. Status values are proposed, accepted, superseded, or depreca
 
 - **Date:** 2026-11-05
 - **Status:** Accepted
-- **Context:** The product moved from an authentication demo to a hiring pipeline workspace.
+- **Context:** The product moved from an authentication demo to a recruitment platform workspace.
   The old name and Pages path no longer described the app. The repository, package metadata,
   production base, deployment URLs, and Supabase redirect allow-list all need to agree.
 - **Decision:** Rename the visible brand and package to TeamBuilder. Set the production Vite
