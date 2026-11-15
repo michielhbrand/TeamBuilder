@@ -18,6 +18,7 @@ const props = defineProps<{
   departments: string[]
   view: 'strip' | 'range' | 'curve' | 'trend'
   quarters: string[]
+  partialKey?: string
 }>()
 
 const RIGHT = 48
@@ -158,6 +159,7 @@ const trend = computed(() => {
   const points = medians.map((entry, index) => ({
     key: entry.key,
     label: quarterLabel(entry.key),
+    partial: entry.key === props.partialKey,
     median: entry.median === null ? null : round(entry.median),
     x: xAt(index),
     y: entry.median === null ? 0 : yFor(entry.median),
@@ -413,7 +415,12 @@ const curveRows = computed(() =>
           <g v-for="point in trend.points" :key="point.key">
             <g
               v-if="point.median !== null"
-              v-bind="hover(point.label, `Median ${plural(point.median, 'day')} to hire`)"
+              v-bind="
+                hover(
+                  `${point.label}${point.partial ? ' (so far)' : ''}`,
+                  `Median ${plural(point.median, 'day')} to hire`,
+                )
+              "
             >
               <circle class="ov-hit" r="14" :cx="point.x" :cy="point.y" />
               <circle
@@ -434,7 +441,7 @@ const curveRows = computed(() =>
               {{ point.median }}
             </text>
             <text v-if="point.showLabel" text-anchor="middle" :x="point.x" :y="height - 8">
-              {{ point.label }}
+              {{ point.label }}{{ point.partial ? '*' : '' }}
             </text>
           </g>
         </template>
@@ -493,7 +500,7 @@ const curveRows = computed(() =>
           </thead>
           <tbody>
             <tr v-for="point in trend.points" :key="point.key">
-              <th scope="row">{{ point.label }}</th>
+              <th scope="row">{{ point.label }}{{ point.partial ? ' (so far)' : '' }}</th>
               <td>{{ point.median ?? '–' }}</td>
             </tr>
           </tbody>

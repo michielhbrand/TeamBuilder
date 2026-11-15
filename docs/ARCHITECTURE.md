@@ -57,8 +57,6 @@ rule set; the selected reference is `design/ui-directions.html#orbital`.
   (`advanceCandidate`), Hire and Reject (with the same undo toast), the `saveStatusFor`
   indicator, and for closed applicants an outcome chip with Reopen. The drawer tabs are
   Overview, CV, Career, CV fit, and Activity.
-  `DepartmentLoadChart.vue`, `OutcomeDonut.vue`, `RolePerformanceTable.vue`, and
-  `ApplicantWatchList.vue` implement the dashboard visuals and lists.
   `design/hiring-pipeline-step-columns.html` is the structural concept reference; its
   palette and fonts are not used.
 - Fonts are self-hosted with `@fontsource-variable/manrope` and `@fontsource/ibm-plex-mono`.
@@ -84,9 +82,10 @@ rule set; the selected reference is `design/ui-directions.html#orbital`.
    `supabase.auth.signInWithPassword()`.
 7. On success the store stores the session, and the view navigates to the requested redirect
    or `/overview`.
-8. `OverviewView.vue` is the post-login hiring dashboard. It summarizes open demand, active
-   candidates, outcomes, deadlines, role performance, and applicant watch lists, with a
-   department filter and drill-downs into boards and applicant profiles. `BoardsView.vue`
+8. `OverviewView.vue` is the post-login hiring dashboard. It shows six KPIs, what needs
+   attention, the latest activity, roles by deadline, quarterly hiring trends and time to hire
+   from the history tables, and a per-board stage view, with a department filter and
+   drill-downs into boards. `BoardsView.vue`
    lists boards grouped by department, `BoardView.vue` renders one board's stage columns, and
    `AccountView.vue` is a single column with full-name editing, a read-only email, password
    reset, a light/dark appearance control, and sign-out. Sign-out calls `auth.signOut()`, which clears the session and resets the dependent

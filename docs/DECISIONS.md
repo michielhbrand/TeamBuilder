@@ -380,7 +380,7 @@ Dates use ISO 8601. Status values are proposed, accepted, superseded, or depreca
   Activity. Code identifiers such as `PipelineStep`, `stepId`, and `candidates` are not renamed.
   `src/__tests__/copy-guard.spec.ts` fails on banned phrases in components and views.
 - **Consequences:** Identifiers and copy differ in places, which is accepted to avoid a large
-  rename. The Overview dashboard is excluded from the guard until it is rewritten.
+  rename. The guard covers every component and view, including the Overview.
 
 ## ADR-027: Label-above fields by restyling the Vuetify label
 

@@ -4,13 +4,7 @@ import { describe, expect, it } from 'vitest'
 
 const srcDir = resolve(__dirname, '..')
 
-const excluded = new Set([
-  'OverviewView.vue',
-  'DepartmentLoadChart.vue',
-  'OutcomeDonut.vue',
-  'RolePerformanceTable.vue',
-  'ApplicantWatchList.vue',
-])
+const excluded = new Set<string>()
 
 const banned = [
   'Analize',

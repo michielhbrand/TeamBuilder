@@ -28,31 +28,28 @@ scale, Orbital can read as a generic SaaS theme. Use the motif and the tokens de
 
 ## Source of truth
 
-| Concern             | File                                       |
-| ------------------- | ------------------------------------------ |
-| CSS tokens          | `src/styles/orbital.css`                   |
-| Vuetify themes      | `src/plugins/vuetify.ts`                   |
-| Fonts               | `src/main.ts` and `package.json`           |
-| Brand lockup        | `src/components/BrandMark.vue`             |
-| Auth page shell     | `src/components/AuthShell.vue`             |
-| App page shell      | `src/components/AppShell.vue`              |
-| Board list          | `src/components/BoardList.vue`             |
-| Board switcher      | `src/components/BoardSwitcher.vue`         |
-| Board column        | `src/components/BoardColumn.vue`           |
-| Candidate card      | `src/components/CandidateCard.vue`         |
-| Stage tabs          | `src/components/StageTabs.vue`             |
-| Applicant drawer    | `src/components/ApplicantDrawer.vue`       |
-| Drawer stage bar    | `src/components/ApplicantStageBar.vue`     |
-| Job spec dialog     | `src/components/JobSpecDialog.vue`         |
-| Confirmation dialog | `src/components/ConfirmDialog.vue`         |
-| Progress bar        | `src/components/PipelineBar.vue`           |
-| Workload chart      | `src/components/DepartmentLoadChart.vue`   |
-| Outcome chart       | `src/components/OutcomeDonut.vue`          |
-| Role table          | `src/components/RolePerformanceTable.vue`  |
-| Applicant lists     | `src/components/ApplicantWatchList.vue`    |
-| Theme toggle        | `src/components/ThemeToggle.vue`           |
-| Visual exploration  | `design/ui-directions.html`                |
-| Board concept       | `design/hiring-pipeline-step-columns.html` |
+| Concern             | File                                         |
+| ------------------- | -------------------------------------------- |
+| CSS tokens          | `src/styles/orbital.css`                     |
+| Vuetify themes      | `src/plugins/vuetify.ts`                     |
+| Fonts               | `src/main.ts` and `package.json`             |
+| Brand lockup        | `src/components/BrandMark.vue`               |
+| Auth page shell     | `src/components/AuthShell.vue`               |
+| App page shell      | `src/components/AppShell.vue`                |
+| Board list          | `src/components/BoardList.vue`               |
+| Board switcher      | `src/components/BoardSwitcher.vue`           |
+| Board column        | `src/components/BoardColumn.vue`             |
+| Candidate card      | `src/components/CandidateCard.vue`           |
+| Stage tabs          | `src/components/StageTabs.vue`               |
+| Applicant drawer    | `src/components/ApplicantDrawer.vue`         |
+| Drawer stage bar    | `src/components/ApplicantStageBar.vue`       |
+| Job spec dialog     | `src/components/JobSpecDialog.vue`           |
+| Confirmation dialog | `src/components/ConfirmDialog.vue`           |
+| Progress bar        | `src/components/PipelineBar.vue`             |
+| Overview widgets    | `src/components/Overview*.vue`, `*Chart.vue` |
+| Theme toggle        | `src/components/ThemeToggle.vue`             |
+| Visual exploration  | `design/ui-directions.html`                  |
+| Board concept       | `design/hiring-pipeline-step-columns.html`   |
 
 The prototype is a reference, not an application dependency. Production styling lives in the
 files above. Change the tokens there first; do not copy one-off hex values into views.
@@ -214,12 +211,13 @@ Use `AppShell` for `/overview`, `/boards`, `/boards/:boardId`, and `/account`.
 - `PageHeader` (`title` prop; slots `breadcrumb`, `title-adornment`, `meta`, `actions`) renders
   the `2rem` page title with chips on the left and actions on the right, wrapping under `1024px`.
   Pages not yet migrated keep `.page-heading` with the same `.page-title`.
-- The Overview page is a hiring dashboard. It has a department filter row, a four-card stat
-  row, a department workload chart, an outcome donut, a sortable role performance table, a
-  deadline watch list, and newest / longest-in-step applicant lists. Chart bars and table
-  rows drill into a department, board, or applicant. Dashboard grids become one column at
-  `1024px`; filter chips and applicant lists stack at `720px`; tables scroll horizontally on
-  small screens.
+- The Overview page is a hiring dashboard under a `PageHeader`. It has a department chip row,
+  six KPI cards (`.ov-kpis`: 6 columns, 3 at `1000px`, 2 at `640px`), a needs-attention list
+  beside the latest activity, a roles-by-deadline table, a "Hiring over time" band with two
+  quarterly charts and "How long hires take", and a "One board in focus" band with a board
+  picker. Panels and KPIs carry a neutral "Live boards" or "History table" source tag. Charts
+  are local SVG with one shared tooltip. Two-up grids become one column at `1000px`; the role
+  table becomes stacked rows on small screens.
 - The Account page is one 640px column (`.account-column`) of four `.data-panel`s under a
   `PageHeader`: Profile (full name plus a read-only email with a lock icon), Password (new and
   confirm in two columns, one column at `720px`), Appearance (a Light / Dark segmented control

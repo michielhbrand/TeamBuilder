@@ -332,6 +332,27 @@ describe('HireTimeChart', () => {
       ])
     })
 
+    it('marks the partial quarter with an asterisk and "so far"', () => {
+      const wrapper = mount(HireTimeChart, {
+        props: {
+          hires: [record('a', '2026-02-10', 30), record('c', '2026-08-10', 61)],
+          departments: ['Design'],
+          view: 'trend',
+          quarters,
+          partialKey: '2026-Q3',
+        },
+      })
+
+      const labels = wrapper.findAll('svg text').map((node) => node.text())
+      expect(labels).toContain('Q3 26*')
+      expect(labels).toContain('Q1 26')
+      expect(wrapper.findAll('table tbody th').map((cell) => cell.text())).toEqual([
+        'Q1 26',
+        'Q2 26',
+        'Q3 26 (so far)',
+      ])
+    })
+
     it('draws a single known quarter as one point', () => {
       const wrapper = mount(HireTimeChart, {
         props: {

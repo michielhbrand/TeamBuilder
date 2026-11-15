@@ -100,7 +100,7 @@ npm run build
 - `src/lib/fit-hash.ts` — CV, job-spec, and profile fingerprint helpers.
 - `src/lib/pipeline.ts` — pure pipeline helpers for steps, deadlines and `deadlineLabel`,
   summaries, `stageBreakdown`, `sortBoards`, `applicantsInStage`, `reorderIds` (first stage
-  locked), `applicantActions`, department grouping, and dashboard applicant watch entries.
+  locked), `applicantActions`, and department grouping.
 - `src/lib/validation.ts` — shared email and phone validation helpers.
 - `src/lib/use-media-query.ts` — `useMediaQuery(query)` composable returning a reactive
   `matchMedia` result that removes its listener when the scope stops.
@@ -171,17 +171,13 @@ npm run build
 - `src/components/OverviewPanel.vue`, `OverviewKpi.vue`, `OverviewSourceTag.vue` — Overview panel
   and KPI shells with the neutral "Live boards" / "History table" source tag (`.ov-*` styles).
 - `src/components/PipelineBar.vue` — per-stage applicant progress bar.
-- `src/components/DepartmentLoadChart.vue` — interactive department workload bars.
-- `src/components/OutcomeDonut.vue` — active, hired, and rejected outcome chart.
-- `src/components/RolePerformanceTable.vue` — sortable role board table with pipeline bars.
-- `src/components/ApplicantWatchList.vue` — compact newest and longest-in-step applicant lists.
 - `src/views/LoginView.vue` — login form and validation, with a Forgot password link.
 - `src/views/ForgotPasswordView.vue` — password reset request at `/forgot-password`; shows the
   same confirmation whether or not the account exists and throttles resend for 30 seconds.
 - `src/views/SetPasswordView.vue` — invite and password update form.
-- `src/views/OverviewView.vue` — post-login hiring dashboard with KPI cards, department
-  workload chart, outcome donut, sortable role table, deadline watch, applicant lists, and
-  department filtering.
+- `src/views/OverviewView.vue` — post-login hiring dashboard: department chips, six KPIs, needs
+  attention and latest activity, roles by deadline, quarterly hiring charts and "How long hires
+  take" (history), and a "One board in focus" section with a board picker.
 - `src/views/BoardsView.vue` — all role boards grouped by department.
 - `src/views/BoardView.vue` — stage-column pipeline for one role: `PageHeader` with
   breadcrumb, switch-role button, meta chips, Job spec, Add applicant, and a Board menu; stage
