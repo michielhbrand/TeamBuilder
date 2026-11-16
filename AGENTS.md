@@ -414,7 +414,10 @@ See `docs/ARCHITECTURE.md` for the auth lifecycle and deployment pipeline.
 - Fit results are stored in `public.applicant_fit_analyses`, one row per applicant, scoped by
   the composite `(board_id, applicant_id)` foreign key. Authenticated users may select;
   only the Edge Function with the service role may insert or update. Validate the model JSON
-  on the server and store only the returned similarities and gaps.
+  on the server and store only the returned similarities and gaps. `service_role` bypasses RLS
+  but still needs table grants: select on `applicants` and `boards`, select/insert/update on
+  `applicant_fit_analyses`, and select/insert on `applicant_events`. Keep those grants in a
+  migration; do not rely on Supabase auto-granting new public tables.
 - Fit analysis is English-only, has no local or paid fallback, and must keep the previous
   result when Kilo is unavailable or rate-limited. Refuse any `KILO_MODEL` that is not a free
   model. Do not expose the Kilo key to the browser.
