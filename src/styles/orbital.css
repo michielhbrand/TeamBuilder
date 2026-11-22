@@ -1946,6 +1946,7 @@ body.applicant-drawer-open {
 }
 
 .applicant-drawer {
+  --applicant-tabs-height: 48px;
   width: 50vw !important;
   border-left: 1px solid var(--orbital-line);
   background: var(--orbital-surface) !important;
@@ -2169,7 +2170,10 @@ body > .v-navigation-drawer__scrim {
 }
 
 .applicant-tabs {
-  --v-tabs-height: 48px;
+  --v-tabs-height: var(--applicant-tabs-height);
+  position: sticky;
+  top: calc(var(--applicant-head-height, 0px) - 1px);
+  z-index: 2;
   border-bottom: 1px solid var(--orbital-line);
   padding: 0 12px;
   background: var(--orbital-surface);
@@ -3757,6 +3761,10 @@ body > .v-navigation-drawer__scrim {
     position: static;
   }
 
+  .applicant-tabs {
+    top: 0;
+  }
+
   .applicant-stage-bar__steps {
     flex-wrap: nowrap;
     margin: -2px -18px;
@@ -3769,8 +3777,8 @@ body > .v-navigation-drawer__scrim {
     white-space: nowrap;
   }
 
-  .applicant-career__sticky {
-    top: 0 !important;
+  .applicant-drawer .applicant-career__sticky {
+    top: calc(var(--applicant-tabs-height) - 1px);
   }
 }
 
@@ -4097,6 +4105,7 @@ body > .v-navigation-drawer__scrim {
 
 .applicant-career__sticky {
   position: sticky;
+  top: calc(var(--applicant-head-height, 0px) + var(--applicant-tabs-height) - 1px);
   z-index: 1;
   border-bottom: 1px solid var(--orbital-line);
   padding: 14px 24px 12px;

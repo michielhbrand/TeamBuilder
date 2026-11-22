@@ -700,7 +700,11 @@ onBeforeUnmount(() => {
       width="50vw"
       aria-label="Applicant profile"
     >
-      <div v-if="candidate" class="applicant-drawer__inner">
+      <div
+        v-if="candidate"
+        class="applicant-drawer__inner"
+        :style="{ '--applicant-head-height': `${stickyTop}px` }"
+      >
         <header ref="headRef" class="applicant-drawer__head">
           <div class="applicant-drawer__top">
             <span class="candidate-avatar applicant-drawer__avatar" aria-hidden="true">
@@ -990,7 +994,7 @@ onBeforeUnmount(() => {
             {{ detailsError }}
           </v-alert>
 
-          <div class="applicant-career__sticky" :style="{ top: `${stickyTop}px` }">
+          <div class="applicant-career__sticky">
             <CareerStrip
               :experience="candidate.experience"
               :education="candidate.education"
