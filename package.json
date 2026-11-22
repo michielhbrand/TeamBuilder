@@ -31,7 +31,8 @@
     "supabase:functions": "supabase functions serve fit-analysis --env-file supabase/functions/.env",
     "supabase:seed:user": "node scripts/seed-local-user.mjs",
     "supabase:reset": "supabase db reset && node scripts/seed-local-user.mjs",
-    "supabase:push": "supabase db push --remote"
+    "supabase:push": "supabase db push --remote",
+    "seed:staging": "node scripts/seed-staging.mjs"
   },
   "dependencies": {
     "@fontsource-variable/manrope": "^5.3.0",
@@ -69,6 +70,7 @@
     "jsdom": "^30.0.1",
     "npm-run-all2": "^9.0.3",
     "oxlint": "~1.82.0",
+    "pdf-lib": "^1.17.1",
     "prettier": "3.9.6",
     "semantic-release": "^25.0.9",
     "supabase": "^3.0.0",

@@ -638,6 +638,31 @@ Migrations run automatically before the Pages deploy on every push to `main` or 
 do not deploy the site; Pages continues to follow every push to `main`, so the deployed site
 can be newer than the latest release.
 
+## Staging demo data
+
+`npm run seed:staging` (`scripts/seed-staging.mjs`, `scripts/seed/`) loads fictional data into the
+staging project so the product can be demonstrated. It is a local tool, not part of any
+workflow, because it needs a staging login and database password.
+
+- `data.mjs` generates a deterministic dataset from a fixed seed with dates relative to the run
+  day: eight roles in seven departments (each with its own stages, including one past its
+  deadline, one with every applicant still in the first stage, and one filled), about 95
+  applicants with career entries, skills, compensation, and favorites, audit events that follow the
+  trigger message formats, notes, and 30 months of `hiring_monthly` and `hire_history` rows that
+  reconcile with each other.
+- `pdf.mjs` renders one CV per applicant and one job spec per role with `pdf-lib`. Section headings
+  match what the CV importer and requirement extraction look for, so imports and CV analyses work
+  on them.
+- `sql.mjs` emits a single transaction. It disables `applicants_log_events` and
+  `applicants_record_history` while inserting, so rows keep their backdated timestamps and the
+  history tables are written directly with matching totals, then re-enables both. This is
+  privileged seeding over the database connection; the app itself still never writes history.
+- The script uploads PDFs to the `cvs` and `job-specs` buckets as the signed-in staging user
+  (publishable key, existing RLS), then writes rows with `psql`. `--rehearse` rolls everything
+  back and skips uploads; `--replace` first deletes all boards (which cascade) and all history.
+- Fit analyses are not seeded because their fingerprints come from the CV and job spec text; run
+  one live from the **CV fit** tab.
+
 ## Environment matrix
 
 | Context                   | URL                      | Key source                        | Sign-ups                  |
