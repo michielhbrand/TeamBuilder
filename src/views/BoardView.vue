@@ -23,12 +23,15 @@ import {
 import { useMediaQuery } from '@/lib/use-media-query'
 import { useApplicantsStore } from '@/stores/applicants'
 import { useBoardsStore } from '@/stores/boards'
+import { useFitStore } from '@/stores/fit'
+import type { FitRankEntry } from '@/lib/fit-rank'
 import type { Board, Candidate } from '@/types/pipeline'
 
 const route = useRoute()
 const router = useRouter()
 const store = useBoardsStore()
 const applicants = useApplicantsStore()
+const fit = useFitStore()
 const switcher = ref<InstanceType<typeof BoardSwitcher> | null>(null)
 const dragged = ref<{ candidateId: string; stepId: string } | null>(null)
 const settlingCandidateId = ref<string | null>(null)
@@ -40,6 +43,7 @@ const columnsOpen = ref(false)
 const jobSpecOpen = ref(false)
 const applicantOpen = ref(false)
 const closedOpen = ref(false)
+const rankByFit = ref(false)
 const selectedStepId = ref<string | null>(null)
 const isPhone = useMediaQuery('(max-width: 720px)')
 const isCompact = useMediaQuery('(max-width: 1024px), (hover: none)')
@@ -87,7 +91,36 @@ const dropStepIds = computed(() => {
 })
 
 function candidatesFor(stepId: string): Candidate[] {
-  return board.value ? candidatesInStep(board.value, stepId) : []
+  const candidates = board.value ? candidatesInStep(board.value, stepId) : []
+
+  if (!rankByFit.value || !board.value) {
+    return candidates
+  }
+
+  const ranks = fit.rankForStage(board.value.id, stepId)
+
+  return [...candidates].sort((left, right) => {
+    const leftRank = ranks.get(left.id)
+    const rightRank = ranks.get(right.id)
+
+    if (leftRank && rightRank) {
+      return leftRank.rank - rightRank.rank
+    }
+
+    if (leftRank) {
+      return -1
+    }
+
+    if (rightRank) {
+      return 1
+    }
+
+    return 0
+  })
+}
+
+function fitRanksFor(stepId: string): Map<string, FitRankEntry> {
+  return board.value ? fit.rankForStage(board.value.id, stepId) : new Map()
 }
 
 function defaultStepId(target: Board): string | null {
@@ -181,6 +214,16 @@ watch(boardId, () => {
 })
 
 watch(
+  boardId,
+  (id) => {
+    if (id) {
+      void fit.loadBoard(id)
+    }
+  },
+  { immediate: true },
+)
+
+watch(
   () => [boardId.value, board.value?.steps.map((step) => step.id).join(',')],
   () => {
     const current = board.value
@@ -268,6 +311,15 @@ onBeforeUnmount(() => {
 
         <template #actions>
           <v-btn
+            :color="rankByFit ? 'primary' : undefined"
+            :variant="rankByFit ? 'flat' : 'outlined'"
+            prepend-icon="mdi-sort-numeric-ascending"
+            :aria-pressed="rankByFit"
+            @click="rankByFit = !rankByFit"
+          >
+            Rank by CV fit
+          </v-btn>
+          <v-btn
             color="primary"
             prepend-icon="mdi-account-plus-outline"
             @click="applicantOpen = true"
@@ -305,6 +357,15 @@ onBeforeUnmount(() => {
         {{ store.error || applicants.error }}
       </v-alert>
 
+      <v-alert
+        v-if="fit.boardErrorFor(board.id)"
+        class="orbital-alert mb-6"
+        type="warning"
+        density="compact"
+      >
+        {{ fit.boardErrorFor(board.id) }}
+      </v-alert>
+
       <StageTabs
         v-if="isPhone && selectedStepId"
         v-model="selectedStepId"
@@ -327,6 +388,7 @@ onBeforeUnmount(() => {
             :board="board"
             :step="step"
             :candidates="candidatesFor(step.id)"
+            :fit-ranks="fitRanksFor(step.id)"
             :drop-target="dropStepIds.includes(step.id)"
             :dragging-candidate-id="dragged?.candidateId"
             :settling-candidate-id="settlingCandidateId ?? undefined"

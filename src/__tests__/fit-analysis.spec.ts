@@ -15,7 +15,7 @@ const applicant = {
 }
 
 describe('prepareCandidateText', () => {
-  it('removes identity and sensitive fields while keeping employers and dates', () => {
+  it('removes identity and sensitive fields while keeping employers, dates, and skills', () => {
     const text = prepareCandidateText(
       'BSc Computer Science\nUniversity of Cape Town\n2018 - 2021',
       [
@@ -29,6 +29,7 @@ describe('prepareCandidateText', () => {
         'Nationality: South African',
         'https://example.com/thandi',
       ].join('\n'),
+      ['React', 'TypeScript', 'Kubernetes'],
       applicant,
     )
 
@@ -37,6 +38,8 @@ describe('prepareCandidateText', () => {
     expect(text).toContain('2018 - 2021')
     expect(text).toContain('React and TypeScript')
     expect(text).toContain('Managed Kubernetes clusters')
+    expect(text).toContain('Skills:')
+    expect(text).toContain('Kubernetes')
     expect(text).not.toContain('Thandi')
     expect(text).not.toContain('Mokoena')
     expect(text).not.toContain('thandi@example.com')
@@ -52,7 +55,7 @@ describe('prepareJobSpecText', () => {
     const text = prepareJobSpecText(`Role\n\n\n${'A'.repeat(25_000)}`)
 
     expect(text.startsWith('Role\n\nA')).toBe(true)
-    expect(text.length).toBe(20_000)
+    expect(text.length).toBe(5_000)
   })
 })
 

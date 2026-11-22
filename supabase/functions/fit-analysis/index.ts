@@ -1,12 +1,26 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
+import {
+  ASSESSMENT_SYSTEM_PROMPT,
+  buildAssessmentPrompt,
+  validateAssessmentResult,
+} from './assess.ts'
 import { formatCareerEntries } from './career.ts'
 import { buildUserPrompt, PROMPT_VERSION, SYSTEM_PROMPT } from './prompt.ts'
 import { prepareCandidateText, prepareJobSpecText } from './redact.ts'
+import {
+  buildRequirementExtractionPrompt,
+  normalizeStoredRequirementSet,
+  requirementSetSize,
+  REQUIREMENT_EXTRACTION_SYSTEM_PROMPT,
+  toRequirementSet,
+  validateRequirementExtraction,
+  type RequirementSet,
+} from './requirements.ts'
 import { ModelResultError, validateModelResult } from './validate.ts'
 
 const KILO_BASE_URL = 'https://ai-gateway.kilo.ai/api/v1'
 const REQUEST_TIMEOUT_MS = 120_000
-const KILO_MAX_TOKENS = 8192
+const KILO_MAX_TOKENS = 2048 // Further reduce to be safe
 
 const ALLOWED_ORIGINS = new Set([
   'https://michielhbrand.github.io',
@@ -24,6 +38,7 @@ interface ApplicantRow {
   phone: string
   education: unknown
   experience: unknown
+  skills: unknown
   boards: { name: string; department: string } | { name: string; department: string }[] | null
 }
 
@@ -117,8 +132,40 @@ async function sha256Text(value: string): Promise<string> {
     .join('')
 }
 
-function profileFingerprint(education: string, experience: string): Promise<string> {
-  return sha256Text(`${education.trim()}\n\n${experience.trim()}`)
+function profileFingerprint(
+  education: string,
+  experience: string,
+  skills: string[],
+): Promise<string> {
+  return sha256Text(
+    `${education.trim()}\n\n${experience.trim()}\n\n${skills
+      .map((skill) => skill.trim())
+      .filter(Boolean)
+      .join(', ')}`,
+  )
+}
+
+function candidateSkills(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return []
+  }
+
+  const seen = new Set<string>()
+
+  return value
+    .filter((item): item is string => typeof item === 'string')
+    .map((item) => item.replace(/\s+/g, ' ').trim().slice(0, 80))
+    .filter((item) => {
+      const key = item.toLowerCase()
+
+      if (!item || seen.has(key)) {
+        return false
+      }
+
+      seen.add(key)
+      return true
+    })
+    .slice(0, 60)
 }
 
 function boardDetails(row: ApplicantRow): { name: string; department: string } {
@@ -133,12 +180,25 @@ function boardDetails(row: ApplicantRow): { name: string; department: string } {
 function freeModel(): string {
   const model = Deno.env.get('KILO_MODEL')?.trim() ?? ''
 
+  // Force a specific safe model if not configured or if configured model is risky
+  const safeModel = 'kilo-auto/free'
+
   if (!model) {
-    throw new HttpError(503, 'Kilo is not configured. Set KILO_MODEL.')
+    console.log('No KILO_MODEL configured, using safe default:', safeModel)
+    return safeModel
   }
 
   if (model !== 'kilo-auto/free' && !model.endsWith(':free')) {
     throw new HttpError(503, 'Kilo is not configured with a free model.')
+  }
+
+  // Be extremely restrictive - only allow known safe models
+  const allowedModels = ['kilo-auto/free']
+  const isAllowed = allowedModels.includes(model)
+
+  if (!isAllowed) {
+    console.warn(`Model ${model} may use reasoning. Falling back to safe model: ${safeModel}`)
+    return safeModel
   }
 
   return model
@@ -149,6 +209,7 @@ async function callKilo(
   model: string,
   messages: Array<{ role: 'system' | 'user'; content: string }>,
   jsonMode: boolean,
+  retryCount = 0,
 ): Promise<string> {
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
@@ -165,7 +226,6 @@ async function callKilo(
         messages,
         temperature: 0,
         max_tokens: KILO_MAX_TOKENS,
-        reasoning: { enabled: false },
         ...(jsonMode ? { response_format: { type: 'json_object' } } : {}),
       }),
       signal: controller.signal,
@@ -181,6 +241,13 @@ async function callKilo(
       }
 
       if (response.status === 429) {
+        if (retryCount < 2) {
+          // Try multiple fallback models
+          const fallbackModels = ['kilo-auto/free', 'gpt-4o-free:free', 'claude-3-haiku-free:free']
+          const fallbackModel = fallbackModels[retryCount]
+          console.log('Retrying with fallback model:', fallbackModel)
+          return callKilo(apiKey, fallbackModel, messages, jsonMode, retryCount + 1)
+        }
         throw new HttpError(429, 'The free model is rate-limited right now. Try again later.')
       }
 
@@ -190,6 +257,45 @@ async function callKilo(
     const payload = (await response.json()) as KiloPayload
     const choice = payload.choices?.[0]
     const content = kiloText(choice?.message?.content)
+    const reasoningTokens = payload.usage?.completion_tokens_details?.reasoning_tokens ?? 0
+    const completionTokens = payload.usage?.completion_tokens ?? 0
+
+    // Check for reasoning tokens
+    if (reasoningTokens > 0) {
+      throw new HttpError(
+        502,
+        `The model used ${reasoningTokens} reasoning tokens. This is not allowed for CV analysis.`,
+      )
+    }
+
+    // Check for reasoning in the response text
+    const reasoningIndicators = [
+      'reasoning',
+      'thinking',
+      'let me think',
+      'step by step',
+      'first',
+      'second',
+      'third',
+      'therefore',
+      'however',
+      'furthermore',
+      'additionally',
+      'consequently',
+      'as a result',
+    ]
+
+    const lowerContent = content.toLowerCase()
+    const hasReasoningInContent = reasoningIndicators.some((indicator) =>
+      lowerContent.includes(indicator),
+    )
+
+    if (hasReasoningInContent) {
+      throw new HttpError(
+        502,
+        'The model response contains reasoning patterns. This is not allowed for CV analysis.',
+      )
+    }
 
     if (!content.trim()) {
       console.error('Kilo returned no analysis text', {
@@ -198,8 +304,8 @@ async function callKilo(
         contentType: Array.isArray(choice?.message?.content)
           ? 'array'
           : typeof choice?.message?.content,
-        completionTokens: payload.usage?.completion_tokens ?? null,
-        reasoningTokens: payload.usage?.completion_tokens_details?.reasoning_tokens ?? null,
+        completionTokens,
+        reasoningTokens,
       })
 
       if (choice?.finish_reason === 'length') {
@@ -308,7 +414,7 @@ Deno.serve(async (request) => {
     const { data: applicant, error: applicantError } = await admin
       .from('applicants')
       .select(
-        'id, board_id, full_name, email, phone, education, experience, boards!inner(name, department)',
+        'id, board_id, full_name, email, phone, education, experience, skills, boards!inner(name, department)',
       )
       .eq('id', applicantId)
       .maybeSingle<ApplicantRow>()
@@ -323,7 +429,8 @@ Deno.serve(async (request) => {
 
     const educationText = formatCareerEntries(applicant.education)
     const experienceText = formatCareerEntries(applicant.experience)
-    const candidateText = prepareCandidateText(educationText, experienceText, {
+    const skills = candidateSkills(applicant.skills)
+    const candidateText = prepareCandidateText(educationText, experienceText, skills, {
       full_name: applicant.full_name ?? '',
       email: applicant.email ?? '',
       phone: applicant.phone ?? '',
@@ -334,34 +441,150 @@ Deno.serve(async (request) => {
     }
 
     const role = boardDetails(applicant)
-    const messages: Array<{ role: 'system' | 'user'; content: string }> = [
-      { role: 'system', content: SYSTEM_PROMPT },
-      {
-        role: 'user',
-        content: buildUserPrompt({
-          boardName: role.name,
-          department: role.department,
-          jobSpecText,
-          candidateText,
-        }),
-      },
-    ]
+    let requirementSet: RequirementSet = { minimum: [], recommended: [], skills: [] }
+    const { data: storedSet, error: storedSetError } = await admin
+      .from('board_requirement_sets')
+      .select('requirements')
+      .eq('board_id', applicant.board_id)
+      .eq('job_spec_fingerprint', jobSpecFingerprint)
+      .maybeSingle()
 
-    let content = await callKilo(kiloApiKey, model, messages, true)
-    let validated: ReturnType<typeof validateModelResult>
-
-    try {
-      validated = validateModelResult(content)
-    } catch (caught) {
-      if (!(caught instanceof ModelResultError)) {
-        throw caught
-      }
-
-      content = await callKilo(kiloApiKey, model, messages, true)
-      validated = validateModelResult(content)
+    if (storedSetError) {
+      throw new HttpError(500, 'The job requirements could not be loaded.')
     }
 
-    const profileHash = await profileFingerprint(educationText, experienceText)
+    if (storedSet) {
+      requirementSet = normalizeStoredRequirementSet(storedSet.requirements)
+    } else {
+      const extractionMessages: Array<{ role: 'system' | 'user'; content: string }> = [
+        { role: 'system', content: REQUIREMENT_EXTRACTION_SYSTEM_PROMPT },
+        { role: 'user', content: buildRequirementExtractionPrompt(jobSpecText) },
+      ]
+      let extractionContent = await callKilo(kiloApiKey, model, extractionMessages, true)
+      let extracted: ReturnType<typeof validateRequirementExtraction>
+
+      try {
+        extracted = validateRequirementExtraction(extractionContent)
+      } catch (caught) {
+        if (!(caught instanceof ModelResultError)) {
+          throw caught
+        }
+
+        extractionContent = await callKilo(kiloApiKey, model, extractionMessages, true)
+        extracted = validateRequirementExtraction(extractionContent)
+      }
+
+      requirementSet = toRequirementSet(extracted)
+      const { error: setSaveError } = await admin.from('board_requirement_sets').upsert(
+        {
+          board_id: applicant.board_id,
+          job_spec_fingerprint: jobSpecFingerprint,
+          requirements: requirementSet,
+        },
+        { onConflict: 'board_id,job_spec_fingerprint', ignoreDuplicates: true },
+      )
+
+      if (setSaveError) {
+        throw new HttpError(500, 'The job requirements could not be saved.')
+      }
+
+      const { data: canonicalSet, error: canonicalSetError } = await admin
+        .from('board_requirement_sets')
+        .select('requirements')
+        .eq('board_id', applicant.board_id)
+        .eq('job_spec_fingerprint', jobSpecFingerprint)
+        .maybeSingle()
+
+      if (canonicalSetError) {
+        throw new HttpError(500, 'The job requirements could not be loaded.')
+      }
+
+      if (canonicalSet) {
+        requirementSet = normalizeStoredRequirementSet(canonicalSet.requirements)
+      }
+    }
+
+    let result: {
+      schemaVersion: number
+      complete: boolean
+      requirements: unknown
+      similarities: string[]
+      gaps: string[]
+    }
+
+    if (requirementSetSize(requirementSet) > 0) {
+      const messages: Array<{ role: 'system' | 'user'; content: string }> = [
+        { role: 'system', content: ASSESSMENT_SYSTEM_PROMPT },
+        {
+          role: 'user',
+          content: buildAssessmentPrompt({
+            boardName: role.name,
+            department: role.department,
+            requirementSet,
+            candidateText,
+          }),
+        },
+      ]
+
+      let content = await callKilo(kiloApiKey, model, messages, true)
+      let assessment: ReturnType<typeof validateAssessmentResult>
+
+      try {
+        assessment = validateAssessmentResult(content, requirementSet)
+      } catch (caught) {
+        if (!(caught instanceof ModelResultError)) {
+          throw caught
+        }
+
+        content = await callKilo(kiloApiKey, model, messages, true)
+        assessment = validateAssessmentResult(content, requirementSet)
+      }
+
+      result = {
+        schemaVersion: 3,
+        complete: assessment.complete,
+        requirements: assessment.requirements,
+        similarities: assessment.similarities,
+        gaps: assessment.gaps,
+      }
+    } else {
+      const messages: Array<{ role: 'system' | 'user'; content: string }> = [
+        { role: 'system', content: SYSTEM_PROMPT },
+        {
+          role: 'user',
+          content: buildUserPrompt({
+            boardName: role.name,
+            department: role.department,
+            jobSpecText,
+            candidateText,
+          }),
+        },
+      ]
+
+      let content = await callKilo(kiloApiKey, model, messages, true)
+      let validated: ReturnType<typeof validateModelResult>
+
+      try {
+        validated = validateModelResult(content)
+      } catch (caught) {
+        if (!(caught instanceof ModelResultError)) {
+          throw caught
+        }
+
+        content = await callKilo(kiloApiKey, model, messages, true)
+        validated = validateModelResult(content)
+      }
+
+      result = {
+        schemaVersion: 3,
+        complete: true,
+        requirements: requirementSet,
+        similarities: validated.similarities,
+        gaps: validated.gaps,
+      }
+    }
+
+    const profileHash = await profileFingerprint(educationText, experienceText, skills)
     const { data: saved, error: saveError } = await admin
       .from('applicant_fit_analyses')
       .upsert(
@@ -374,7 +597,7 @@ Deno.serve(async (request) => {
           provider: 'kilo',
           model,
           prompt_version: PROMPT_VERSION,
-          result: validated,
+          result,
           created_by: user.id,
         },
         { onConflict: 'board_id,applicant_id' },

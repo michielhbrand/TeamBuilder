@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import CandidateCard from '@/components/CandidateCard.vue'
+import type { FitRankEntry } from '@/lib/fit-rank'
 import type { Board, Candidate, PipelineStep } from '@/types/pipeline'
 
 const props = defineProps<{
   board: Board
   step: PipelineStep
   candidates: Candidate[]
+  fitRanks?: Map<string, FitRankEntry>
   dropTarget?: boolean
   draggingCandidateId?: string
   settlingCandidateId?: string
@@ -62,6 +64,7 @@ function onDrop(event: DragEvent): void {
         :key="candidate.id"
         :board="board"
         :candidate="candidate"
+        :fit-rank="fitRanks?.get(candidate.id)"
         :dragging="candidate.id === draggingCandidateId"
         :settling="candidate.id === settlingCandidateId"
         @drag-start="emit('drag-start', $event)"

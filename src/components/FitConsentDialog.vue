@@ -41,15 +41,15 @@ function confirm(): void {
       <div class="orbital-dialog__body fit-consent__body">
         <p class="fit-consent__lead">
           Analyze <strong>{{ props.candidateName }}</strong> against the
-          <strong>{{ props.boardName }}</strong> job spec to list similarities and gaps using Kilo's
-          free hosted model.
+          <strong>{{ props.boardName }}</strong> job spec, checking each minimum, recommended, and
+          skills requirement with Kilo's free hosted model.
         </p>
 
         <div class="fit-consent__block">
           <p class="eyebrow">What is sent</p>
           <ul class="fit-consent__list">
             <li>The job spec and role department.</li>
-            <li>Education and work experience from this profile.</li>
+            <li>Education, work experience, and skills from this profile.</li>
           </ul>
         </div>
 

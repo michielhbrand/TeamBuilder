@@ -236,9 +236,12 @@ describe('text formatting for fit analysis', () => {
   it('fingerprints the same way the server does', async () => {
     const education = [entry({ title: 'BSc', start: '2014-02', end: '2017-11' })]
     const experience = [entry({ title: 'Engineer', start: '2022-03', current: true })]
+    const skills = [' TypeScript ', 'Figma']
 
-    expect(await profileFingerprint(education, experience)).toBe(
-      await sha256Text(`${formatCareerEntries(education)}\n\n${formatCareerEntries(experience)}`),
+    expect(await profileFingerprint(education, experience, skills)).toBe(
+      await sha256Text(
+        `${formatCareerEntries(education)}\n\n${formatCareerEntries(experience)}\n\nTypeScript, Figma`,
+      ),
     )
   })
 })

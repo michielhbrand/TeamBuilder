@@ -3,6 +3,13 @@ import { defineStore } from 'pinia'
 import { hasCareerContent } from '@/lib/career'
 import * as api from '@/lib/fit-api'
 import { profileFingerprint, sha256Bytes, sha256Text } from '@/lib/fit-hash'
+import {
+  fitSummary,
+  isRankable,
+  rankFitAnalyses,
+  type FitRankEntry,
+  type FitSummary,
+} from '@/lib/fit-rank'
 import { extractJobSpecText } from '@/lib/job-spec'
 import { useApplicantActivityStore } from '@/stores/applicant-activity'
 import { useApplicantsStore } from '@/stores/applicants'
@@ -53,6 +60,9 @@ export const useFitStore = defineStore('fit', () => {
   const progress = ref<Record<string, string>>({})
   const profileStale = ref<Record<string, boolean>>({})
   const stale = ref<Record<string, boolean>>({})
+  const boardLoaded = ref<Record<string, boolean>>({})
+  const boardLoading = ref<Record<string, boolean>>({})
+  const boardErrors = ref<Record<string, string | null>>({})
 
   function analysisFor(applicantId: string): FitAnalysis | undefined {
     return analyses.value[applicantId]
@@ -79,7 +89,43 @@ export const useFitStore = defineStore('fit', () => {
   }
 
   function isStaleFor(applicantId: string): boolean {
-    return Boolean(profileStale.value[applicantId] || stale.value[applicantId])
+    const analysis = analyses.value[applicantId]
+    const schemaStale = Boolean(analysis && analysis.result.schemaVersion < 3)
+
+    return Boolean(profileStale.value[applicantId] || stale.value[applicantId] || schemaStale)
+  }
+
+  function summaryFor(applicantId: string): FitSummary | undefined {
+    const analysis = analyses.value[applicantId]
+
+    return analysis ? fitSummary(analysis.result) : undefined
+  }
+
+  function isRankableFor(applicantId: string): boolean {
+    return isRankable(analyses.value[applicantId])
+  }
+
+  function rankForStage(boardId: string, stepId: string): Map<string, FitRankEntry> {
+    const board = boards.boardById(boardId)
+
+    if (!board) {
+      return new Map()
+    }
+
+    const analysesInStage = board.candidates
+      .filter((candidate) => candidate.status === 'active' && candidate.stepId === stepId)
+      .map((candidate) => analyses.value[candidate.id])
+      .filter((analysis): analysis is FitAnalysis => Boolean(analysis))
+
+    return rankFitAnalyses(analysesInStage)
+  }
+
+  function boardErrorFor(boardId: string): string | null {
+    return boardErrors.value[boardId] ?? null
+  }
+
+  function isBoardLoading(boardId: string): boolean {
+    return Boolean(boardLoading.value[boardId])
   }
 
   function markStale(applicantId: string): void {
@@ -127,7 +173,11 @@ export const useFitStore = defineStore('fit', () => {
       return
     }
 
-    const fingerprint = await profileFingerprint(candidate.education, candidate.experience)
+    const fingerprint = await profileFingerprint(
+      candidate.education,
+      candidate.experience,
+      candidate.skills,
+    )
     profileStale.value = {
       ...profileStale.value,
       [applicantId]: fingerprint !== analysis.profileFingerprint,
@@ -168,6 +218,40 @@ export const useFitStore = defineStore('fit', () => {
       return undefined
     } finally {
       setLoading(applicantId, false)
+    }
+  }
+
+  async function loadBoard(boardId: string): Promise<void> {
+    if (boardLoading.value[boardId]) {
+      return
+    }
+
+    boardLoading.value = { ...boardLoading.value, [boardId]: true }
+    boardErrors.value = { ...boardErrors.value, [boardId]: null }
+
+    try {
+      const items = await api.fetchBoardFitAnalyses(boardId)
+      const nextAnalyses = { ...analyses.value }
+      const nextLoaded = { ...loaded.value }
+
+      for (const analysis of items) {
+        nextAnalyses[analysis.applicantId] = analysis
+        nextLoaded[analysis.applicantId] = true
+      }
+
+      analyses.value = nextAnalyses
+      loaded.value = nextLoaded
+      boardLoaded.value = { ...boardLoaded.value, [boardId]: true }
+      await Promise.all(items.map((analysis) => updateProfileStale(analysis.applicantId)))
+    } catch (caught) {
+      boardErrors.value = {
+        ...boardErrors.value,
+        [boardId]: friendlyError(
+          caught instanceof Error ? caught.message : 'The fit analyses could not be loaded.',
+        ),
+      }
+    } finally {
+      boardLoading.value = { ...boardLoading.value, [boardId]: false }
     }
   }
 
@@ -242,7 +326,7 @@ export const useFitStore = defineStore('fit', () => {
       const [cvFingerprint, jobSpecFingerprint, currentProfileFingerprint] = await Promise.all([
         sha256Bytes(cvBytes),
         sha256Text(jobSpec.text),
-        profileFingerprint(candidate.education, candidate.experience),
+        profileFingerprint(candidate.education, candidate.experience, candidate.skills),
       ])
 
       setProgress(applicantId, 'Waiting for the free model…')
@@ -287,6 +371,9 @@ export const useFitStore = defineStore('fit', () => {
     progress.value = {}
     profileStale.value = {}
     stale.value = {}
+    boardLoaded.value = {}
+    boardLoading.value = {}
+    boardErrors.value = {}
   }
 
   return {
@@ -298,6 +385,9 @@ export const useFitStore = defineStore('fit', () => {
     progress,
     profileStale,
     stale,
+    boardLoaded,
+    boardLoading,
+    boardErrors,
     analysisFor,
     isLoadingFor,
     isAnalyzingFor,
@@ -305,10 +395,16 @@ export const useFitStore = defineStore('fit', () => {
     progressFor,
     isProfileStaleFor,
     isStaleFor,
+    summaryFor,
+    isRankableFor,
+    rankForStage,
+    boardErrorFor,
+    isBoardLoading,
     markStale,
     markBoardStale,
     refreshProfileStale: updateProfileStale,
     load,
+    loadBoard,
     analyze,
     reset,
   }

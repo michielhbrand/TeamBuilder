@@ -45,6 +45,7 @@ const boardData = (): Board => ({
     stepEnteredAt: '2026-01-01T00:00:00.000Z',
     education: [],
     experience: [],
+    skills: [],
   })) as Board['candidates'],
 })
 

@@ -55,6 +55,7 @@ function candidate(id: string, boardId: string, stepId: string, status: Candidat
     stepEnteredAt: new Date(Date.now() - 3 * day).toISOString(),
     education: [],
     experience: [],
+    skills: [],
   } satisfies Candidate
 }
 

@@ -48,6 +48,7 @@ const form = reactive<ApplicantFormValues>({
   currentRole: '',
   education: [],
   experience: [],
+  skills: [],
 })
 
 let importController: AbortController | null = null
@@ -67,6 +68,7 @@ function syncForm(): void {
   form.currentRole = ''
   form.education = []
   form.experience = []
+  form.skills = []
   stepId.value = (props.board ? defaultApplicantStep(props.board)?.id : undefined) ?? ''
   localError.value = ''
   autoFilled.clear()
@@ -303,6 +305,7 @@ async function submit(): Promise<void> {
         currentRole: form.currentRole,
         education: sortEntries(form.education),
         experience: sortEntries(form.experience),
+        skills: form.skills,
         stepId: stepId.value,
       },
       cvFile.value,

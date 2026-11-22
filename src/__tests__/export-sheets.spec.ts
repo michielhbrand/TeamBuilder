@@ -42,6 +42,7 @@ function applicant(id: string, overrides: Partial<Candidate> = {}): Candidate {
     stepEnteredAt: daysAgo(3),
     education: [],
     experience: [],
+    skills: [],
     ...overrides,
   }
 }

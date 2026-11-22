@@ -21,7 +21,7 @@ function asString(value: unknown, maxLength: number): string {
   return typeof value === 'string' ? value.trim().slice(0, maxLength) : ''
 }
 
-function asStringArray(value: unknown, maxItems: number, maxLength: number): string[] {
+export function asStringArray(value: unknown, maxItems: number, maxLength: number): string[] {
   if (!Array.isArray(value)) {
     return []
   }
@@ -32,7 +32,7 @@ function asStringArray(value: unknown, maxItems: number, maxLength: number): str
   )
 }
 
-function parseJsonObject(content: string): Record<string, unknown> {
+export function parseJsonObject(content: string): Record<string, unknown> {
   const trimmed = content
     .trim()
     .replace(/^```(?:json)?\s*/i, '')

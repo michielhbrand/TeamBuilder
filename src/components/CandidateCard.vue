@@ -6,11 +6,13 @@ import {
   daysInStep as getDaysInStep,
   initials as getInitials,
 } from '@/lib/pipeline'
+import type { FitRankEntry } from '@/lib/fit-rank'
 import type { Board, Candidate, PipelineStep } from '@/types/pipeline'
 
 const props = defineProps<{
   board: Board
   candidate: Candidate
+  fitRank?: FitRankEntry
   dragging?: boolean
   settling?: boolean
 }>()
@@ -44,6 +46,32 @@ const daysLabel = computed(() => {
   }
 
   return `${days} ${days === 1 ? 'day' : 'days'} in stage`
+})
+
+const fitLabel = computed(() => {
+  const rank = props.fitRank
+
+  if (!rank) {
+    return ''
+  }
+
+  const parts = [`Rank ${rank.rank}`]
+
+  if (rank.summary.minimum.total) {
+    parts.push(`minimum ${rank.summary.minimum.full} of ${rank.summary.minimum.total} fully met`)
+  }
+
+  if (rank.summary.recommended.total) {
+    parts.push(
+      `recommended ${rank.summary.recommended.full} of ${rank.summary.recommended.total} fully met`,
+    )
+  }
+
+  if (rank.summary.minimum.none) {
+    parts.push(`${rank.summary.minimum.none} minimum not met`)
+  }
+
+  return parts.join(', ')
 })
 
 watch(menuOpen, (open) => {
@@ -153,6 +181,23 @@ function onDragEnd(): void {
         @click.stop="store.toggleFavorite(candidate.id)"
       />
     </div>
+
+    <p v-if="fitRank" class="candidate-fit" :aria-label="fitLabel">
+      <span class="candidate-fit__rank">#{{ fitRank.rank }}</span>
+      <span v-if="fitRank.summary.minimum.total" class="candidate-fit__item">
+        Min {{ fitRank.summary.minimum.full }}/{{ fitRank.summary.minimum.total }}
+      </span>
+      <span v-if="fitRank.summary.recommended.total" class="candidate-fit__item">
+        Rec {{ fitRank.summary.recommended.full }}/{{ fitRank.summary.recommended.total }}
+      </span>
+      <v-icon
+        v-if="fitRank.summary.minimum.none"
+        class="candidate-fit__warning"
+        icon="mdi-alert-circle-outline"
+        size="15"
+        aria-hidden="true"
+      />
+    </p>
 
     <div class="candidate-card__foot">
       <p class="candidate-days">

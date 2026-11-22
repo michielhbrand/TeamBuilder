@@ -42,6 +42,7 @@ function candidate(overrides: Partial<Candidate> = {}): Candidate {
     stepEnteredAt: '2026-11-03T00:00:00Z',
     education: [],
     experience: [],
+    skills: [],
     ...overrides,
   }
 }

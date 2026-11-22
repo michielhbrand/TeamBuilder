@@ -32,6 +32,7 @@ function seed(overrides: Partial<Candidate> = {}): void {
     stepEnteredAt: '2026-11-05T00:00:00.000Z',
     education: [],
     experience: [],
+    skills: [],
     ...overrides,
   }
 

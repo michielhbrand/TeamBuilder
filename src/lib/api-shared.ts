@@ -10,7 +10,15 @@ import type {
   Department,
   PipelineStep,
 } from '@/types/pipeline'
-import type { FitAnalysis, FitAnalysisResult, FitAnalysisRow } from '@/types/fit'
+import type {
+  FitAnalysis,
+  FitAnalysisResult,
+  FitAnalysisRow,
+  FitRequirementAssessment,
+  FitRequirementGroups,
+  FitRequirementKind,
+  FitRequirementStatus,
+} from '@/types/fit'
 import { normalizeEntries, serializeEntries } from '@/lib/career'
 
 export interface BoardRow {
@@ -47,6 +55,7 @@ export interface ApplicantRow {
   salary_expectation_cents: number
   education: unknown
   experience: unknown
+  skills: unknown
   favorite: boolean
   status: string
   applied_at: string
@@ -85,6 +94,7 @@ export interface ApplicantPatch {
   salaryExpectationCents?: number
   education?: CareerEntry[]
   experience?: CareerEntry[]
+  skills?: string[]
   favorite?: boolean
   status?: CandidateStatus
   columnId?: string
@@ -144,6 +154,7 @@ export const APPLICANT_SELECT = `
   salary_expectation_cents,
   education,
   experience,
+  skills,
   favorite,
   status,
   applied_at,
@@ -174,6 +185,7 @@ export const BOARD_SELECT = `
     salary_expectation_cents,
     education,
     experience,
+    skills,
     favorite,
     status,
     applied_at,
@@ -197,6 +209,29 @@ export function mapColumn(row: ColumnRow): PipelineStep {
   }
 }
 
+export function normalizeSkills(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return []
+  }
+
+  const seen = new Set<string>()
+
+  return value
+    .filter((item): item is string => typeof item === 'string')
+    .map((item) => item.replace(/\s+/g, ' ').trim().slice(0, 80))
+    .filter((item) => {
+      const key = item.toLowerCase()
+
+      if (!item || seen.has(key)) {
+        return false
+      }
+
+      seen.add(key)
+      return true
+    })
+    .slice(0, 60)
+}
+
 export function mapApplicant(row: ApplicantRow): Candidate {
   return {
     id: row.id,
@@ -216,6 +251,7 @@ export function mapApplicant(row: ApplicantRow): Candidate {
     stepEnteredAt: row.step_entered_at,
     education: normalizeEntries(row.education),
     experience: normalizeEntries(row.experience),
+    skills: normalizeSkills(row.skills),
     cvPath: row.cv_path,
     cvName: row.cv_name,
   }
@@ -247,6 +283,8 @@ export function mapApplicantNote(row: ApplicantNoteRow): ApplicantNote {
 function normalizeFitResult(value: FitAnalysisResult): FitAnalysisResult {
   const result = value as unknown as {
     schemaVersion?: unknown
+    complete?: unknown
+    requirements?: unknown
     similarities?: unknown
     strengths?: unknown
     gaps?: unknown
@@ -259,8 +297,48 @@ function normalizeFitResult(value: FitAnalysisResult): FitAnalysisResult {
 
   return {
     schemaVersion: typeof result.schemaVersion === 'number' ? result.schemaVersion : 1,
+    complete: result.complete === true,
+    requirements: normalizeRequirementGroups(result.requirements),
     similarities,
     gaps: strings(result.gaps),
+  }
+}
+
+function normalizeRequirementStatus(value: unknown): FitRequirementStatus {
+  return value === 'full' || value === 'partial' || value === 'none' ? value : 'none'
+}
+
+function normalizeRequirementAssessments(
+  value: unknown,
+  kind: FitRequirementKind,
+): FitRequirementAssessment[] {
+  if (!Array.isArray(value)) {
+    return []
+  }
+
+  return value
+    .filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === 'object')
+    .map((item, index) => ({
+      id: typeof item.id === 'string' && item.id.trim() ? item.id.trim() : `${kind}-${index + 1}`,
+      kind,
+      label: typeof item.label === 'string' ? item.label.trim() : '',
+      status: normalizeRequirementStatus(item.status),
+      evidence: typeof item.evidence === 'string' ? item.evidence.trim() : '',
+      assessed: item.assessed !== false,
+    }))
+    .filter((item) => Boolean(item.label))
+}
+
+function normalizeRequirementGroups(value: unknown): FitRequirementGroups {
+  const groups =
+    value && typeof value === 'object' && !Array.isArray(value)
+      ? (value as Record<string, unknown>)
+      : {}
+
+  return {
+    minimum: normalizeRequirementAssessments(groups.minimum, 'minimum'),
+    recommended: normalizeRequirementAssessments(groups.recommended, 'recommended'),
+    skills: normalizeRequirementAssessments(groups.skills, 'skill'),
   }
 }
 
@@ -330,6 +408,7 @@ export function applicantPatch(input: ApplicantPatch): Record<string, unknown> {
   }
   if (input.education !== undefined) patch.education = serializeEntries(input.education)
   if (input.experience !== undefined) patch.experience = serializeEntries(input.experience)
+  if (input.skills !== undefined) patch.skills = normalizeSkills(input.skills)
   if (input.favorite !== undefined) patch.favorite = input.favorite
   if (input.status !== undefined) patch.status = input.status
   if (input.columnId !== undefined) patch.column_id = input.columnId

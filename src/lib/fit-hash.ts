@@ -37,6 +37,12 @@ export function sha256Bytes(value: Uint8Array): Promise<string> {
 export function profileFingerprint(
   education: CareerEntry[],
   experience: CareerEntry[],
+  skills: string[] = [],
 ): Promise<string> {
-  return sha256Text(`${formatEntriesText(education)}\n\n${formatEntriesText(experience)}`)
+  return sha256Text(
+    `${formatEntriesText(education)}\n\n${formatEntriesText(experience)}\n\n${skills
+      .map((skill) => skill.trim())
+      .filter(Boolean)
+      .join(', ')}`,
+  )
 }

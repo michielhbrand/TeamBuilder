@@ -87,14 +87,20 @@ npm run build
 - `src/lib/compensation.ts` — notice-period months and rand salary expectations stored as
   cents: parsing, validation, and formatting for the applicant drawer.
 - `src/lib/api-shared.ts` — shared row types, select fragments, and board/applicant/event/note
-  mappers.
+  mappers, including applicant `skills` and fit-result normalisation.
 - `src/lib/boards-api.ts` — Supabase reads and writes for boards and stages.
-- `src/lib/applicants-api.ts` — Supabase create, update, and delete for applicants.
+- `src/lib/applicants-api.ts` — Supabase create, update, and delete for applicants, including
+  structured `skills` on create.
 - `src/lib/activity-api.ts` — Supabase reads and writes for applicant events and notes, plus
   `fetchRecentEvents(limit)` for the newest events across all boards.
 - `src/lib/storage-api.ts` — Supabase Storage uploads, downloads, signed URLs, and object
   removal for applicant CVs and board job specs.
-- `src/lib/fit-api.ts` — Supabase reads for stored fit analyses and Edge Function invocation.
+- `src/lib/fit-api.ts` — Supabase reads for stored fit analyses, including the bulk
+  `fetchBoardFitAnalyses` used for ranking, and Edge Function invocation.
+- `src/lib/fit-rank.ts` — pure fit summaries and the lexicographic ranking: minimum penalty,
+  minimum misses, recommended penalty, recommended misses, skills penalty, skills misses, then
+  name. A penalty is one per miss plus half per partial match; only complete analyses with at
+  least one requirement rank.
 - `src/lib/history-api.ts` — select-only reads of `public.hiring_monthly` and
   `public.hire_history` with their row mappers. Both fetchers page through `fetchAllPages` in
   1000-row `.range()` pages (the API caps a response at 1000 rows), and `fetchHireHistory` only
@@ -107,7 +113,8 @@ npm run build
 - `src/lib/pdf-text.ts` — shared PDF text extraction, OCR fallback, IndexedDB cache, and PDF
   fingerprints.
 - `src/lib/job-spec.ts` — job-spec PDF text extraction and cleanup.
-- `src/lib/fit-hash.ts` — CV, job-spec, and profile fingerprint helpers.
+- `src/lib/fit-hash.ts` — CV, job-spec, and profile fingerprint helpers; the profile
+  fingerprint includes education, experience, and skills.
 - `src/lib/pipeline.ts` — pure pipeline helpers for steps, deadlines and `deadlineLabel`,
   summaries, `stageBreakdown`, `sortBoards`, `applicantsInStage`, `reorderIds` (first stage
   locked), `applicantActions`, and department grouping.
@@ -142,7 +149,8 @@ npm run build
   `recentLoaded`, and `loadRecent(limit = 30)` hold the newest events across all boards for
   the Overview; `AppShell` reloads them on focus only once they have been loaded.
 - `src/stores/storage.ts` — CV and job-spec uploads, removals, signed URLs, and blobs.
-- `src/stores/fit.ts` — persisted applicant CV-analysis state and actions.
+- `src/stores/fit.ts` — persisted applicant CV-analysis state and actions, plus `loadBoard`,
+  `rankForStage`, `summaryFor`, `isRankableFor`, and schema-version staleness.
 - `src/stores/history.ts` — read-only `months` (`hiring_monthly`) and `hires` (`hire_history`)
   with `initialize`, `refresh`, and `reset`; its own `error`. The Overview initializes it on
   mount (refreshing instead when already initialized) and `AppShell` refreshes it on focus and
@@ -155,9 +163,11 @@ npm run build
 - `supabase/migrations/20261115000000_hiring_history.sql` — `public.hiring_monthly`,
   `public.hire_history`, the `applicants_record_history` trigger and its security-definer
   functions, and the backfill from live data.
-- `supabase/functions/fit-analysis/` — authenticated Edge Function that redacts CV fields,
-  calls the free Kilo model, validates the similarities/gaps JSON, and upserts the shared
-  analysis.
+- `supabase/migrations/20261121000000_board_requirements_and_skills.sql` —
+  `public.applicants.skills`, `public.board_requirement_sets`, its RLS policy, and grants.
+- `supabase/functions/fit-analysis/` — authenticated Edge Function that extracts and caches
+  job-spec requirements (`requirements.ts`), assesses every requirement (`assess.ts`), redacts
+  CV fields, calls the free Kilo model, validates the result, and upserts the shared analysis.
 - `supabase/functions/.env.example` — placeholders for server-side function secrets.
 - `src/router/index.ts` — routes and the auth guard.
 - `src/components/AppShell.vue` — top-bar navigation and shared layout for protected pages.
@@ -175,16 +185,17 @@ npm run build
   PDF CV autofill and CV attachment.
 - `src/components/BoardSwitcher.vue` — "Switch role" button (with a `/` hint) beside the board
   title that opens a searchable menu for switching between role boards.
-- `src/components/BoardColumn.vue` — one pipeline stage column with a name and count pill.
+- `src/components/BoardColumn.vue` — one pipeline stage column with a name and count pill,
+  passing any stage fit ranks to its cards.
 - `src/components/CandidateCard.vue` — quiet applicant card (avatar, name button, role, star,
-  "N days in stage") with a hover/focus tools tray: move back, move forward, and an overflow
-  menu (Open profile, Move to..., Hire, Reject).
+  "N days in stage", optional fit badge) with a hover/focus tools tray: move back, move
+  forward, and an overflow menu (Open profile, Move to..., Hire, Reject).
 - `src/components/StageTabs.vue` — `role="tablist"` stage pills with counts; the phone (up to
   720px) board shows one stage at a time.
 - `src/components/ApplicantDrawer.vue` — right-side applicant profile: header (avatar, name,
   "role · applied N days ago", favorite, overflow menu with Delete applicant, close) over
-  Overview (profile fields, CV card, notes), CV (inline viewer), Career, CV fit, and Activity
-  tabs.
+  Overview (profile fields, read-only skills chips, CV card, notes), CV (inline viewer),
+  Career, CV fit (requirement groups plus similarities and gaps), and Activity tabs.
 - `src/components/ApplicantStageBar.vue` — the drawer's stage stepper, Move to <next>, Hire,
   Reject, save indicator (Saving..., Saved, Couldn't save · Retry), and the outcome chip with
   Reopen for closed applicants.
@@ -195,7 +206,9 @@ npm run build
 - `src/components/CareerStrip.vue` — the pinned horizontal career strip with work and education
   lanes, employment-gap boxes, and a hover readout; linked to the timelines.
 - `src/components/FitConsentDialog.vue` — per-analysis consent dialog for sending redacted CV
-  data to the hosted model.
+  and skills data to the hosted model.
+- `src/components/ResyncCvDialog.vue` — after a CV replacement, asks whether to re-sync
+  education, experience, and skills or keep the current profile details.
 - `src/components/JobSpecDialog.vue` — upload, preview, print, open, and remove a board's PDF
   job spec.
 - `src/components/ConfirmDialog.vue` — shared destructive-action confirmation dialog.
@@ -232,7 +245,8 @@ npm run build
 - `src/views/BoardsView.vue` — all role boards grouped by department.
 - `src/views/BoardView.vue` — stage-column pipeline for one role: `PageHeader` with
   breadcrumb, switch-role button, meta chips, Job spec, Add applicant, and a Board menu; stage
-  tabs at 720px and below; and a collapsible closed-applicants summary row.
+  tabs at 720px and below; and a collapsible closed-applicants summary row. Includes optional
+  **Rank by CV fit** toggle to sort each stage by fit ranking.
 - `src/views/AccountView.vue` — protected session, identity, full-name editing, and password
   reset.
 - `src/styles/orbital.css` — locked design tokens, layout primitives, board styling, and
@@ -403,37 +417,52 @@ See `docs/ARCHITECTURE.md` for the auth lifecycle and deployment pipeline.
   returned as structured data (education: qualification, institution, start/end month, current
   flag, details; experience: role, company, start/end month, current flag, details). Start and
   end months are validated as `YYYY-MM`; invalid months are dropped and reversed ranges are
-  cleared. Stop those sections at achievements, certifications, skills, and other headings. OCR
-  assets are generated into `public/ocr/` by `scripts/copy-ocr-assets.mjs` from
-  `predev`/`prebuild`; do not commit them.
+  cleared. Stop those sections at achievements, certifications, skills, and other headings.
+  OCR assets are generated into `public/ocr/` by `scripts/copy-ocr-assets.mjs` from
+  `predev`/`prebuild`; do not commit them. Skills are extracted separately from skills sections
+  and stored as a structured string array on the applicant.
 - CV analysis runs through the authenticated `fit-analysis` Edge Function. It sends only
-  the job spec, role/department, and redacted education/work experience to a free Kilo model.
-  Never send name, email, phone, URLs, address, date of birth, nationality, gender, age, or
-  other sensitive personal fields. Consent is required for every analysis, including
-  re-evaluation, and the UI must state that Kilo may log or train on free-tier requests.
+  the job spec, role/department, and redacted education/work experience and skills to a free
+  Kilo model. Never send name, email, phone, URLs, address, date of birth, nationality,
+  gender, age, or other sensitive personal fields. Consent is required for every analysis,
+  including re-evaluation, and the UI must state that Kilo may log or train on free-tier
+  requests.
 - Fit results are stored in `public.applicant_fit_analyses`, one row per applicant, scoped by
   the composite `(board_id, applicant_id)` foreign key. Authenticated users may select;
   only the Edge Function with the service role may insert or update. Validate the model JSON
-  on the server and store only the returned similarities and gaps. `service_role` bypasses RLS
-  but still needs table grants: select on `applicants` and `boards`, select/insert/update on
-  `applicant_fit_analyses`, and select/insert on `applicant_events`. Keep those grants in a
-  migration; do not rely on Supabase auto-granting new public tables.
+  on the server and store only the returned requirements assessments, similarities, and gaps.
+  `service_role` bypasses RLS but still needs table grants: select on `applicants` and
+  `boards`, select/insert/update on `applicant_fit_analyses`, and select/insert on
+  `applicant_events`. Keep those grants in a migration; do not rely on Supabase auto-granting
+  new public tables.
 - Fit analysis is English-only, has no local or paid fallback, and must keep the previous
   result when Kilo is unavailable or rate-limited. Refuse any `KILO_MODEL` that is not a free
-  model. Do not expose the Kilo key to the browser.
+  model or contains "reasoning" or "deep". The API explicitly disables reasoning with
+  `reasoning: { enabled: false, type: 'none' }` and will reject any model that uses reasoning
+  tokens. Do not expose the Kilo key to the browser.
 - Keep `src/lib/career.ts` `formatEntriesText` and
   `supabase/functions/fit-analysis/career.ts` `formatCareerEntries` identical: the browser and
   the Edge Function both fingerprint the formatted text, and `career.spec.ts` asserts parity.
+- Requirements extracted from job specs are cached per board and job-spec fingerprint in
+  `public.board_requirement_sets`. This ensures every candidate is assessed against identical
+  requirement wording. Generic headings like "Requirements" or "Qualifications" count as
+  minimum requirements only when no explicit minimum section exists.
+- Only complete fit analyses with at least one requirement are ranked. Ranking is lexicographic
+  ascending by minimum penalty (one per miss, half per partial), minimum misses, recommended
+  penalty, recommended misses, skills penalty, skills misses, then name. This means any
+  candidate with zero minimum misses ranks above all candidates with a minimum miss.
+- Replacing an applicant's CV opens a `ResyncCvDialog` asking whether to re-sync education,
+  experience, and skills from the new CV or keep the existing profile details.
 - Do not add LinkedIn or other third-party profile scraping. LinkedIn blocks automated
   requests and prohibits scraping, and no free API is reliable. Profile data may only enter
   through user-provided text or files.
 - Board data uses `public.boards`, `public.board_columns`, `public.applicants`, and
-  `public.applicant_fit_analyses`. Board
-  names are unique within a department; applicant email and phone are optional and unique
-  per board only when filled. New applicants default to the `Applied` stage. If you
-  add a table, add a migration under `supabase/migrations`, enable Row Level Security, write
-  policies for the intended roles, explicitly grant table privileges to `authenticated`, and
-  revoke them from `anon`. RLS does not replace table grants. Do not expose board data to
+  `public.applicant_fit_analyses`. Board names are unique within a department; applicant email
+  and phone are optional and unique per board only when filled; skills are stored as a
+  structured string array and are not editable. New applicants default to the `Applied` stage.
+  If you add a table, add a migration under `supabase/migrations`, enable Row Level Security,
+  write policies for the intended roles, explicitly grant table privileges to `authenticated`,
+  and revoke them from `anon`. RLS does not replace table grants. Do not expose board data to
   `anon`.
 - Hiring history uses `public.hiring_monthly` (`month` as the first day of the month,
   `department`, `applicants_in`, `hired`, `rejected`; primary key `(month, department)`) and

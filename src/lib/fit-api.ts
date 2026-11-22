@@ -18,6 +18,17 @@ export async function fetchApplicantFitAnalysis(
   return data ? mapFitAnalysis(data as unknown as FitAnalysisRow) : undefined
 }
 
+export async function fetchBoardFitAnalyses(boardId: string): Promise<FitAnalysis[]> {
+  const { data, error } = await supabase
+    .from('applicant_fit_analyses')
+    .select(FIT_ANALYSIS_SELECT)
+    .eq('board_id', boardId)
+
+  fail(error)
+
+  return (data ?? []).map((row) => mapFitAnalysis(row as unknown as FitAnalysisRow))
+}
+
 export async function analyzeApplicantFit(input: FitAnalyzeInput): Promise<FitAnalysis> {
   const { data, error } = await supabase.functions.invoke('fit-analysis', {
     body: input,

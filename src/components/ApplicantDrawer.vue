@@ -5,8 +5,11 @@ import CareerStrip from '@/components/CareerStrip.vue'
 import CareerTimeline from '@/components/CareerTimeline.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import FitConsentDialog from '@/components/FitConsentDialog.vue'
+import ResyncCvDialog from '@/components/ResyncCvDialog.vue'
 import { formatEventTime, formatRelativeTime } from '@/lib/applicant-events'
 import { hasCareerContent } from '@/lib/career'
+import { fitSummary } from '@/lib/fit-rank'
+import { importApplicantFromPdf } from '@/lib/resume-import'
 import {
   formatNoticePeriod,
   formatSalaryCents,
@@ -22,6 +25,7 @@ import { useBoardsStore } from '@/stores/boards'
 import { useFitStore } from '@/stores/fit'
 import { useStorageStore } from '@/stores/storage'
 import type { CareerEntry, CareerKind } from '@/types/pipeline'
+import type { FitRequirementAssessment } from '@/types/fit'
 
 const props = defineProps<{
   modelValue: boolean
@@ -78,6 +82,9 @@ const open = computed({
 })
 const confirmDeleteOpen = ref(false)
 const deleting = ref(false)
+const resyncOpen = ref(false)
+const resyncFile = ref<File | null>(null)
+const resyncing = ref(false)
 const cvBusy = ref(false)
 const cvError = ref('')
 const cvLoading = ref(false)
@@ -119,6 +126,52 @@ const fitProgress = computed(() => (props.candidateId ? fit.progressFor(props.ca
 const fitStale = computed(() =>
   props.candidateId && fitAnalysis.value ? fit.isStaleFor(props.candidateId) : false,
 )
+const requirementSections = computed(() => {
+  const result = fitAnalysis.value?.result
+
+  if (!result) {
+    return []
+  }
+
+  const summary = fitSummary(result)
+
+  return [
+    {
+      key: 'minimum',
+      title: 'Minimum requirements',
+      items: result.requirements.minimum,
+      counts: summary.minimum,
+    },
+    {
+      key: 'recommended',
+      title: 'Recommended requirements',
+      items: result.requirements.recommended,
+      counts: summary.recommended,
+    },
+    {
+      key: 'skills',
+      title: 'Skills and tools',
+      items: result.requirements.skills,
+      counts: summary.skills,
+    },
+  ].filter((section) => section.items.length)
+})
+
+function requirementStatusLabel(item: FitRequirementAssessment): string {
+  if (!item.assessed) {
+    return 'Not assessed'
+  }
+
+  if (item.status === 'full') {
+    return 'Full'
+  }
+
+  if (item.status === 'partial') {
+    return 'Partial'
+  }
+
+  return 'None'
+}
 const fitPrerequisites = computed(() => {
   const current = candidate.value
   const currentBoard = board.value
@@ -403,6 +456,7 @@ async function onCvSelected(event: Event): Promise<void> {
   }
 
   cvBusy.value = true
+  const hadCv = Boolean(current.cvPath)
   const uploaded = await storage.uploadCv(current.id, file)
   cvBusy.value = false
 
@@ -412,7 +466,64 @@ async function onCvSelected(event: Event): Promise<void> {
   }
 
   resetCvPreview()
+
+  if (hadCv) {
+    resyncFile.value = file
+    resyncOpen.value = true
+    return
+  }
+
   openFitAfterUpload()
+}
+
+function keepCurrentCv(): void {
+  resyncOpen.value = false
+  resyncFile.value = null
+  openFitAfterUpload()
+}
+
+async function confirmResyncCv(): Promise<void> {
+  const current = candidate.value
+  const file = resyncFile.value
+
+  if (!current || !file) {
+    resyncOpen.value = false
+    return
+  }
+
+  resyncing.value = true
+  cvError.value = ''
+
+  try {
+    const { draft } = await importApplicantFromPdf(file)
+    const saved = await store.resyncCandidateProfile(current.id, {
+      education: draft.education,
+      experience: draft.experience,
+      skills: draft.skills,
+    })
+
+    if (!saved) {
+      cvError.value = store.error ?? 'The profile could not be re-synced.'
+      resyncOpen.value = false
+      resyncFile.value = null
+      fit.markStale(current.id)
+      activeTab.value = 'fit'
+      return
+    }
+
+    resyncOpen.value = false
+    resyncFile.value = null
+    resetCvPreview()
+    openFitAfterUpload()
+  } catch {
+    cvError.value = 'The new CV could not be read. The current details were kept.'
+    resyncOpen.value = false
+    resyncFile.value = null
+    fit.markStale(current.id)
+    activeTab.value = 'fit'
+  } finally {
+    resyncing.value = false
+  }
 }
 
 async function onJobSpecSelected(event: Event): Promise<void> {
@@ -560,6 +671,9 @@ watch([() => props.modelValue, () => props.candidateId], ([value, candidateId]) 
     cvError.value = ''
     noteDraft.value = ''
     fitConsentOpen.value = false
+    resyncOpen.value = false
+    resyncFile.value = null
+    resyncing.value = false
     activeTab.value = 'overview'
     hoverId.value = null
     store.beginCandidateEdit(candidateId)
@@ -578,6 +692,9 @@ watch(
     if (!value) {
       resetCvPreview()
       fitConsentOpen.value = false
+      resyncOpen.value = false
+      resyncFile.value = null
+      resyncing.value = false
 
       if (props.candidateId) {
         void store.flushCandidate(props.candidateId)
@@ -752,6 +869,13 @@ onBeforeUnmount(() => {
               @update:model-value="updateField('salaryBand', $event)"
             />
           </div>
+
+          <section v-if="candidate.skills.length" class="applicant-section">
+            <p class="eyebrow">Skills</p>
+            <ul class="skill-chips">
+              <li v-for="skill in candidate.skills" :key="skill">{{ skill }}</li>
+            </ul>
+          </section>
 
           <section class="applicant-section">
             <p class="eyebrow">
@@ -1033,6 +1157,57 @@ onBeforeUnmount(() => {
               />
             </div>
 
+            <v-alert
+              v-if="!fitAnalysis.result.complete"
+              class="orbital-alert"
+              type="warning"
+              density="compact"
+            >
+              This analysis did not check every requirement. Re-run it for a complete ranking.
+            </v-alert>
+
+            <section v-if="requirementSections.length" class="applicant-section fit-requirements">
+              <div
+                v-for="section in requirementSections"
+                :key="section.key"
+                class="fit-requirement-group"
+              >
+                <div class="fit-requirement-group__head">
+                  <p class="eyebrow">{{ section.title }}</p>
+                  <span class="fit-requirement-group__count">
+                    {{ section.counts.full }} of {{ section.counts.total }} full
+                  </span>
+                </div>
+                <ul class="fit-requirement-list">
+                  <li v-for="item in section.items" :key="item.id" class="fit-requirement">
+                    <span
+                      class="fit-requirement__status"
+                      :class="`fit-requirement__status--${item.status}`"
+                    >
+                      {{ requirementStatusLabel(item) }}
+                    </span>
+                    <div class="fit-requirement__copy">
+                      <p class="fit-requirement__label">{{ item.label }}</p>
+                      <p v-if="item.evidence" class="fit-requirement__evidence">
+                        {{ item.evidence }}
+                      </p>
+                    </div>
+                  </li>
+                </ul>
+              </div>
+            </section>
+
+            <section v-else class="applicant-section">
+              <p class="eyebrow">Requirements</p>
+              <p class="fit-empty__hint">
+                {{
+                  fitAnalysis.result.schemaVersion < 3
+                    ? 'This analysis used the earlier format. Re-run it to check each requirement.'
+                    : 'No minimum, recommended, or skills sections were found in the job spec.'
+                }}
+              </p>
+            </section>
+
             <div class="fit-columns">
               <section class="applicant-section">
                 <p class="eyebrow">Similarities</p>
@@ -1098,5 +1273,13 @@ onBeforeUnmount(() => {
     :busy="fitAnalyzing"
     @confirm="confirmFitAnalysis"
     @cancel="fitConsentOpen = false"
+  />
+
+  <ResyncCvDialog
+    v-model="resyncOpen"
+    :candidate-name="candidate?.name ?? 'this applicant'"
+    :busy="resyncing"
+    @confirm="confirmResyncCv"
+    @keep="keepCurrentCv"
   />
 </template>

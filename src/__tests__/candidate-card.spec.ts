@@ -32,6 +32,7 @@ function candidate(overrides: Partial<Candidate> = {}): Candidate {
     stepEnteredAt: new Date(Date.now() - 12 * day).toISOString(),
     education: [],
     experience: [],
+    skills: [],
     ...overrides,
   }
 }

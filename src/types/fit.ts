@@ -1,5 +1,26 @@
+export type FitRequirementKind = 'minimum' | 'recommended' | 'skill'
+
+export type FitRequirementStatus = 'full' | 'partial' | 'none'
+
+export interface FitRequirementAssessment {
+  id: string
+  kind: FitRequirementKind
+  label: string
+  status: FitRequirementStatus
+  evidence: string
+  assessed: boolean
+}
+
+export interface FitRequirementGroups {
+  minimum: FitRequirementAssessment[]
+  recommended: FitRequirementAssessment[]
+  skills: FitRequirementAssessment[]
+}
+
 export interface FitAnalysisResult {
   schemaVersion: number
+  complete: boolean
+  requirements: FitRequirementGroups
   similarities: string[]
   gaps: string[]
 }

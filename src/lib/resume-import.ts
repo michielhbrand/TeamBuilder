@@ -15,7 +15,7 @@ const MAX_IMPORTED_ENTRIES = 12
 export type { PdfPageText }
 
 export type ApplicantDraftField =
-  'name' | 'email' | 'phone' | 'currentRole' | 'education' | 'experience'
+  'name' | 'email' | 'phone' | 'currentRole' | 'education' | 'experience' | 'skills'
 
 export interface ApplicantDraft {
   name: string
@@ -24,6 +24,7 @@ export interface ApplicantDraft {
   currentRole: string
   education: CareerEntry[]
   experience: CareerEntry[]
+  skills: string[]
 }
 
 export interface ApplicantFormValues {
@@ -33,6 +34,7 @@ export interface ApplicantFormValues {
   currentRole: string
   education: CareerEntry[]
   experience: CareerEntry[]
+  skills: string[]
 }
 
 export type ApplicantImportProgress = PdfTextProgress
@@ -920,6 +922,47 @@ function extractCurrentRole(
   return ''
 }
 
+const SKILLS_HEADING_RE =
+  /^(?:(?:technical|core|key|professional|software|it)\s+)?skills\b|^(?:tools|technologies|tech stack)\b/i
+
+function extractSkills(lines: string[]): string[] {
+  const sectionLines = extractSectionLines(lines, SKILLS_HEADING_RE)
+  const seen = new Set<string>()
+  const skills: string[] = []
+
+  for (const line of sectionLines) {
+    for (const part of line.split(/[,;|•·]/)) {
+      const value = part
+        .replace(
+          /^(?:languages?|frameworks?|libraries|tools?|technologies|platforms?|databases?|cloud|skills?)\s*[:-]\s*/i,
+          '',
+        )
+        .replace(/\s+/g, ' ')
+        .replace(/\.$/, '')
+        .trim()
+
+      if (value.length < 2 || value.length > 80) {
+        continue
+      }
+
+      if (value.split(' ').length > 6 && !/[+#./]/.test(value)) {
+        continue
+      }
+
+      const key = value.toLowerCase()
+
+      if (seen.has(key)) {
+        continue
+      }
+
+      seen.add(key)
+      skills.push(value)
+    }
+  }
+
+  return skills.slice(0, 60)
+}
+
 export function extractApplicantDraft(text: string, filename = ''): ApplicantDraft {
   const normalized = normalizeText(text)
   const lines = normalized.split('\n')
@@ -939,6 +982,7 @@ export function extractApplicantDraft(text: string, filename = ''): ApplicantDra
     currentRole: extractCurrentRole(lines, experience, experienceSource),
     education,
     experience,
+    skills: extractSkills(lines),
   }
 }
 
@@ -993,6 +1037,13 @@ export function mergeApplicantDraft(
     }
 
     autoFilled.add(field)
+  }
+
+  if (draft.skills.length && !edited.has('skills')) {
+    if (!current.skills.length || autoFilled.has('skills')) {
+      current.skills = [...draft.skills]
+      autoFilled.add('skills')
+    }
   }
 }
 

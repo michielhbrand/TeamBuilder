@@ -552,16 +552,30 @@ class. Keep the rules attached to the field.
 - The **CV fit** tab uses the same drawer surface, spacing, and hairline rhythm. Keep the
   empty state quiet: one muted icon, a short title, the missing prerequisites, and a single
   primary **Analyze CV** action.
-- Keep the result intentionally simple: an icon-only **Refresh** button above two lists under
-  **Similarities** and **Gaps**. When the profile, CV, or job spec changed since the last
-  analysis, a warning alert says so and carries an inline outlined **Re-run** button, which
-  replaces the Refresh button. Do not add a model/timestamp header, score, gauge, verdict
-  pill, confidence label, or per-requirement detail.
+- Keep the result intentionally simple: an icon-only **Refresh** button, requirement groups,
+  and the **Similarities** / **Gaps** lists. When the profile, CV, job spec, or skills changed
+  since the last analysis, a warning alert says so and carries an inline outlined **Re-run**
+  button, which replaces the Refresh button.
+- Requirement groups appear in order: **Minimum requirements**, **Recommended requirements**,
+  then **Skills and tools**. Each group shows a mono "N of M full" count and one row per
+  requirement with a status chip (Full, Partial, or Not met) and optional evidence. Use the
+  signal marker for Full, the warning marker for Partial, and the danger marker for Not met;
+  the chip label always carries the meaning.
+- An incomplete analysis shows a warning alert: "This analysis did not check every
+  requirement. Re-run it for a complete ranking." An analysis in the earlier format (schema
+  version below 3) shows the re-run hint instead of requirement rows. Do not add a score,
+  gauge, verdict pill, or confidence label.
 - Similarities use the signal marker and gaps use the danger marker. Color is never the only
   cue because the section labels carry the meaning.
-- Re-analysis always opens `FitConsentDialog` first. The dialog must explain what is sent,
-  what is removed, that Kilo may log or train on free-tier requests, and that results are
-  shared with the workspace. Use a warning-tonal alert for the privacy notice.
+- On the board, an optional **Rank by CV fit** toggle (outlined when off, flat accent when
+  on) sorts each stage by the shared ranking. Ranked cards show a compact mono badge such as
+  `#2 · Min 4/5 · Rec 2/3`; a danger icon appears when a minimum requirement is not met. Leave
+  the toggle off by default and never hide the applicant's stage or move candidates between
+  stages for ranking.
+- Re-analysis always opens `FitConsentDialog` first. The dialog must explain what is sent
+  (including education, work experience, and skills), what is removed, that Kilo may log or
+  train on free-tier requests, and that results are shared with the workspace. Use a
+  warning-tonal alert for the privacy notice.
 - While analysis runs, show an indeterminate progress line or spinner with the current progress
   text. A failure stays in the tab and never hides the previous result.
 

@@ -1,5 +1,11 @@
 import { supabase } from '@/lib/supabase'
-import { APPLICANT_SELECT, applicantPatch, fail, mapApplicant } from '@/lib/api-shared'
+import {
+  APPLICANT_SELECT,
+  applicantPatch,
+  fail,
+  mapApplicant,
+  normalizeSkills,
+} from '@/lib/api-shared'
 import type { ApplicantPatch, ApplicantRow } from '@/lib/api-shared'
 import { serializeEntries } from '@/lib/career'
 import type { CareerEntry, Candidate } from '@/types/pipeline'
@@ -16,6 +22,7 @@ export async function createApplicant(
     currentRole: string
     education: CareerEntry[]
     experience: CareerEntry[]
+    skills?: string[]
   },
 ): Promise<Candidate> {
   const { data, error } = await supabase
@@ -29,6 +36,7 @@ export async function createApplicant(
       job_title: input.currentRole,
       education: serializeEntries(input.education),
       experience: serializeEntries(input.experience),
+      skills: normalizeSkills(input.skills ?? []),
     })
     .select(APPLICANT_SELECT)
     .single()

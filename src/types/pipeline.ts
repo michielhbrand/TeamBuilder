@@ -48,6 +48,7 @@ export interface Candidate {
   stepEnteredAt: string
   education: CareerEntry[]
   experience: CareerEntry[]
+  skills: string[]
   cvPath?: string | null
   cvName?: string | null
 }
@@ -107,6 +108,7 @@ export interface ApplicantInput {
   currentRole?: string
   education?: CareerEntry[]
   experience?: CareerEntry[]
+  skills?: string[]
   stepId?: string
 }
 

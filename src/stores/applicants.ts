@@ -1,7 +1,8 @@
 import { ref } from 'vue'
 import { defineStore } from 'pinia'
 import * as api from '@/lib/applicants-api'
-import { entriesEqual, sortEntries } from '@/lib/career'
+import { normalizeSkills } from '@/lib/api-shared'
+import { sortEntries } from '@/lib/career'
 import { defaultApplicantStep, nextStep } from '@/lib/pipeline'
 import { errorMessage } from '@/lib/store-errors'
 import { useApplicantActivityStore } from '@/stores/applicant-activity'
@@ -43,6 +44,7 @@ type ProfileSnapshot = Pick<
   | 'salaryExpectationCents'
   | 'education'
   | 'experience'
+  | 'skills'
   | 'favorite'
   | 'cvPath'
   | 'cvName'
@@ -89,6 +91,7 @@ export const useApplicantsStore = defineStore('applicants', () => {
       salaryExpectationCents: candidate.salaryExpectationCents,
       education: candidate.education,
       experience: candidate.experience,
+      skills: candidate.skills,
       favorite: candidate.favorite,
       cvPath: candidate.cvPath ?? null,
       cvName: candidate.cvName ?? null,
@@ -102,7 +105,7 @@ export const useApplicantsStore = defineStore('applicants', () => {
       const after = current[key]
 
       return Array.isArray(before) && Array.isArray(after)
-        ? !entriesEqual(before, after)
+        ? JSON.stringify(before) !== JSON.stringify(after)
         : before !== after
     })
   }
@@ -197,6 +200,7 @@ export const useApplicantsStore = defineStore('applicants', () => {
         currentRole: input.currentRole?.trim() ?? '',
         education: sortEntries(input.education ?? []),
         experience: sortEntries(input.experience ?? []),
+        skills: input.skills ?? [],
       })
       board.candidates = [...board.candidates, candidate]
 
@@ -283,6 +287,56 @@ export const useApplicantsStore = defineStore('applicants', () => {
       context.candidate[field] = sortEntries(entries)
       markDirty(candidateId, field)
       scheduleSave(candidateId)
+    }
+  }
+
+  async function resyncCandidateProfile(
+    candidateId: string,
+    profile: {
+      education: CareerEntry[]
+      experience: CareerEntry[]
+      skills: string[]
+    },
+  ): Promise<boolean> {
+    const context = candidateContext(candidateId)
+
+    if (!context) {
+      return false
+    }
+
+    clearSaveTimer(candidateId)
+    dirtyFields.delete(candidateId)
+    setUnsaved(candidateId, false)
+    setSaveStatus(candidateId, 'saving')
+
+    const previous = {
+      education: context.candidate.education,
+      experience: context.candidate.experience,
+      skills: context.candidate.skills,
+    }
+    const next = {
+      education: sortEntries(profile.education),
+      experience: sortEntries(profile.experience),
+      skills: normalizeSkills(profile.skills),
+    }
+
+    context.candidate.education = next.education
+    context.candidate.experience = next.experience
+    context.candidate.skills = next.skills
+
+    try {
+      await api.updateApplicant(candidateId, next)
+      setSaveStatus(candidateId, 'saved')
+      error.value = null
+      await useApplicantActivityStore().recordEdit(candidateId)
+      return true
+    } catch (caught) {
+      context.candidate.education = previous.education
+      context.candidate.experience = previous.experience
+      context.candidate.skills = previous.skills
+      setSaveStatus(candidateId, 'failed')
+      error.value = errorMessage(caught)
+      return false
     }
   }
 
@@ -565,6 +619,7 @@ export const useApplicantsStore = defineStore('applicants', () => {
     updateCandidateField,
     updateCandidateNumber,
     updateCandidateEntries,
+    resyncCandidateProfile,
     toggleFavorite,
     advanceCandidate,
     moveCandidate,

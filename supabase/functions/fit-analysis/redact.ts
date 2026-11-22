@@ -56,17 +56,19 @@ function redactText(
     .replace(/[ \t]{2,}/g, ' ')
     .replace(/\n{3,}/g, '\n\n')
     .trim()
-    .slice(0, 6000)
+    .slice(0, 3000) // Further reduce to save tokens
 }
 
 export function prepareCandidateText(
   education: string,
   experience: string,
+  skills: string[],
   applicant: { full_name: string; email: string; phone: string },
 ): string {
   const sections = [
     education.trim() ? `Education:\n${education.trim()}` : '',
     experience.trim() ? `Work experience:\n${experience.trim()}` : '',
+    skills.length ? `Skills:\n${skills.join(', ')}` : '',
   ].filter(Boolean)
 
   return redactText(sections.join('\n\n'), applicant)
@@ -78,5 +80,5 @@ export function prepareJobSpecText(text: string): string {
     .replace(/[ \t]{2,}/g, ' ')
     .replace(/\n{3,}/g, '\n\n')
     .trim()
-    .slice(0, 20_000)
+    .slice(0, 5000) // Further reduce to save tokens
 }

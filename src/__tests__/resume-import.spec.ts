@@ -51,6 +51,7 @@ describe('resume import', () => {
       end: '2018-12',
     })
     expect(JSON.stringify(draft.education)).not.toContain('Figma')
+    expect(draft.skills).toEqual(['Figma', 'TypeScript', 'research'])
   })
 
   it('normalizes name and email casing', () => {
@@ -284,6 +285,7 @@ describe('applicant draft merge', () => {
       currentRole: '',
       education: [],
       experience: [],
+      skills: [],
       ...overrides,
     }
   }
@@ -296,6 +298,7 @@ describe('applicant draft merge', () => {
       currentRole: '',
       education: [],
       experience: [],
+      skills: [],
     }
   }
 
@@ -305,14 +308,15 @@ describe('applicant draft merge', () => {
 
     mergeApplicantDraft(
       values,
-      draft({ name: 'Jane Doe', email: 'jane@example.com' }),
+      draft({ name: 'Jane Doe', email: 'jane@example.com', skills: ['Figma', 'React'] }),
       new Set(),
       autoFilled,
     )
 
     expect(values.name).toBe('Jane Doe')
     expect(values.email).toBe('jane@example.com')
-    expect(autoFilled.has('name')).toBe(true)
+    expect(values.skills).toEqual(['Figma', 'React'])
+    expect(autoFilled.has('skills')).toBe(true)
   })
 
   it('updates prior auto-filled values but keeps manual edits', () => {

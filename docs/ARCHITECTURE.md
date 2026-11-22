@@ -234,7 +234,8 @@ The schema lives in `supabase/migrations/`:
   in months (one decimal), salary expectation in cents defaulting to `0`, structured
   education and work experience (jsonb arrays of entries with `id`, `title`, `organization`,
   `start` and `end` as `YYYY-MM`, `current`, and `description`; a check constraint requires
-  arrays), favorite flag, status, CV path and filename, `applied_at`, and `step_entered_at`.
+  arrays), a `skills` jsonb string array, favorite flag, status, CV path and filename,
+  `applied_at`, and `step_entered_at`.
   Entries are validated as valid month/year values and kept sorted newest first before they
   are written. Email and phone are optional; when present they are unique per board.
 - `public.applicant_events` — board and applicant scope, actor id and name, action, rendered
@@ -253,8 +254,14 @@ The schema lives in `supabase/migrations/`:
   policies.
 - `public.applicant_fit_analyses` — one row per applicant, scoped by the composite
   `(board_id, applicant_id)` foreign key. It stores CV, job-spec, and profile fingerprints,
-  the Kilo model and prompt version, and the validated similarities/gaps JSON. Authenticated
-  users can select; only the Edge Function with the service role writes.
+  the Kilo model and prompt version, the analysis schema version, completeness, and the
+  validated requirements, similarities, and gaps JSON. Authenticated users can select; only
+  the Edge Function with the service role writes.
+- `public.board_requirement_sets` — one cached requirement list per board and job-spec
+  fingerprint, scoped by `board_id` with a cascading foreign key. It stores the extracted
+  minimum, recommended, and skills requirements so every applicant on that job spec is
+  assessed against the same list. Authenticated users can select; only the Edge Function
+  with the service role inserts or updates.
 
 - `public.hiring_monthly` and `public.hire_history` — the hiring history, described under
   [Hiring history](#hiring-history).
@@ -431,8 +438,9 @@ LinkedIn blocks automated access, prohibits scraping, and has no free reliable p
 
 ### CV analysis
 
-The applicant drawer has a **CV fit** tab. It compares the applicant's education and work
-experience with the board's PDF job spec and shows two lists: similarities and gaps. The flow is:
+The applicant drawer has a **CV fit** tab. It compares the applicant's education, work
+experience, and skills with the board's PDF job spec, assesses every requirement as full,
+partial, or not met, and keeps the similarities and gaps lists. The flow is:
 
 ```text
 CV fit tab, CV upload, refresh, or the stale banner's Re-run
@@ -440,38 +448,50 @@ CV fit tab, CV upload, refresh, or the stale banner's Re-run
   -> browser extracts job-spec text locally (pdfjs-dist + OCR fallback)
   -> supabase.functions.invoke('fit-analysis')
   -> Edge Function verifies JWT, loads the applicant with the service role
-  -> redacts identity/sensitive fields, calls Kilo's free model
-  -> validates the similarities/gaps JSON
+  -> extracts requirements from the job spec, or reuses the cached
+     board_requirement_sets row for the same board and job-spec fingerprint
+  -> redacts identity/sensitive fields, calls Kilo's free model to assess each requirement
+  -> validates the requirements and assessment JSON
   -> upserts public.applicant_fit_analyses
   -> Edge Function records an analyzed applicant event
   -> drawer reloads the stored result through the fit Pinia store
 ```
 
 `src/stores/fit.ts` owns fit state. It downloads the CV and job spec through the storage
-store, hashes the CV bytes and cleaned job-spec text, and sends only the applicant id,
-job-spec text, and fingerprints; the Edge Function loads the role and department server-side.
-The UI requires consent before invoking the function. The Edge Function performs the actual
-model call and writes the row; the browser never validates model output or receives the Kilo
-key.
+store, hashes the CV bytes and cleaned job-spec text, fingerprints the profile (including
+skills), and sends only the applicant id, job-spec text, and fingerprints; the Edge Function
+loads the role and department server-side. The UI requires consent before invoking the
+function. The Edge Function performs the actual model calls and writes the rows; the browser
+never validates model output or receives the Kilo key.
 
 The Edge Function reads the structured entries, formats them with `formatCareerEntries`
 (`supabase/functions/fit-analysis/career.ts`, mirrored by `formatEntriesText` in
 `src/lib/career.ts`) into a heading, period, and description per entry, and fingerprints that
 text. Legacy free text migrated into a single description-only entry formats to the same text,
-so existing analyses stay current. It sends only the job spec and redacted education/work
-experience to Kilo. It
+so existing analyses stay current. It sends only the job spec and redacted education, work
+experience, and skills to Kilo. It
 removes names, email, phone, URLs, address, date of birth, nationality, gender, age, marital
 status, and similar sensitive lines while keeping employers, institutions, and date ranges.
 Every analysis requires explicit consent because Kilo may log or train on free-tier requests.
 Results are shared with all signed-in users in the workspace. Analysis is English-only, has no
 local or paid fallback, and a failed or rate-limited call leaves the previous row intact.
 
-RLS is enabled on all six tables. Table privileges are explicitly granted to
+Requirement lists are cached in `public.board_requirement_sets` by board and job-spec
+fingerprint. A new or changed job spec extracts a fresh list; every other analysis for that
+spec reuses it, so candidates are compared against identical wording. Only complete analyses
+with at least one requirement are ranked. Ranking is lexicographic ascending by minimum
+penalty, minimum misses, recommended penalty, recommended misses, skills penalty, skills
+misses, then name, where a penalty is one per missed requirement plus half per partial match.
+This guarantees that any candidate with zero minimum misses ranks above every candidate with
+a minimum miss. The board sorts within each stage only, and the **Rank by CV fit** toggle is
+off by default.
+
+RLS is enabled on all seven tables. Table privileges are explicitly granted to
 `authenticated` and revoked from `anon`; RLS policies then grant the operations each table
 needs. Board tables allow `select`, `insert`, `update`, and `delete`; applicant events allow
-`select` only and applicant notes allow `select` and `insert`; fit analyses allow `select`
-only. Events are written by database triggers, the narrow edit RPC, or the Edge Function with
-the service role. RLS alone is not sufficient
+`select` only and applicant notes allow `select` and `insert`; fit analyses and board
+requirement sets allow `select` only. Events are written by database triggers, the narrow edit
+RPC, or the Edge Function with the service role. RLS alone is not sufficient
 because PostgREST also requires the underlying table grants. RPC execution is revoked from
 `public` and `anon` and granted to `authenticated`.
 
@@ -513,16 +533,18 @@ sharing row types, select fragments, and domain mappers through `src/lib/api-sha
 - quiet cleanup helpers used when an applicant or board is deleted.
 
 `src/stores/fit.ts` holds fit analyses by applicant, loading/analyzing/error/progress state,
-and stale flags. Its `load` reads the stored row, `analyze` extracts the job spec, hashes the
-CV and profile, invokes `fit-analysis`, and `markStale` / `markBoardStale` flag results after a
-CV or job-spec change.
+and stale flags. Its `load` reads the stored row, `loadBoard` fetches every analysis for a
+board so the stage ranking is complete, and `analyze` extracts the job spec, hashes the CV and
+profile, invokes `fit-analysis`, and `markStale` / `markBoardStale` flag results after a CV or
+job-spec change. `isStaleFor` also treats schema versions below 3 as stale. `rankForStage`,
+`summaryFor`, and `isRankableFor` expose the pure ranking helpers to the board and drawer.
 
 The router guard awaits `boards.initialize()` before entering a protected route. Text-field
 edits update Pinia immediately and are debounced before the applicant row is written;
 `flushCandidate` writes any pending edit when the drawer closes. The drawer snapshots the
 profile when it opens; on close, `flushCandidate` compares the snapshot and records one
-`edited` event only when a name, contact, role, education, experience, favorite, or CV value
-changed. This avoids one event per keystroke; the narrow `record_applicant_edit_event` RPC
+`edited` event only when a name, contact, role, education, experience, skills, favorite, or CV
+value changed. This avoids one event per keystroke; the narrow `record_applicant_edit_event` RPC
 derives the actor and message from the session and applicant. Database triggers record
 creation, moves, and hire/reject/reopen events in the same transaction as the applicant
 change. `src/types/pipeline.ts` defines the domain types,
@@ -660,9 +682,11 @@ Function secrets are separate from the Vite build:
 - Never write `public.hiring_monthly` or `public.hire_history` from the app; change the
   trigger in a new migration instead. Do not add per-stage history, because stage names differ
   per board.
-- To change fit analysis, update the prompt/validation/redaction in
-  `supabase/functions/fit-analysis`, bump `PROMPT_VERSION`, and keep the Edge Function as the
-  only writer of `public.applicant_fit_analyses`.
+- To change fit analysis, update the requirement extraction, assessment, prompt, validation,
+  and redaction in `supabase/functions/fit-analysis`, bump `PROMPT_VERSION`, and keep the Edge
+  Function as the only writer of `public.applicant_fit_analyses` and
+  `public.board_requirement_sets`. Keep the ranking rules in `src/lib/fit-rank.ts` aligned with
+  the documented lexicographic order. Prompt version is currently `2026-11-22.2`.
 - Keep the first board stage as the fallback bucket. If stage reordering is added, update
   the atomic delete function and the `position` ordering together.
 - Password recovery links (requested from `/forgot-password`) use the same `/set-password` flow. If magic links are
