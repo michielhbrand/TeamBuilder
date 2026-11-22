@@ -8,6 +8,8 @@ import { generateDataset } from './seed/data.mjs'
 import { buildCv, buildJobSpec } from './seed/pdf.mjs'
 import { buildSql } from './seed/sql.mjs'
 
+const STAGING_PROJECT_REF = 'pmowsjyhabzhmaeivomf'
+
 const USAGE = `Fill the staging Supabase project with fictional demo data.
 
 Usage:
@@ -206,6 +208,13 @@ if (env.STAGING_VITE_SUPABASE_PUBLISHABLE_KEY.startsWith('sb_secret_')) {
 
 const ref = projectRef(env.STAGING_VITE_SUPABASE_URL)
 const databaseRef = dbRef(env.STAGING_SUPABASE_DB_URL)
+
+if (ref !== STAGING_PROJECT_REF) {
+  fail(
+    `This script only runs against the staging project (${STAGING_PROJECT_REF}), but the API URL ` +
+      `points at "${ref}". Nothing was changed.`,
+  )
+}
 
 if (!args.confirm) {
   fail(`Refusing to run without --confirm. The target project ref is "${ref}".`)

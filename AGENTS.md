@@ -539,9 +539,11 @@ See `docs/ARCHITECTURE.md` for the auth lifecycle and deployment pipeline.
 ## Do not
 
 - Do not commit `.env` files, keys, tokens, or generated secrets.
-- Do not point `npm run seed:staging` at production. It refuses without `--confirm <ref>`, when
-  the API URL and `STAGING_SUPABASE_DB_URL` name different projects, or when the target matches a
-  `VITE_SUPABASE_URL` in your local env files. Keep `STAGING_SUPABASE_DB_URL` (it contains the
+- Do not point `npm run seed:staging` at production. It only runs when the API URL is the staging
+  project ref hardcoded in `scripts/seed-staging.mjs` (`STAGING_PROJECT_REF`; update it if the
+  staging project is ever recreated), and it also refuses without `--confirm <ref>`, when
+  `STAGING_SUPABASE_DB_URL` names a different project, or when the target matches a
+  `VITE_SUPABASE_URL` in your local env files. Never run it from a workflow. Keep `STAGING_SUPABASE_DB_URL` (it contains the
   database password) only in the gitignored `.env.staging.local` and in GitHub secrets, and keep
   seed data fictional (`example.com` emails).
 - Do not add a sign-up UI without an explicit product decision.
