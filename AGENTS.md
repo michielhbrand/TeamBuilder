@@ -59,13 +59,19 @@ npm run build
   frontend, a `VITE_*` variable, the repository, tests, logs, or chat.
 - `KILO_API_KEY` and `KILO_MODEL` are Supabase Edge Function secrets for `fit-analysis`.
   Never name the key `VITE_*` or inject it into the Pages build.
-- `SUPABASE_ACCESS_TOKEN` and `SUPABASE_PROJECT_ID` are GitHub Actions secrets used only to
-  set function secrets and deploy `fit-analysis`.
+- `SUPABASE_ACCESS_TOKEN` and `SUPABASE_PROJECT_ID` are GitHub Actions secrets used to
+  push migrations, set function secrets, and deploy `fit-analysis` for the production project.
+  `SUPABASE_ACCESS_TOKEN` is a personal access token and can manage multiple projects under
+  the same Supabase account.
 - `.env.local` is gitignored. `.env.example` contains placeholders only. Function secret
   placeholders live in `supabase/functions/.env.example`.
 - Production values come from GitHub Actions secrets named exactly
   `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, `KILO_API_KEY`, `KILO_MODEL`,
   `SUPABASE_ACCESS_TOKEN`, and `SUPABASE_PROJECT_ID`.
+- Staging values come from GitHub Actions secrets named exactly
+  `STAGING_VITE_SUPABASE_URL`, `STAGING_VITE_SUPABASE_PUBLISHABLE_KEY`, and
+  `STAGING_SUPABASE_PROJECT_ID`. `SUPABASE_ACCESS_TOKEN`, `KILO_API_KEY`, and `KILO_MODEL`
+  are shared between production and staging.
 - Use `npm run validate:env` before a deploy build. It rejects missing values and secret
   keys.
 
@@ -386,21 +392,29 @@ See `docs/ARCHITECTURE.md` for the auth lifecycle and deployment pipeline.
 ## Deployment constraints
 
 - The site is a GitHub Pages project site at `https://michielhbrand.github.io/TeamBuilder/`.
+  Staging lives at `https://michielhbrand.github.io/TeamBuilder/staging/`.
+- GitHub Pages must be configured to serve from the `gh-pages` branch, root `/` (Settings →
+  Pages → Source: Deploy from a branch). Both deploy workflows publish to that branch; the
+  production workflow preserves the `staging/` subfolder on each production deploy.
 - Production `base` must remain `/TeamBuilder/` unless the repository is renamed again. If
   it changes, update `vite.config.ts`, Supabase redirect URLs, the README, and the docs.
-- The cloud Supabase **Site URL** must be `https://michielhbrand.github.io/TeamBuilder/`.
-  Invitation emails build their link from it. If it points at `localhost:3000`, recipients
-  cannot accept invites.
+  The staging base is `/TeamBuilder/staging/` and is set via `BASE_PATH` at build time.
+- The cloud production Supabase **Site URL** must be
+  `https://michielhbrand.github.io/TeamBuilder/`. The staging Supabase **Site URL** must be
+  `https://michielhbrand.github.io/TeamBuilder/staging/`. Invitation emails build their
+  links from these. If either points at `localhost:3000`, recipients cannot accept invites.
 - Do not remove the `404.html` fallback; it is what makes `/TeamBuilder/boards` work on a
-  hard refresh.
-- `.github/workflows/deploy.yml` is the only production deploy path. Keep Pages permissions
-  (`pages: write`, `id-token: write`) and the `github-pages` environment. The same workflow
-  sets `KILO_API_KEY` and `KILO_MODEL` as Supabase secrets and deploys `fit-analysis` using
-  `SUPABASE_ACCESS_TOKEN` and `SUPABASE_PROJECT_ID`; never inject those values into the Vite
-  build.
-- Deployments occur on pushes to `main`. Releases are created automatically by
-  `semantic-release` from Conventional Commits; do not create tags or releases manually
-  unless recovering from a failed release.
+  hard refresh. Direct deep links to staging paths (e.g. `/TeamBuilder/staging/boards`) will
+  fall back to the production `404.html`; this is an inherent GitHub Pages limitation for
+  subfolder deployments.
+- `.github/workflows/deploy.yml` is the production deploy path. `.github/workflows/deploy-staging.yml`
+  is the staging deploy path. Both use `contents: write` and `JamesIves/github-pages-deploy-action`.
+  Both workflows push database migrations before deploying, set Kilo secrets, and deploy
+  `fit-analysis` to their respective Supabase project. Never inject `SUPABASE_ACCESS_TOKEN`,
+  `SUPABASE_PROJECT_ID`, `KILO_API_KEY`, or `KILO_MODEL` into the Vite build.
+- Deployments occur on pushes to `main` (production) or `staging` (staging). Releases are
+  created automatically by `semantic-release` from Conventional Commits on `main`; do not
+  create tags or releases manually unless recovering from a failed release.
 
 ## Supabase constraints
 

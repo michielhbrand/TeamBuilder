@@ -6,7 +6,7 @@ import vuetify from 'vite-plugin-vuetify'
 import vueDevTools from 'vite-plugin-vue-devtools'
 
 export default defineConfig(({ mode }) => ({
-  base: mode === 'production' ? '/TeamBuilder/' : '/',
+  base: mode === 'production' ? (process.env.BASE_PATH ?? '/TeamBuilder/') : '/',
   plugins: [vue(), vuetify({ autoImport: true }), vueDevTools()],
   resolve: {
     alias: {

@@ -572,22 +572,49 @@ call their actions; they do not call Supabase directly.
 
 ## Build and deployment pipeline
 
+Both deploy workflows publish to the `gh-pages` branch using
+`JamesIves/github-pages-deploy-action`. GitHub Pages must be configured to serve from the
+`gh-pages` branch, root `/` (Settings → Pages → Source: Deploy from a branch).
+
 ```text
 push to main
   -> deploy.yml
-     -> npm ci
-     -> lint, typecheck, test
-     -> validate:env (fails if secrets are missing or a secret key is used)
-     -> npm run build (Vite embeds VITE_SUPABASE_URL + publishable key)
-     -> postbuild: dist/404.html + dist/.nojekyll
-     -> actions/configure-pages
-     -> actions/upload-pages-artifact
-     -> actions/deploy-pages
-  -> functions job
-     -> validate KILO_MODEL is free
-     -> supabase secrets set KILO_API_KEY + KILO_MODEL
-     -> supabase functions deploy fit-analysis
+     build job:
+       -> npm ci
+       -> lint, typecheck, test
+       -> validate:env (fails if secrets are missing or a secret key is used)
+       -> npm run build (Vite embeds VITE_SUPABASE_URL + publishable key; BASE_PATH defaults to /TeamBuilder/)
+       -> postbuild: dist/404.html + dist/.nojekyll
+       -> upload dist as artifact
+     migrations job (needs: build):
+       -> supabase db push --project-ref (pushes pending migrations to production DB)
+     functions job (needs: migrations):
+       -> validate KILO_MODEL is free
+       -> supabase secrets set KILO_API_KEY + KILO_MODEL
+       -> supabase functions deploy fit-analysis
+     deploy job (needs: migrations):
+       -> JamesIves/github-pages-deploy-action → gh-pages branch root
+       -> clean-exclude: staging (preserves the staging subfolder)
   -> https://michielhbrand.github.io/TeamBuilder/
+
+push to staging
+  -> deploy-staging.yml
+     build job:
+       -> npm ci
+       -> lint, typecheck, test
+       -> validate:env (uses STAGING_VITE_SUPABASE_URL + STAGING_VITE_SUPABASE_PUBLISHABLE_KEY)
+       -> npm run build with BASE_PATH=/TeamBuilder/staging/
+       -> postbuild: dist/404.html + dist/.nojekyll
+       -> upload dist as artifact
+     migrations job (needs: build):
+       -> supabase db push --project-ref (pushes pending migrations to staging DB)
+     functions job (needs: migrations):
+       -> validate KILO_MODEL is free (same secret as production)
+       -> supabase secrets set KILO_API_KEY + KILO_MODEL on the staging project
+       -> supabase functions deploy fit-analysis on staging project
+     deploy job (needs: migrations):
+       -> JamesIves/github-pages-deploy-action → gh-pages branch staging/ subfolder
+  -> https://michielhbrand.github.io/TeamBuilder/staging/
 
 push to main (in parallel)
   -> release.yml
@@ -596,11 +623,15 @@ push to main (in parallel)
      -> tag vX.Y.Z + GitHub release with generated notes
 ```
 
-`ci.yml` runs on pull requests and pushes to `main`. It builds with placeholder values so
-forks and untrusted PRs do not need secrets. The deploy workflow, which runs only from the
-trusted `main` branch or a manual dispatch, uses the real repository secrets. The function
-job never passes `KILO_API_KEY` to Vite; it sets it directly on the Supabase project and
-deploys `fit-analysis`.
+`ci.yml` runs on pull requests and pushes to `main` and `staging`. It builds with placeholder
+values so forks and untrusted PRs do not need secrets. The deploy workflows, which run only
+from their respective trusted branches or a manual dispatch, use the real repository secrets.
+The functions jobs never pass `KILO_API_KEY` to Vite; they set it directly on the Supabase
+project and deploy `fit-analysis`.
+
+Migrations run automatically before the Pages deploy on every push to `main` or `staging`.
+`supabase db push` applies only the migrations not yet recorded in the target project's
+`supabase_migrations.schema_migrations` table, so it is a no-op when nothing is pending.
 
 `release.yml` uses Conventional Commits to decide whether a release is needed. `fix` and
 `perf` create patches, `feat` creates minors, and breaking changes create majors. Releases
@@ -615,6 +646,7 @@ can be newer than the latest release.
 | Local dev, cloud Supabase | Project URL              | Supabase Connect dialog           | Disabled in dashboard     |
 | Local production build    | Project URL              | `.env.production.local`           | Not used                  |
 | CI build                  | Placeholder              | Workflow placeholders             | Not used                  |
+| Staging build             | Staging project URL      | `STAGING_*` GitHub Actions secret | Disabled in dashboard     |
 | Production build          | Project URL              | GitHub Actions secret             | Disabled in dashboard     |
 
 `npm run supabase:reset` recreates a local-only user from `LOCAL_USER_EMAIL`,
