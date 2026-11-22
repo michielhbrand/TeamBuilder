@@ -696,7 +696,11 @@ Function secrets are separate from the Vite build:
 - Kilo rate limit or outage: the function returns an error and the previous stored analysis
   remains visible; there is no fallback engine.
 - Pages direct navigation: served through `404.html`; if the fallback is removed, refreshing
-  `/TeamBuilder/boards` returns a GitHub 404 page.
+  `/TeamBuilder/boards` returns a GitHub 404 page. GitHub Pages serves only the root
+  `404.html`, which is the production build, so a deep staging path such as
+  `/TeamBuilder/staging/set-password` opens the production app instead. Staging invite and
+  reset email templates therefore link to `{{ .SiteURL }}` with `token_hash` and `type`, and
+  the app routes to `/set-password` itself.
 - Renamed repository: production base and Supabase redirect URLs must change together. The
   current base `/TeamBuilder/` assumes the repository is `michielhbrand/TeamBuilder`. Deploy
   only after the repository rename, Pages URL, and Supabase Site URL agree.

@@ -410,7 +410,9 @@ See `docs/ARCHITECTURE.md` for the auth lifecycle and deployment pipeline.
 - Do not remove the `404.html` fallback; it is what makes `/TeamBuilder/boards` work on a
   hard refresh. Direct deep links to staging paths (e.g. `/TeamBuilder/staging/boards`) will
   fall back to the production `404.html`; this is an inherent GitHub Pages limitation for
-  subfolder deployments.
+  subfolder deployments. For that reason the staging invite and reset email templates must
+  link to the site root (`{{ .SiteURL }}?token_hash={{ .TokenHash }}&type=invite`, and
+  `type=recovery` for reset), never to `/set-password`; the app routes to `/set-password` itself.
 - `.github/workflows/deploy.yml` is the production deploy path. `.github/workflows/deploy-staging.yml`
   is the staging deploy path. Both use `contents: write` and `JamesIves/github-pages-deploy-action`.
   Both workflows push database migrations before deploying, set Kilo secrets, and deploy
