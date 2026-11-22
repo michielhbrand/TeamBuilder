@@ -89,18 +89,21 @@ describe('callKilo', () => {
     await expect(callKilo('key', 'kilo-auto/free', messages, true)).resolves.toBe(text)
   })
 
-  it('rejects a response that used reasoning tokens', async () => {
+  it('accepts a complete answer from a model that reasoned anyway', async () => {
     stubFetch(
       kiloResponse('{"ok":true}', {
         completion_tokens: 900,
-        completion_tokens_details: { reasoning_tokens: 700 },
+        completion_tokens_details: { reasoning_tokens: 842 },
       }),
     )
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
 
-    await expect(callKilo('key', 'kilo-auto/free', messages, true)).rejects.toMatchObject({
-      status: 502,
-      message: expect.stringContaining('700 reasoning tokens'),
-    })
+    await expect(callKilo('key', 'kilo-auto/free', messages, true)).resolves.toBe('{"ok":true}')
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining('reasoned'),
+      expect.objectContaining({ reasoningTokens: 842 }),
+    )
+    warn.mockRestore()
   })
 
   it('reports rate limiting without trying any other model', async () => {

@@ -170,8 +170,8 @@ npm run build
 - `supabase/functions/fit-analysis/` — authenticated Edge Function that extracts and caches
   job-spec requirements (`requirements.ts`), assesses every requirement (`assess.ts`), redacts
   CV fields, calls the free Kilo model, validates the result, and upserts the shared analysis.
-  `kilo.ts` holds the free-model check and the single Kilo call (reasoning disabled, 8192 output
-  tokens, no fallback model, no text-based filtering of the answer). An empty extraction is never
+  `kilo.ts` holds the free-model check and the single Kilo call (reasoning requested off, 8192 output
+  tokens, no fallback model, no text-based filtering of the answer, reasoning tolerated). An empty extraction is never
   cached, and the server reads up to 20,000 characters of job spec and 6,000 of CV text, matching
   what the browser extracts.
 - `supabase/functions/.env.example` — placeholders for server-side function secrets.
@@ -444,8 +444,9 @@ See `docs/ARCHITECTURE.md` for the auth lifecycle and deployment pipeline.
 - Fit analysis is English-only, has no local or paid fallback, and must keep the previous
   result when Kilo is unavailable or rate-limited. Refuse any `KILO_MODEL` that is not a free
   model or contains "reasoning" or "deep". The API explicitly disables reasoning with
-  `reasoning: { enabled: false, type: 'none' }` and will reject any model that uses reasoning
-  tokens. Do not expose the Kilo key to the browser.
+  `reasoning: { enabled: false, type: 'none' }`, but `kilo-auto/free` rotates through free models
+  that reason anyway, so a response that reasoned is accepted when it contains an answer (a
+  warning is logged); only an empty answer fails. Do not expose the Kilo key to the browser.
 - Keep `src/lib/career.ts` `formatEntriesText` and
   `supabase/functions/fit-analysis/career.ts` `formatCareerEntries` identical: the browser and
   the Edge Function both fingerprint the formatted text, and `career.spec.ts` asserts parity.
