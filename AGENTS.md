@@ -64,8 +64,8 @@ npm run build
   `SUPABASE_DB_URL` (and `STAGING_SUPABASE_DB_URL`) is the project's Session pooler
   connection string including the database password; it is used only by the migrations job
   because GitHub runners have no IPv6 and the direct database host is IPv6-only.
-  `SUPABASE_ACCESS_TOKEN` is a personal access token and can manage multiple projects under
-  the same Supabase account.
+  Each access token is scoped to one project, so staging has its own
+  `STAGING_SUPABASE_ACCESS_TOKEN`.
 - `.env.local` is gitignored. `.env.example` contains placeholders only. Function secret
   placeholders live in `supabase/functions/.env.example`.
 - Production values come from GitHub Actions secrets named exactly
@@ -73,8 +73,9 @@ npm run build
   `SUPABASE_ACCESS_TOKEN`, `SUPABASE_PROJECT_ID`, and `SUPABASE_DB_URL`.
 - Staging values come from GitHub Actions secrets named exactly
   `STAGING_VITE_SUPABASE_URL`, `STAGING_VITE_SUPABASE_PUBLISHABLE_KEY`,
-  `STAGING_SUPABASE_PROJECT_ID`, and `STAGING_SUPABASE_DB_URL`. `SUPABASE_ACCESS_TOKEN`, `KILO_API_KEY`, and `KILO_MODEL`
-  are shared between production and staging.
+  `STAGING_SUPABASE_PROJECT_ID`, `STAGING_SUPABASE_DB_URL`, and
+  `STAGING_SUPABASE_ACCESS_TOKEN`. `KILO_API_KEY` and `KILO_MODEL` are shared between
+  production and staging.
 - Use `npm run validate:env` before a deploy build. It rejects missing values and secret
   keys.
 

@@ -656,13 +656,14 @@ build target the cloud project while `.env.local` targets local Supabase.
 
 Function secrets are separate from the Vite build:
 
-| Secret                  | Used by         | Notes                                                                                            |
-| ----------------------- | --------------- | ------------------------------------------------------------------------------------------------ |
-| `KILO_API_KEY`          | `fit-analysis`  | Server-only; never a `VITE_*` value                                                              |
-| `KILO_MODEL`            | `fit-analysis`  | Must be `kilo-auto/free` or end in `:free`                                                       |
-| `SUPABASE_ACCESS_TOKEN` | deploy workflow | Scoped project token: Edge Functions and Edge Function Secrets read-write, Project Settings read |
-| `SUPABASE_PROJECT_ID`   | deploy workflow | Supabase project ref                                                                             |
-| `SUPABASE_DB_URL`       | deploy workflow | Session pooler connection string with the DB password; migrations only (runners lack IPv6)       |
+| Secret                  | Used by          | Notes                                                                                                  |
+| ----------------------- | ---------------- | ------------------------------------------------------------------------------------------------------ |
+| `KILO_API_KEY`          | `fit-analysis`   | Server-only; never a `VITE_*` value                                                                    |
+| `KILO_MODEL`            | `fit-analysis`   | Must be `kilo-auto/free` or end in `:free`                                                             |
+| `SUPABASE_ACCESS_TOKEN` | deploy workflow  | Scoped project token: Edge Functions and Edge Function Secrets read-write, Project Settings read       |
+| `SUPABASE_PROJECT_ID`   | deploy workflow  | Supabase project ref                                                                                   |
+| `SUPABASE_DB_URL`       | deploy workflow  | Session pooler connection string with the DB password; migrations only (runners lack IPv6)             |
+| `STAGING_SUPABASE_*`    | staging workflow | `ACCESS_TOKEN` (scoped like the production token, but for the staging project), `PROJECT_ID`, `DB_URL` |
 
 ## Failure modes
 
