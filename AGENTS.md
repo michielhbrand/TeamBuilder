@@ -97,6 +97,8 @@ npm run build
   removal for applicant CVs and board job specs.
 - `src/lib/fit-api.ts` — Supabase reads for stored fit analyses, including the bulk
   `fetchBoardFitAnalyses` used for ranking, and Edge Function invocation.
+- `src/lib/fit-errors.ts` — `friendlyError`, the only client-side rewriting of fit-analysis errors; it
+  replaces a message only for rate limits, a missing `KILO_API_KEY`, and a missing function.
 - `src/lib/fit-rank.ts` — pure fit summaries and the lexicographic ranking: minimum penalty,
   minimum misses, recommended penalty, recommended misses, skills penalty, skills misses, then
   name. A penalty is one per miss plus half per partial match; only complete analyses with at
