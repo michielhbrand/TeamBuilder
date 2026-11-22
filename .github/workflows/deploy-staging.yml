@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   build:
-    name: Build
+    name: 'Staging: Build'
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
@@ -62,7 +62,7 @@ jobs:
           retention-days: 1
 
   migrations:
-    name: Push database migrations
+    name: 'Staging: Push database migrations'
     needs: build
     runs-on: ubuntu-latest
     steps:
@@ -85,7 +85,7 @@ jobs:
           STAGING_SUPABASE_DB_URL: ${{ secrets.STAGING_SUPABASE_DB_URL }}
 
   functions:
-    name: Deploy Supabase function
+    name: 'Staging: Deploy Supabase function'
     needs: migrations
     runs-on: ubuntu-latest
     env:
@@ -139,7 +139,7 @@ jobs:
         run: supabase functions deploy fit-analysis --remote="$SUPABASE_PROJECT_ID" --yes
 
   deploy:
-    name: Deploy
+    name: 'Staging: Deploy'
     needs: migrations
     runs-on: ubuntu-latest
     environment:
