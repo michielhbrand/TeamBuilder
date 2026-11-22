@@ -201,7 +201,8 @@ npm run build
 - `src/components/ApplicantDrawer.vue` — right-side applicant profile: header (avatar, name,
   "role · applied N days ago", favorite, overflow menu with Delete applicant, close) over
   Overview (profile fields, read-only skills chips, CV card, notes), CV (inline viewer),
-  Career, CV fit (requirement groups plus similarities and gaps), and Activity tabs.
+  Career, CV fit (header, verdict panel, requirement groups, similarities and gaps), and Activity
+  tabs.
 - `src/components/ApplicantStageBar.vue` — the drawer's stage stepper, Move to <next>, Hire,
   Reject, save indicator (Saving..., Saved, Couldn't save · Retry), and the outcome chip with
   Reopen for closed applicants.
@@ -211,6 +212,10 @@ npm run build
   and description fields for one career entry.
 - `src/components/CareerStrip.vue` — the pinned horizontal career strip with work and education
   lanes, employment-gap boxes, and a hover readout; linked to the timelines.
+- `src/components/FitRequirements.vue` — the CV fit verdict panel (count, rank, segmented bars,
+  legend), **Gaps only** switch, and collapsible requirement groups; `FitStatusGlyph.vue` draws
+  the met / partly met / not shown shapes. `src/lib/fit-view.ts` holds the status wording and
+  verdict headline. A missing minimum is the only danger-colored requirement.
 - `src/components/FitConsentDialog.vue` — per-analysis consent dialog for sending redacted CV
   and skills data to the hosted model.
 - `src/components/ResyncCvDialog.vue` — after a CV replacement, asks whether to re-sync

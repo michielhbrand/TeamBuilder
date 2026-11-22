@@ -68,6 +68,7 @@ en-US.
 | Applicant                           | candidate                       |
 | Role (prose), Boards (nav and page) | position, pipeline (as a title) |
 | CV fit                              | Analize, analysis tab           |
+| Not shown in CV (a requirement)     | None, Not met, Zero compliance  |
 | Activity                            | Events                          |
 | N days in stage                     | N days in step                  |
 | N days overdue, Due in N days       | other deadline phrasings        |
@@ -552,19 +553,37 @@ class. Keep the rules attached to the field.
 - The **CV fit** tab uses the same drawer surface, spacing, and hairline rhythm. Keep the
   empty state quiet: one muted icon, a short title, the missing prerequisites, and a single
   primary **Analyze CV** action.
-- Keep the result intentionally simple: an icon-only **Refresh** button, requirement groups,
-  and the **Similarities** / **Gaps** lists. When the profile, CV, job spec, or skills changed
-  since the last analysis, a warning alert says so and carries an inline outlined **Re-run**
-  button, which replaces the Refresh button.
+- The result reads top to bottom: a header (`Analyzed <relative time>` and an outlined
+  **Re-run analysis** button), a verdict panel, a **Gaps only** switch, the requirement groups,
+  then **Similarities and gaps**. When the profile, CV, job spec, or skills changed since the
+  last analysis, a warning alert says so and carries an inline outlined **Re-run** button,
+  which replaces the header button.
+- The verdict panel (`FitRequirements.vue`, a `surface-2` inset band with a hairline border)
+  leads with a plain count such as "4 of 6 minimum requirements met", the stage rank ("Ranked #3
+  of 12 analyzed in Screening · minimum first, then recommended, then skills") when the
+  applicant is ranked, one 8px segmented bar per group, and a legend. Bar segments are signal
+  (met), accent (partly met), and `--orbital-line-input` (not shown); never danger, because
+  charts reserve danger for overdue deadlines and errors. Each bar has an `aria-label` and a
+  visible count beside it.
+- Statuses are shapes before colors (`FitStatusGlyph.vue`): a filled check circle (signal) for
+  met, a half-filled circle (accent) for partly met, and an outlined dash circle for not shown
+  in the CV. A not-shown **minimum** requirement alone uses the danger token, on the glyph and
+  on "Not found in the CV"; every other not-shown item stays neutral (`line-input` glyph, muted
+  text), because a missing nice-to-have is not an error. Each row also carries `sr-only` status
+  text. Never print "None" for a requirement: absence of evidence in a CV is not a failed
+  requirement. A requirement the model skipped reads "Not assessed" and is never danger.
 - Requirement groups appear in order: **Minimum requirements**, **Recommended requirements**,
-  then **Skills and tools**. Each group shows a mono "N of M full" count and one row per
-  requirement with a status chip (Full, Partial, or Not met) and optional evidence. Use the
-  signal marker for Full, the warning marker for Partial, and the danger marker for Not met;
-  the chip label always carries the meaning.
+  then **Skills and tools**. Each group header is a button (`aria-expanded`) that collapses the
+  group, with a mono "N / M met" count. Rows are a 20px glyph gutter, a 600-weight label, and
+  evidence in a 1px `line-input` quote rule at full ink contrast; partly met evidence starts
+  with an accent "Partly met ·". Skills are compact pill chips with the glyph, and the
+  evidence in the `title`. **Gaps only** hides fully met items.
 - An incomplete analysis shows a warning alert: "This analysis did not check every
-  requirement. Re-run it for a complete ranking." An analysis in the earlier format (schema
-  version below 3) shows the re-run hint instead of requirement rows. Do not add a score,
-  gauge, verdict pill, or confidence label.
+  requirement. Re-run it for a complete ranking." When the job spec has no requirement sections
+  (or the analysis uses the earlier format, schema version below 3), a hairline `fit-note`
+  explains it and **Similarities and gaps** becomes the main content under "How the CV compares
+  with the job spec". Do not add a composite score, percentage, verdict pill, or confidence
+  label; the counts and bars are facts, not a rating.
 - Similarities use the signal marker and gaps use the danger marker. Color is never the only
   cue because the section labels carry the meaning.
 - On the board, an optional **Rank by CV fit** toggle (outlined when off, flat accent when

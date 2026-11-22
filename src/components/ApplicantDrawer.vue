@@ -5,10 +5,11 @@ import CareerStrip from '@/components/CareerStrip.vue'
 import CareerTimeline from '@/components/CareerTimeline.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import FitConsentDialog from '@/components/FitConsentDialog.vue'
+import FitRequirements from '@/components/FitRequirements.vue'
 import ResyncCvDialog from '@/components/ResyncCvDialog.vue'
 import { formatEventTime, formatRelativeTime } from '@/lib/applicant-events'
 import { hasCareerContent } from '@/lib/career'
-import { fitSummary } from '@/lib/fit-rank'
+import { requirementTotal } from '@/lib/fit-rank'
 import { importApplicantFromPdf } from '@/lib/resume-import'
 import {
   formatNoticePeriod,
@@ -25,7 +26,6 @@ import { useBoardsStore } from '@/stores/boards'
 import { useFitStore } from '@/stores/fit'
 import { useStorageStore } from '@/stores/storage'
 import type { CareerEntry, CareerKind } from '@/types/pipeline'
-import type { FitRequirementAssessment } from '@/types/fit'
 
 const props = defineProps<{
   modelValue: boolean
@@ -126,52 +126,33 @@ const fitProgress = computed(() => (props.candidateId ? fit.progressFor(props.ca
 const fitStale = computed(() =>
   props.candidateId && fitAnalysis.value ? fit.isStaleFor(props.candidateId) : false,
 )
-const requirementSections = computed(() => {
-  const result = fitAnalysis.value?.result
+const fitHasRequirements = computed(() =>
+  fitAnalysis.value ? requirementTotal(fitAnalysis.value.result) > 0 : false,
+)
+const fitAnalyzedAgo = computed(() =>
+  fitAnalysis.value ? formatRelativeTime(fitAnalysis.value.updatedAt) : '',
+)
+const fitRank = computed(() => {
+  const current = candidate.value
+  const currentBoard = board.value
 
-  if (!result) {
-    return []
+  if (!current || !currentBoard || current.status !== 'active') {
+    return undefined
   }
 
-  const summary = fitSummary(result)
+  const ranks = fit.rankForStage(currentBoard.id, current.stepId)
+  const entry = ranks.get(current.id)
 
-  return [
-    {
-      key: 'minimum',
-      title: 'Minimum requirements',
-      items: result.requirements.minimum,
-      counts: summary.minimum,
-    },
-    {
-      key: 'recommended',
-      title: 'Recommended requirements',
-      items: result.requirements.recommended,
-      counts: summary.recommended,
-    },
-    {
-      key: 'skills',
-      title: 'Skills and tools',
-      items: result.requirements.skills,
-      counts: summary.skills,
-    },
-  ].filter((section) => section.items.length)
+  if (!entry) {
+    return undefined
+  }
+
+  return {
+    position: entry.rank,
+    total: ranks.size,
+    stageName: currentBoard.steps.find((step) => step.id === current.stepId)?.name ?? 'this stage',
+  }
 })
-
-function requirementStatusLabel(item: FitRequirementAssessment): string {
-  if (!item.assessed) {
-    return 'Not assessed'
-  }
-
-  if (item.status === 'full') {
-    return 'Full'
-  }
-
-  if (item.status === 'partial') {
-    return 'Partial'
-  }
-
-  return 'None'
-}
 const fitPrerequisites = computed(() => {
   const current = candidate.value
   const currentBoard = board.value
@@ -1145,16 +1126,20 @@ onBeforeUnmount(() => {
           </div>
 
           <template v-else-if="fitAnalysis">
-            <div v-if="!fitStale" class="fit-toolbar">
+            <div class="fit-head">
+              <p class="meta" :title="formatEventTime(fitAnalysis.updatedAt)">
+                Analyzed {{ fitAnalyzedAgo }}
+              </p>
               <v-btn
-                icon="mdi-refresh"
-                size="small"
-                variant="text"
-                aria-label="Re-analyze CV"
-                title="Re-analyze CV"
+                v-if="!fitStale"
+                variant="outlined"
+                prepend-icon="mdi-refresh"
+                :height="36"
                 :disabled="!canAnalyze"
                 @click="requestFitAnalysis"
-              />
+              >
+                Re-run analysis
+              </v-btn>
             </div>
 
             <v-alert
@@ -1166,68 +1151,58 @@ onBeforeUnmount(() => {
               This analysis did not check every requirement. Re-run it for a complete ranking.
             </v-alert>
 
-            <section v-if="requirementSections.length" class="applicant-section fit-requirements">
-              <div
-                v-for="section in requirementSections"
-                :key="section.key"
-                class="fit-requirement-group"
-              >
-                <div class="fit-requirement-group__head">
-                  <p class="eyebrow">{{ section.title }}</p>
-                  <span class="fit-requirement-group__count">
-                    {{ section.counts.full }} of {{ section.counts.total }} full
-                  </span>
-                </div>
-                <ul class="fit-requirement-list">
-                  <li v-for="item in section.items" :key="item.id" class="fit-requirement">
-                    <span
-                      class="fit-requirement__status"
-                      :class="`fit-requirement__status--${item.status}`"
-                    >
-                      {{ requirementStatusLabel(item) }}
-                    </span>
-                    <div class="fit-requirement__copy">
-                      <p class="fit-requirement__label">{{ item.label }}</p>
-                      <p v-if="item.evidence" class="fit-requirement__evidence">
-                        {{ item.evidence }}
-                      </p>
-                    </div>
-                  </li>
-                </ul>
-              </div>
-            </section>
+            <FitRequirements
+              v-if="fitHasRequirements"
+              :result="fitAnalysis.result"
+              :rank="fitRank"
+            />
 
-            <section v-else class="applicant-section">
-              <p class="eyebrow">Requirements</p>
-              <p class="fit-empty__hint">
+            <p v-else class="fit-note">
+              <b>
                 {{
                   fitAnalysis.result.schemaVersion < 3
-                    ? 'This analysis used the earlier format. Re-run it to check each requirement.'
-                    : 'No minimum, recommended, or skills sections were found in the job spec.'
+                    ? 'This analysis used the earlier format.'
+                    : 'No requirement sections found in this job spec.'
                 }}
-              </p>
+              </b>
+              <span>
+                {{
+                  fitAnalysis.result.schemaVersion < 3
+                    ? 'Re-run it to check each requirement.'
+                    : 'There is no minimum, recommended, or skills list to check item by item, so the summary below compares the CV with the whole job spec. Add clear headings to the spec and re-run for a requirement-by-requirement view.'
+                }}
+              </span>
+            </p>
+
+            <section class="fit-summary" :class="{ 'fit-summary--after': fitHasRequirements }">
+              <h3 class="fit-summary__title">
+                {{
+                  fitHasRequirements
+                    ? 'Similarities and gaps'
+                    : 'How the CV compares with the job spec'
+                }}
+              </h3>
+              <div class="fit-columns">
+                <section class="applicant-section">
+                  <p class="eyebrow">Similarities</p>
+                  <ul
+                    v-if="fitAnalysis.result.similarities.length"
+                    class="fit-list fit-list--positive"
+                  >
+                    <li v-for="item in fitAnalysis.result.similarities" :key="item">{{ item }}</li>
+                  </ul>
+                  <p v-else class="fit-empty__hint">No similarities returned.</p>
+                </section>
+
+                <section class="applicant-section">
+                  <p class="eyebrow">Gaps</p>
+                  <ul v-if="fitAnalysis.result.gaps.length" class="fit-list fit-list--gap">
+                    <li v-for="item in fitAnalysis.result.gaps" :key="item">{{ item }}</li>
+                  </ul>
+                  <p v-else class="fit-empty__hint">No gaps returned.</p>
+                </section>
+              </div>
             </section>
-
-            <div class="fit-columns">
-              <section class="applicant-section">
-                <p class="eyebrow">Similarities</p>
-                <ul
-                  v-if="fitAnalysis.result.similarities.length"
-                  class="fit-list fit-list--positive"
-                >
-                  <li v-for="item in fitAnalysis.result.similarities" :key="item">{{ item }}</li>
-                </ul>
-                <p v-else class="fit-empty__hint">No similarities returned.</p>
-              </section>
-
-              <section class="applicant-section">
-                <p class="eyebrow">Gaps</p>
-                <ul v-if="fitAnalysis.result.gaps.length" class="fit-list fit-list--gap">
-                  <li v-for="item in fitAnalysis.result.gaps" :key="item">{{ item }}</li>
-                </ul>
-                <p v-else class="fit-empty__hint">No gaps returned.</p>
-              </section>
-            </div>
 
             <p class="applicant-drawer__note">
               AI analysis only. Review the CV and job spec before making decisions.
