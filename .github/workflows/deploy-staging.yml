@@ -77,9 +77,14 @@ jobs:
           version: latest
 
       - name: Push migrations
-        run: supabase db push --project-ref="$STAGING_SUPABASE_PROJECT_ID"
+        run: |
+          if [ -z "$STAGING_SUPABASE_DB_URL" ]; then
+            echo "STAGING_SUPABASE_DB_URL repository secret is not set. Use the Session pooler connection string from the staging Supabase dashboard (Connect)."
+            exit 1
+          fi
+          supabase db push --remote="$STAGING_SUPABASE_DB_URL" --yes
         env:
-          STAGING_SUPABASE_PROJECT_ID: ${{ secrets.STAGING_SUPABASE_PROJECT_ID }}
+          STAGING_SUPABASE_DB_URL: ${{ secrets.STAGING_SUPABASE_DB_URL }}
 
   functions:
     name: Deploy Supabase function

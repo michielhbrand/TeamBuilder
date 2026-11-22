@@ -587,7 +587,7 @@ push to main
        -> postbuild: dist/404.html + dist/.nojekyll
        -> upload dist as artifact
      migrations job (needs: build):
-       -> supabase db push --project-ref (pushes pending migrations to production DB)
+       -> supabase db push --remote=$SUPABASE_DB_URL (session pooler URL; pushes pending migrations to production DB)
      functions job (needs: migrations):
        -> validate KILO_MODEL is free
        -> supabase secrets set KILO_API_KEY + KILO_MODEL
@@ -607,7 +607,7 @@ push to staging
        -> postbuild: dist/404.html + dist/.nojekyll
        -> upload dist as artifact
      migrations job (needs: build):
-       -> supabase db push --project-ref (pushes pending migrations to staging DB)
+       -> supabase db push --remote=$STAGING_SUPABASE_DB_URL (session pooler URL; pushes pending migrations to staging DB)
      functions job (needs: migrations):
        -> validate KILO_MODEL is free (same secret as production)
        -> supabase secrets set KILO_API_KEY + KILO_MODEL on the staging project
@@ -662,6 +662,7 @@ Function secrets are separate from the Vite build:
 | `KILO_MODEL`            | `fit-analysis`  | Must be `kilo-auto/free` or end in `:free`                                                       |
 | `SUPABASE_ACCESS_TOKEN` | deploy workflow | Scoped project token: Edge Functions and Edge Function Secrets read-write, Project Settings read |
 | `SUPABASE_PROJECT_ID`   | deploy workflow | Supabase project ref                                                                             |
+| `SUPABASE_DB_URL`       | deploy workflow | Session pooler connection string with the DB password; migrations only (runners lack IPv6)       |
 
 ## Failure modes
 
