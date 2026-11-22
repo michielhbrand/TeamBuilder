@@ -34,6 +34,7 @@ npm run supabase:reset
 npm run supabase:seed:user
 npm run supabase:push
 npm run supabase:functions
+npm run seed:staging
 ```
 
 `npm run build` runs typechecking, the Vite build, and the `postbuild` script. A local
@@ -278,6 +279,11 @@ npm run build
 - `docs/DESIGN_SYSTEM.md` — canonical UI rules and component recipes.
 - `vite.config.ts` — production base `/TeamBuilder/`, Vuetify auto-import, aliases.
 - `scripts/postbuild.mjs` — copies `index.html` to `404.html` and writes `.nojekyll`.
+- `scripts/seed-staging.mjs`, `scripts/seed/` — fictional staging demo data: `data.mjs` builds a
+  deterministic dataset (roles, applicants, events, notes, monthly history), `pdf.mjs` renders CV
+  and job spec PDFs with `pdf-lib`, `sql.mjs` emits one transaction. It uploads PDFs as a staging
+  user and writes rows over `psql`, with the two applicant triggers disabled inside the
+  transaction so timestamps and history stay backdated.
 - `.github/workflows/ci.yml` — checks on pull requests and pushes to `main`.
 - `.github/workflows/deploy.yml` — builds with secrets and deploys to GitHub Pages.
 - `.github/workflows/release.yml` — creates GitHub releases with `semantic-release`.
@@ -410,7 +416,9 @@ See `docs/ARCHITECTURE.md` for the auth lifecycle and deployment pipeline.
 - Do not remove the `404.html` fallback; it is what makes `/TeamBuilder/boards` work on a
   hard refresh. Direct deep links to staging paths (e.g. `/TeamBuilder/staging/boards`) will
   fall back to the production `404.html`; this is an inherent GitHub Pages limitation for
-  subfolder deployments.
+  subfolder deployments. For that reason the staging invite and reset email templates must
+  link to the site root (`{{ .SiteURL }}?token_hash={{ .TokenHash }}&type=invite`, and
+  `type=recovery` for reset), never to `/set-password`; the app routes to `/set-password` itself.
 - `.github/workflows/deploy.yml` is the production deploy path. `.github/workflows/deploy-staging.yml`
   is the staging deploy path. Both use `contents: write` and `JamesIves/github-pages-deploy-action`.
   Both workflows push database migrations before deploying, set Kilo secrets, and deploy
@@ -531,6 +539,13 @@ See `docs/ARCHITECTURE.md` for the auth lifecycle and deployment pipeline.
 ## Do not
 
 - Do not commit `.env` files, keys, tokens, or generated secrets.
+- Do not point `npm run seed:staging` at production. It only runs when the API URL is the staging
+  project ref hardcoded in `scripts/seed-staging.mjs` (`STAGING_PROJECT_REF`; update it if the
+  staging project is ever recreated), and it also refuses without `--confirm <ref>`, when
+  `STAGING_SUPABASE_DB_URL` names a different project, or when the target matches a
+  `VITE_SUPABASE_URL` in your local env files. Never run it from a workflow. Keep `STAGING_SUPABASE_DB_URL` (it contains the
+  database password) only in the gitignored `.env.staging.local` and in GitHub secrets, and keep
+  seed data fictional (`example.com` emails).
 - Do not add a sign-up UI without an explicit product decision.
 - Do not add a local or paid fallback for CV analysis, and do not send CV data to Kilo
   without the consent dialog.

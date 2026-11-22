@@ -98,11 +98,34 @@ The full list is in `package.json`, and [AGENTS.md](AGENTS.md) has the checks to
 
 ## Deploy
 
-Pushes to `main` build and deploy to GitHub Pages through `.github/workflows/deploy.yml`, which
-also deploys `fit-analysis`. The workflow needs these repository secrets: `VITE_SUPABASE_URL`,
-`VITE_SUPABASE_PUBLISHABLE_KEY`, `KILO_API_KEY`, `KILO_MODEL`, `SUPABASE_ACCESS_TOKEN`, and
-`SUPABASE_PROJECT_ID`. The production base path is `/TeamBuilder/`. See
+Pushes to `main` deploy production and pushes to `staging` deploy staging. Each run pushes
+pending database migrations, deploys `fit-analysis`, and publishes the built site to the
+`gh-pages` branch (production at the root, staging in `staging/`). Production
+(`.github/workflows/deploy.yml`) needs the repository secrets `VITE_SUPABASE_URL`,
+`VITE_SUPABASE_PUBLISHABLE_KEY`, `KILO_API_KEY`, `KILO_MODEL`, `SUPABASE_ACCESS_TOKEN`,
+`SUPABASE_PROJECT_ID`, and `SUPABASE_DB_URL`. Staging (`.github/workflows/deploy-staging.yml`) uses
+the same Kilo secrets plus `STAGING_VITE_SUPABASE_URL`, `STAGING_VITE_SUPABASE_PUBLISHABLE_KEY`,
+`STAGING_SUPABASE_PROJECT_ID`, `STAGING_SUPABASE_DB_URL`, and `STAGING_SUPABASE_ACCESS_TOKEN`.
+The base paths are `/TeamBuilder/` and `/TeamBuilder/staging/`. See
 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the pipeline and failure modes.
+
+### Demo data for staging
+
+`npm run seed:staging` fills the staging project with fictional data for demonstrations: eight
+roles with their own stages, about 95 applicants with generated CV PDFs, job spec PDFs, notes,
+audit events, and 30 months of hiring history for the Overview charts. Put these in the
+gitignored `.env.staging.local`: `STAGING_VITE_SUPABASE_URL`,
+`STAGING_VITE_SUPABASE_PUBLISHABLE_KEY`, `STAGING_SUPABASE_DB_URL` (the Session pooler string),
+and `STAGING_SEED_EMAIL` / `STAGING_SEED_PASSWORD` for a staging user. Then run:
+
+```bash
+npm run seed:staging -- --confirm <staging-project-ref> --rehearse   # dry run, rolled back
+npm run seed:staging -- --confirm <staging-project-ref> --replace    # loads the data
+```
+
+`--replace` deletes every existing board, applicant, and hiring history row first; without it the
+script stops when staging already has data. It needs `psql` on your PATH. CV analyses are not
+seeded: run one live from an applicant's **CV fit** tab to demonstrate it.
 
 ## Commits and releases
 
