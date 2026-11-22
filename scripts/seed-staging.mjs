@@ -107,6 +107,7 @@ function psql(dbUrl, args) {
     return execFileSync('psql', [psqlUrl(dbUrl), '-X', '-v', 'ON_ERROR_STOP=1', ...args], {
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'inherit'],
+      env: { ...process.env, PGCONNECT_TIMEOUT: '15' },
     })
   } catch (error) {
     if (error.code === 'ENOENT') {
@@ -248,6 +249,7 @@ if (new URL(env.STAGING_SUPABASE_DB_URL).port === '6543') {
   )
 }
 
+console.log('Connecting to the staging database...')
 const existing = psql(env.STAGING_SUPABASE_DB_URL, [
   '-At',
   '-c',
