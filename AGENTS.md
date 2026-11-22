@@ -168,6 +168,10 @@ npm run build
 - `supabase/functions/fit-analysis/` — authenticated Edge Function that extracts and caches
   job-spec requirements (`requirements.ts`), assesses every requirement (`assess.ts`), redacts
   CV fields, calls the free Kilo model, validates the result, and upserts the shared analysis.
+  `kilo.ts` holds the free-model check and the single Kilo call (reasoning disabled, 8192 output
+  tokens, no fallback model, no text-based filtering of the answer). An empty extraction is never
+  cached, and the server reads up to 20,000 characters of job spec and 6,000 of CV text, matching
+  what the browser extracts.
 - `supabase/functions/.env.example` — placeholders for server-side function secrets.
 - `src/router/index.ts` — routes and the auth guard.
 - `src/components/AppShell.vue` — top-bar navigation and shared layout for protected pages.

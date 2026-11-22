@@ -686,7 +686,7 @@ Function secrets are separate from the Vite build:
   and redaction in `supabase/functions/fit-analysis`, bump `PROMPT_VERSION`, and keep the Edge
   Function as the only writer of `public.applicant_fit_analyses` and
   `public.board_requirement_sets`. Keep the ranking rules in `src/lib/fit-rank.ts` aligned with
-  the documented lexicographic order. Prompt version is currently `2026-11-22.2`.
+  the documented lexicographic order. Prompt version is currently `2026-11-22.3`.
 - Keep the first board stage as the fallback bucket. If stage reordering is added, update
   the atomic delete function and the `position` ordering together.
 - Password recovery links (requested from `/forgot-password`) use the same `/set-password` flow. If magic links are

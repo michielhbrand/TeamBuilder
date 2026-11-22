@@ -55,7 +55,7 @@ describe('prepareJobSpecText', () => {
     const text = prepareJobSpecText(`Role\n\n\n${'A'.repeat(25_000)}`)
 
     expect(text.startsWith('Role\n\nA')).toBe(true)
-    expect(text.length).toBe(5_000)
+    expect(text.length).toBe(20_000)
   })
 })
 

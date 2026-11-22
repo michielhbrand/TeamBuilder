@@ -51,7 +51,7 @@ Rules:
 Return:
 {
   "assessments": [
-    { "id": "req-1", "status": "full", "evidence": "Evidence text" }
+    { "id": "minimum-1", "status": "full", "evidence": "Evidence text" }
   ]
 }`
 

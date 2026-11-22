@@ -1,4 +1,4 @@
-export const PROMPT_VERSION = '2026-11-22.2'
+export const PROMPT_VERSION = '2026-11-22.3'
 
 export const SYSTEM_PROMPT = `Compare candidate with job spec.
 Return JSON only. No markdown.

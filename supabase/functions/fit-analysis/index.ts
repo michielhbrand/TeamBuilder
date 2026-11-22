@@ -5,6 +5,7 @@ import {
   validateAssessmentResult,
 } from './assess.ts'
 import { formatCareerEntries } from './career.ts'
+import { callKilo, HttpError, resolveFreeModel } from './kilo.ts'
 import { buildUserPrompt, PROMPT_VERSION, SYSTEM_PROMPT } from './prompt.ts'
 import { prepareCandidateText, prepareJobSpecText } from './redact.ts'
 import {
@@ -17,10 +18,6 @@ import {
   type RequirementSet,
 } from './requirements.ts'
 import { ModelResultError, validateModelResult } from './validate.ts'
-
-const KILO_BASE_URL = 'https://ai-gateway.kilo.ai/api/v1'
-const REQUEST_TIMEOUT_MS = 120_000
-const KILO_MAX_TOKENS = 2048 // Further reduce to be safe
 
 const ALLOWED_ORIGINS = new Set([
   'https://michielhbrand.github.io',
@@ -40,51 +37,6 @@ interface ApplicantRow {
   experience: unknown
   skills: unknown
   boards: { name: string; department: string } | { name: string; department: string }[] | null
-}
-
-class HttpError extends Error {
-  status: number
-
-  constructor(status: number, message: string) {
-    super(message)
-    this.name = 'HttpError'
-    this.status = status
-  }
-}
-
-interface KiloChoice {
-  finish_reason?: string
-  message?: { content?: unknown }
-}
-
-interface KiloPayload {
-  model?: string
-  choices?: KiloChoice[]
-  usage?: {
-    completion_tokens?: number
-    completion_tokens_details?: { reasoning_tokens?: number }
-  }
-}
-
-function kiloText(content: unknown): string {
-  if (typeof content === 'string') {
-    return content
-  }
-
-  if (!Array.isArray(content)) {
-    return ''
-  }
-
-  return content
-    .map((part) => {
-      if (!part || typeof part !== 'object' || !('text' in part)) {
-        return ''
-      }
-
-      const text = (part as { text?: unknown }).text
-      return typeof text === 'string' ? text : ''
-    })
-    .join('')
 }
 
 function corsHeaders(request: Request): Record<string, string> {
@@ -177,163 +129,6 @@ function boardDetails(row: ApplicantRow): { name: string; department: string } {
   }
 }
 
-function freeModel(): string {
-  const model = Deno.env.get('KILO_MODEL')?.trim() ?? ''
-
-  // Force a specific safe model if not configured or if configured model is risky
-  const safeModel = 'kilo-auto/free'
-
-  if (!model) {
-    console.log('No KILO_MODEL configured, using safe default:', safeModel)
-    return safeModel
-  }
-
-  if (model !== 'kilo-auto/free' && !model.endsWith(':free')) {
-    throw new HttpError(503, 'Kilo is not configured with a free model.')
-  }
-
-  // Be extremely restrictive - only allow known safe models
-  const allowedModels = ['kilo-auto/free']
-  const isAllowed = allowedModels.includes(model)
-
-  if (!isAllowed) {
-    console.warn(`Model ${model} may use reasoning. Falling back to safe model: ${safeModel}`)
-    return safeModel
-  }
-
-  return model
-}
-
-async function callKilo(
-  apiKey: string,
-  model: string,
-  messages: Array<{ role: 'system' | 'user'; content: string }>,
-  jsonMode: boolean,
-  retryCount = 0,
-): Promise<string> {
-  const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
-
-  try {
-    const response = await fetch(`${KILO_BASE_URL}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model,
-        messages,
-        temperature: 0,
-        max_tokens: KILO_MAX_TOKENS,
-        ...(jsonMode ? { response_format: { type: 'json_object' } } : {}),
-      }),
-      signal: controller.signal,
-    })
-
-    if (!response.ok) {
-      if (response.status === 400 && jsonMode) {
-        return callKilo(apiKey, model, messages, false)
-      }
-
-      if (response.status === 401 || response.status === 403) {
-        throw new HttpError(502, 'Kilo rejected the API key. Ask an administrator to check it.')
-      }
-
-      if (response.status === 429) {
-        if (retryCount < 2) {
-          // Try multiple fallback models
-          const fallbackModels = ['kilo-auto/free', 'gpt-4o-free:free', 'claude-3-haiku-free:free']
-          const fallbackModel = fallbackModels[retryCount]
-          console.log('Retrying with fallback model:', fallbackModel)
-          return callKilo(apiKey, fallbackModel, messages, jsonMode, retryCount + 1)
-        }
-        throw new HttpError(429, 'The free model is rate-limited right now. Try again later.')
-      }
-
-      throw new HttpError(502, `Kilo returned status ${response.status}. Try again later.`)
-    }
-
-    const payload = (await response.json()) as KiloPayload
-    const choice = payload.choices?.[0]
-    const content = kiloText(choice?.message?.content)
-    const reasoningTokens = payload.usage?.completion_tokens_details?.reasoning_tokens ?? 0
-    const completionTokens = payload.usage?.completion_tokens ?? 0
-
-    // Check for reasoning tokens
-    if (reasoningTokens > 0) {
-      throw new HttpError(
-        502,
-        `The model used ${reasoningTokens} reasoning tokens. This is not allowed for CV analysis.`,
-      )
-    }
-
-    // Check for reasoning in the response text
-    const reasoningIndicators = [
-      'reasoning',
-      'thinking',
-      'let me think',
-      'step by step',
-      'first',
-      'second',
-      'third',
-      'therefore',
-      'however',
-      'furthermore',
-      'additionally',
-      'consequently',
-      'as a result',
-    ]
-
-    const lowerContent = content.toLowerCase()
-    const hasReasoningInContent = reasoningIndicators.some((indicator) =>
-      lowerContent.includes(indicator),
-    )
-
-    if (hasReasoningInContent) {
-      throw new HttpError(
-        502,
-        'The model response contains reasoning patterns. This is not allowed for CV analysis.',
-      )
-    }
-
-    if (!content.trim()) {
-      console.error('Kilo returned no analysis text', {
-        model: payload.model ?? model,
-        finishReason: choice?.finish_reason ?? null,
-        contentType: Array.isArray(choice?.message?.content)
-          ? 'array'
-          : typeof choice?.message?.content,
-        completionTokens,
-        reasoningTokens,
-      })
-
-      if (choice?.finish_reason === 'length') {
-        throw new HttpError(
-          502,
-          'The free model ran out of output tokens before returning an analysis. Try again or use a non-reasoning free model.',
-        )
-      }
-
-      throw new HttpError(502, 'Kilo did not return an analysis. Try again later.')
-    }
-
-    return content
-  } catch (caught) {
-    if (caught instanceof HttpError) {
-      throw caught
-    }
-
-    if (caught instanceof DOMException && caught.name === 'AbortError') {
-      throw new HttpError(504, 'Kilo took too long to respond. Try again later.')
-    }
-
-    throw new HttpError(502, 'Kilo could not be reached. Try again later.')
-  } finally {
-    clearTimeout(timeout)
-  }
-}
-
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') {
     return new Response(null, { status: 204, headers: corsHeaders(request) })
@@ -361,7 +156,7 @@ Deno.serve(async (request) => {
       throw new HttpError(503, 'Kilo is not configured. Ask an administrator to set KILO_API_KEY.')
     }
 
-    const model = freeModel()
+    const model = resolveFreeModel(Deno.env.get('KILO_MODEL'))
     const authHeader = request.headers.get('Authorization')
 
     if (!authHeader) {
@@ -475,32 +270,35 @@ Deno.serve(async (request) => {
       }
 
       requirementSet = toRequirementSet(extracted)
-      const { error: setSaveError } = await admin.from('board_requirement_sets').upsert(
-        {
-          board_id: applicant.board_id,
-          job_spec_fingerprint: jobSpecFingerprint,
-          requirements: requirementSet,
-        },
-        { onConflict: 'board_id,job_spec_fingerprint', ignoreDuplicates: true },
-      )
 
-      if (setSaveError) {
-        throw new HttpError(500, 'The job requirements could not be saved.')
-      }
+      if (requirementSetSize(requirementSet) > 0) {
+        const { error: setSaveError } = await admin.from('board_requirement_sets').upsert(
+          {
+            board_id: applicant.board_id,
+            job_spec_fingerprint: jobSpecFingerprint,
+            requirements: requirementSet,
+          },
+          { onConflict: 'board_id,job_spec_fingerprint', ignoreDuplicates: true },
+        )
 
-      const { data: canonicalSet, error: canonicalSetError } = await admin
-        .from('board_requirement_sets')
-        .select('requirements')
-        .eq('board_id', applicant.board_id)
-        .eq('job_spec_fingerprint', jobSpecFingerprint)
-        .maybeSingle()
+        if (setSaveError) {
+          throw new HttpError(500, 'The job requirements could not be saved.')
+        }
 
-      if (canonicalSetError) {
-        throw new HttpError(500, 'The job requirements could not be loaded.')
-      }
+        const { data: canonicalSet, error: canonicalSetError } = await admin
+          .from('board_requirement_sets')
+          .select('requirements')
+          .eq('board_id', applicant.board_id)
+          .eq('job_spec_fingerprint', jobSpecFingerprint)
+          .maybeSingle()
 
-      if (canonicalSet) {
-        requirementSet = normalizeStoredRequirementSet(canonicalSet.requirements)
+        if (canonicalSetError) {
+          throw new HttpError(500, 'The job requirements could not be loaded.')
+        }
+
+        if (canonicalSet) {
+          requirementSet = normalizeStoredRequirementSet(canonicalSet.requirements)
+        }
       }
     }
 

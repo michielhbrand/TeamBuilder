@@ -56,7 +56,7 @@ function redactText(
     .replace(/[ \t]{2,}/g, ' ')
     .replace(/\n{3,}/g, '\n\n')
     .trim()
-    .slice(0, 3000) // Further reduce to save tokens
+    .slice(0, 6000)
 }
 
 export function prepareCandidateText(
@@ -80,5 +80,5 @@ export function prepareJobSpecText(text: string): string {
     .replace(/[ \t]{2,}/g, ' ')
     .replace(/\n{3,}/g, '\n\n')
     .trim()
-    .slice(0, 5000) // Further reduce to save tokens
+    .slice(0, 20_000)
 }
