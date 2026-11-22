@@ -94,9 +94,17 @@ function protectedHosts() {
   return hosts
 }
 
+function psqlUrl(dbUrl) {
+  const url = new URL(dbUrl)
+  for (const name of ['pgbouncer', 'connection_limit', 'pool_timeout', 'schema']) {
+    url.searchParams.delete(name)
+  }
+  return url.toString()
+}
+
 function psql(dbUrl, args) {
   try {
-    return execFileSync('psql', [dbUrl, '-X', '-v', 'ON_ERROR_STOP=1', ...args], {
+    return execFileSync('psql', [psqlUrl(dbUrl), '-X', '-v', 'ON_ERROR_STOP=1', ...args], {
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'inherit'],
     })
@@ -233,6 +241,12 @@ if (protectedHosts().has(new URL(env.STAGING_VITE_SUPABASE_URL).hostname)) {
 }
 
 console.log(`Target project: ${ref}${args.rehearse ? ' (rehearsal, nothing is saved)' : ''}`)
+
+if (new URL(env.STAGING_SUPABASE_DB_URL).port === '6543') {
+  console.warn(
+    'Note: port 6543 is the transaction pooler. The Session pooler (port 5432) is the safer choice for this script.',
+  )
+}
 
 const existing = psql(env.STAGING_SUPABASE_DB_URL, [
   '-At',
