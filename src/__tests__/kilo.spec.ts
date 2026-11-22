@@ -99,6 +99,7 @@ describe('callKilo', () => {
 
     await expect(callKilo('key', 'kilo-auto/free', messages, true)).rejects.toMatchObject({
       status: 502,
+      message: expect.stringContaining('700 reasoning tokens'),
     })
   })
 

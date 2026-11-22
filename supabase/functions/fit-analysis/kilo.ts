@@ -114,9 +114,20 @@ export async function callKilo(
     const reasoningTokens = payload.usage?.completion_tokens_details?.reasoning_tokens ?? 0
 
     if (reasoningTokens > 0) {
+      const routedModel = payload.model ?? model
+
+      console.error('Kilo model used reasoning tokens', {
+        requestedModel: model,
+        routedModel,
+        reasoningTokens,
+        completionTokens: payload.usage?.completion_tokens ?? null,
+        finishReason: choice?.finish_reason ?? null,
+        hasContent: Boolean(content.trim()),
+      })
+
       throw new HttpError(
         502,
-        'The configured model used reasoning tokens. Configure a non-reasoning free model.',
+        `Kilo routed to "${routedModel}", which used ${reasoningTokens} reasoning tokens. Configure a non-reasoning free model.`,
       )
     }
 
