@@ -14,6 +14,7 @@ import {
   serializeEntries,
   sortEntries,
   totalMonths,
+  undatedCount,
 } from '@/lib/career'
 import { profileFingerprint, sha256Text } from '@/lib/fit-hash'
 import { formatCareerEntries } from '../../supabase/functions/fit-analysis/career'
@@ -82,11 +83,13 @@ describe('careerEntryError', () => {
   it('requires a title and valid ordered month and year values', () => {
     expect(careerEntryError(entry({ title: '' }), 'experience')).toBe('Enter a job title.')
     expect(careerEntryError(entry({ title: '' }), 'education')).toBe('Enter a qualification.')
-    expect(careerEntryError(entry({ start: '' }), 'experience')).toBe(
+    expect(careerEntryError(entry({ start: '' }), 'experience')).toBe('')
+    expect(careerEntryError(entry({ start: '2020-01', end: '' }), 'experience')).toBe('')
+    expect(careerEntryError(entry({ start: '2020-13' }), 'experience')).toBe(
       'Choose a valid start month and year.',
     )
-    expect(careerEntryError(entry({ start: '2020-01', end: '' }), 'experience')).toContain(
-      'valid end month',
+    expect(careerEntryError(entry({ start: '2020-01', end: 'soon' }), 'experience')).toBe(
+      'Choose a valid end month and year.',
     )
     expect(careerEntryError(entry({ start: '2021-01', end: '2020-01' }), 'experience')).toBe(
       'The end month must not be before the start month.',
@@ -190,6 +193,31 @@ describe('layoutStrip', () => {
 
     expect(layoutStrip(work, [], ['experience'], NOW)?.gaps).toHaveLength(1)
     expect(layoutStrip([], work, ['education'], NOW)?.gaps).toEqual([])
+  })
+})
+
+describe('undatedCount', () => {
+  it('counts non-empty entries without a full span in the shown lanes', () => {
+    const work = [
+      entry({ start: '2020-01', end: '2021-01' }),
+      entry({}),
+      entry({ start: '2020-01' }),
+    ]
+    const education = [entry({ title: 'BSc' }), entry({ title: '' })]
+
+    expect(undatedCount(work, education, ['experience', 'education'], NOW)).toBe(3)
+    expect(undatedCount(work, education, ['education'], NOW)).toBe(1)
+  })
+
+  it('leaves undated entries off the strip', () => {
+    const layout = layoutStrip(
+      [entry({ start: '2020-01', end: '2021-01' }), entry({ title: 'Undated' })],
+      [],
+      ['experience'],
+      NOW,
+    )
+
+    expect(layout?.lanes[0]?.rows.flat()).toHaveLength(1)
   })
 })
 

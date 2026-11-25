@@ -339,6 +339,7 @@ See `docs/ARCHITECTURE.md` for the auth lifecycle and deployment pipeline.
 - Invite and recovery links arrive with a `type` in the URL hash or query. Preserve the
   detection in `src/lib/auth-link.ts`; do not let the login redirect bypass
   `/set-password`.
+- Career entry start and end months are optional (only the title is required; typed months must be valid `YYYY-MM` and ordered). `CareerStrip` leaves entries without a full span off the strip with a muted count note, and shows a note instead of the strip when none have a span.
 - Education and work experience are structured `CareerEntry` arrays (`title`, `organization`,
   `start`/`end` as `YYYY-MM`, `current`, `description`) stored as jsonb in
   `applicants.education` and `applicants.experience`. Always replace the array immutably through

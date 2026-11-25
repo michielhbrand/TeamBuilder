@@ -529,8 +529,8 @@ class. Keep the rules attached to the field.
   or institution), time span, and description. Time spans use "Start date" and "End date"
   fields with a `YYYY-MM` placeholder (for example, `2024-06`), inline validation while the
   user types or leaves a field, and a "Currently working here" / "Still studying" checkbox
-  that disables the end date. A start date is required; a non-current entry also needs a
-  valid end date on or after the start.
+  that disables the end date. Start and end dates are optional; a typed month must be a
+  valid `YYYY-MM` and an end must not be before the start. Only the title is required.
 - `CareerTimeline` renders entries newest first as a vertical rail. A mono date column on the
   left shows the end month (or **Present**), start month, and duration; the rail carries a dot
   per entry, and the current entry uses the signal token with a soft halo. Cards use the
@@ -543,7 +543,9 @@ class. Keep the rules attached to the field.
   bars, signal for the current role) and an Education lane (outlined bars). Overlapping
   entries stack on extra rows, employment gaps longer than three months are dashed boxes, and
   one mono readout line shows the hovered entry or the gap summary. Hovering a bar or an entry
-  highlights the other; clicking a bar scrolls to and flashes its entry.
+  highlights the other; clicking a bar scrolls to and flashes its entry. Entries without a full
+  span are left off the strip and a muted note counts them; when no entry has a span the strip
+  is replaced by a note saying so.
 - The strip is pinned under the drawer header on the Career tab. The create dialog shows the
   timelines only, without the strip.
 - Use only Orbital tokens for bars, dots, and highlights, and keep both themes working.
