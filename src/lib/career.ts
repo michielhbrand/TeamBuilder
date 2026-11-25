@@ -99,21 +99,34 @@ export function careerEntryError(entry: CareerEntry, kind: CareerKind): string {
     return kind === 'experience' ? 'Enter a job title.' : 'Enter a qualification.'
   }
 
-  if (!isValidMonth(entry.start)) {
+  if (entry.start && !isValidMonth(entry.start)) {
     return 'Choose a valid start month and year.'
   }
 
-  if (!entry.current) {
+  if (!entry.current && entry.end) {
     if (!isValidMonth(entry.end)) {
-      return 'Choose a valid end month and year, or mark this as current.'
+      return 'Choose a valid end month and year.'
     }
 
-    if (entry.end < entry.start) {
+    if (entry.start && entry.end < entry.start) {
       return 'The end month must not be before the start month.'
     }
   }
 
   return ''
+}
+
+export function undatedCount(
+  experience: CareerEntry[],
+  education: CareerEntry[],
+  lanes: CareerLane[],
+  now = nowMonth(),
+): number {
+  const sources: Record<CareerLane, CareerEntry[]> = { experience, education }
+
+  return lanes
+    .flatMap((lane) => sources[lane])
+    .filter((entry) => !isEntryEmpty(entry) && !hasValidSpan(entry, now)).length
 }
 
 export function serializeEntries(entries: CareerEntry[]): CareerEntry[] {

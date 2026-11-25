@@ -6,6 +6,7 @@ import {
   formatMonth,
   formatPeriod,
   layoutStrip,
+  undatedCount,
   type CareerLane,
 } from '@/lib/career'
 import type { CareerEntry, CareerKind } from '@/types/pipeline'
@@ -26,6 +27,7 @@ const emit = defineEmits<{
 }>()
 
 const layout = computed(() => layoutStrip(props.experience, props.education, props.lanes))
+const omitted = computed(() => undatedCount(props.experience, props.education, props.lanes))
 const laneLabels: Record<CareerLane, string> = { experience: 'Work', education: 'Education' }
 
 const readout = computed(() => {
@@ -75,8 +77,12 @@ function barLabel(entry: CareerEntry, lane: CareerLane): string {
       </span>
     </div>
 
-    <p v-if="!layout" class="career-strip__empty">
-      Add start and end months to see the career strip.
+    <p v-if="!layout" class="career-strip__empty" role="note">
+      {{
+        omitted
+          ? "None of these entries have start and end dates, so the career strip can't be drawn."
+          : 'Add start and end months to see the career strip.'
+      }}
     </p>
 
     <template v-else>
@@ -136,6 +142,10 @@ function barLabel(entry: CareerEntry, lane: CareerLane): string {
       </div>
 
       <p class="career-strip__readout" aria-live="polite">{{ readout }}</p>
+      <p v-if="omitted" class="career-strip__empty" role="note">
+        {{ omitted === 1 ? '1 entry' : `${omitted} entries` }} without start and end dates
+        {{ omitted === 1 ? "isn't" : "aren't" }} shown on the strip.
+      </p>
     </template>
   </div>
 </template>

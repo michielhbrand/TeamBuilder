@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, watch } from 'vue'
 import { isValidMonth } from '@/lib/career'
 import type { CareerEntry, CareerKind } from '@/types/pipeline'
 
@@ -13,8 +13,6 @@ const emit = defineEmits<{
 }>()
 
 const DATE_FORMAT_ERROR = 'Use YYYY-MM (for example, 2024-06).'
-const startTouched = ref(false)
-const endTouched = ref(false)
 
 const labels = computed(() =>
   props.kind === 'experience'
@@ -34,12 +32,7 @@ const labels = computed(() =>
 
 const startError = computed(() => {
   const start = props.modelValue.start
-
-  if (start) {
-    return isValidMonth(start) ? '' : DATE_FORMAT_ERROR
-  }
-
-  return startTouched.value ? 'Choose a start date.' : ''
+  return start && !isValidMonth(start) ? DATE_FORMAT_ERROR : ''
 })
 
 const endError = computed(() => {
@@ -58,11 +51,9 @@ const endError = computed(() => {
     if (isValidMonth(start) && end < start) {
       return 'The end date must be on or after the start date.'
     }
-
-    return ''
   }
 
-  return endTouched.value ? 'Choose an end date, or mark this as current.' : ''
+  return ''
 })
 
 let latest = props.modelValue
@@ -122,7 +113,6 @@ function setCurrent(value: unknown): void {
         :model-value="modelValue.start"
         :error-messages="startError"
         @update:model-value="patch({ start: String($event ?? '') })"
-        @blur="startTouched = true"
       />
       <v-text-field
         class="orbital-field"
@@ -137,7 +127,6 @@ function setCurrent(value: unknown): void {
         :model-value="modelValue.end"
         :error-messages="endError"
         @update:model-value="patch({ end: String($event ?? '') })"
-        @blur="endTouched = true"
       />
       <v-checkbox
         class="career-editor__current"

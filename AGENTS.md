@@ -284,7 +284,10 @@ npm run build
   and job spec PDFs with `pdf-lib`, `sql.mjs` emits one transaction. It uploads PDFs as a staging
   user and writes rows over `psql`, with the two applicant triggers disabled inside the
   transaction so timestamps and history stay backdated.
-- `.github/workflows/ci.yml` — checks on pull requests and pushes to `main`.
+- `.github/workflows/ci.yml` — checks on pull requests and pushes to `main` (not `staging`; see
+  `docs/ARCHITECTURE.md`). The `Protect main` ruleset requires its job
+  `Lint, typecheck, test, build` plus the four `Staging: ...` jobs of `deploy-staging.yml`. Rename
+  none of those jobs without updating the ruleset.
 - `.github/workflows/deploy.yml` — builds with secrets and deploys to GitHub Pages.
 - `.github/workflows/release.yml` — creates GitHub releases with `semantic-release`.
 - `.releaserc.json` — release branches, tag format, and plugins.
@@ -336,6 +339,7 @@ See `docs/ARCHITECTURE.md` for the auth lifecycle and deployment pipeline.
 - Invite and recovery links arrive with a `type` in the URL hash or query. Preserve the
   detection in `src/lib/auth-link.ts`; do not let the login redirect bypass
   `/set-password`.
+- Career entry start and end months are optional (only the title is required; typed months must be valid `YYYY-MM` and ordered). `CareerStrip` leaves entries without a full span off the strip with a muted count note, and shows a note instead of the strip when none have a span.
 - Education and work experience are structured `CareerEntry` arrays (`title`, `organization`,
   `start`/`end` as `YYYY-MM`, `current`, `description`) stored as jsonb in
   `applicants.education` and `applicants.experience`. Always replace the array immutably through

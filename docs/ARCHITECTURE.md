@@ -623,11 +623,23 @@ push to main (in parallel)
      -> tag vX.Y.Z + GitHub release with generated notes
 ```
 
-`ci.yml` runs on pull requests and pushes to `main` and `staging`. It builds with placeholder
-values so forks and untrusted PRs do not need secrets. The deploy workflows, which run only
+`ci.yml` runs on pull requests and pushes to `main`. It does not run on pushes to `staging`,
+because that would report the same check name a second time on the commit a pull request
+points at, and GitHub can show the finished run as green while the pull request's own run is
+still pending. Staging pushes are still linted, typechecked, and tested by the `Staging: Build`
+job. `ci.yml` builds with placeholder values so forks and untrusted PRs do not need secrets. The deploy workflows, which run only
 from their respective trusted branches or a manual dispatch, use the real repository secrets.
 The functions jobs never pass `KILO_API_KEY` to Vite; they set it directly on the Supabase
 project and deploy `fit-analysis`.
+
+The `Protect main` ruleset blocks the merge button until five checks pass on the pull
+request's head commit: `Lint, typecheck, test, build` (`ci.yml`, run for the pull request) and
+the four staging pipeline jobs `Staging: Build`, `Staging: Push database migrations`,
+`Staging: Deploy Supabase function`, and `Staging: Deploy` (`deploy-staging.yml`, run when the
+commit is pushed to `staging`). In practice a change must be deployed to staging, migrations
+included, before it can reach production. A pull request from any other branch never receives
+the staging checks and stays blocked. If you rename a job in either workflow, update the ruleset
+in the same change or every pull request will wait forever.
 
 Migrations run automatically before the Pages deploy on every push to `main` or `staging`.
 `supabase db push` applies only the migrations not yet recorded in the target project's
