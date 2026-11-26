@@ -588,11 +588,10 @@ class. Keep the rules attached to the field.
   label; the counts and bars are facts, not a rating.
 - Similarities use the signal marker and gaps use the danger marker. Color is never the only
   cue because the section labels carry the meaning.
-- On the board, an optional **Rank by CV fit** toggle (outlined when off, flat accent when
-  on) sorts each stage by the shared ranking. Ranked cards show a compact mono badge such as
-  `#2 · Min 4/5 · Rec 2/3`; a danger icon appears when a minimum requirement is not met. Leave
-  the toggle off by default and never hide the applicant's stage or move candidates between
-  stages for ranking.
+- On the board, each stage is always sorted by the shared CV-fit ranking; there is no toggle.
+  Ranked cards show a compact mono badge such as
+  `#2 · Min 4/5 · Rec 2/3`; a danger icon appears when a minimum requirement is not met.
+  Never hide the applicant's stage or move candidates between stages for ranking.
 - Re-analysis always opens `FitConsentDialog` first. The dialog must explain what is sent
   (including education, work experience, and skills), what is removed, that Kilo may log or
   train on free-tier requests, and that results are shared with the workspace. Use a

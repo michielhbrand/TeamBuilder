@@ -267,8 +267,8 @@ npm run build
 - `src/views/BoardsView.vue` — all role boards grouped by department.
 - `src/views/BoardView.vue` — stage-column pipeline for one role: `PageHeader` with
   breadcrumb, switch-role button, meta chips, Job spec, Add applicant, and a Board menu; stage
-  tabs at 720px and below; and a collapsible closed-applicants summary row. Includes optional
-  **Rank by CV fit** toggle to sort each stage by fit ranking.
+  tabs at 720px and below; and a collapsible closed-applicants summary row. Each stage is
+  always sorted by CV-fit ranking.
 - `src/views/AccountView.vue` — protected session, identity, full-name editing, and password
   reset.
 - `src/styles/orbital.css` — locked design tokens, layout primitives, board styling, and

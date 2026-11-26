@@ -483,8 +483,8 @@ with at least one requirement are ranked. Ranking is lexicographic ascending by 
 penalty, minimum misses, recommended penalty, recommended misses, skills penalty, skills
 misses, then name, where a penalty is one per missed requirement plus half per partial match.
 This guarantees that any candidate with zero minimum misses ranks above every candidate with
-a minimum miss. The board sorts within each stage only, and the **Rank by CV fit** toggle is
-off by default.
+a minimum miss. The board always sorts each stage by this ranking; candidates without a
+complete analysis keep their existing order after the ranked ones.
 
 RLS is enabled on all seven tables. Table privileges are explicitly granted to
 `authenticated` and revoked from `anon`; RLS policies then grant the operations each table

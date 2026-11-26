@@ -43,7 +43,6 @@ const columnsOpen = ref(false)
 const jobSpecOpen = ref(false)
 const applicantOpen = ref(false)
 const closedOpen = ref(false)
-const rankByFit = ref(false)
 const selectedStepId = ref<string | null>(null)
 const isPhone = useMediaQuery('(max-width: 720px)')
 const isCompact = useMediaQuery('(max-width: 1024px), (hover: none)')
@@ -91,12 +90,11 @@ const dropStepIds = computed(() => {
 })
 
 function candidatesFor(stepId: string): Candidate[] {
-  const candidates = board.value ? candidatesInStep(board.value, stepId) : []
-
-  if (!rankByFit.value || !board.value) {
-    return candidates
+  if (!board.value) {
+    return []
   }
 
+  const candidates = candidatesInStep(board.value, stepId)
   const ranks = fit.rankForStage(board.value.id, stepId)
 
   return [...candidates].sort((left, right) => {
@@ -310,15 +308,6 @@ onBeforeUnmount(() => {
         </template>
 
         <template #actions>
-          <v-btn
-            :color="rankByFit ? 'primary' : undefined"
-            :variant="rankByFit ? 'flat' : 'outlined'"
-            prepend-icon="mdi-sort-numeric-ascending"
-            :aria-pressed="rankByFit"
-            @click="rankByFit = !rankByFit"
-          >
-            Rank by CV fit
-          </v-btn>
           <v-btn
             color="primary"
             prepend-icon="mdi-account-plus-outline"
