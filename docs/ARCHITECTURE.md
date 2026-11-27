@@ -643,7 +643,10 @@ in the same change or every pull request will wait forever.
 
 Migrations run automatically before the Pages deploy on every push to `main` or `staging`.
 `supabase db push` applies only the migrations not yet recorded in the target project's
-`supabase_migrations.schema_migrations` table, so it is a no-op when nothing is pending.
+`supabase_migrations.schema_migrations` table, so it is a no-op when nothing is pending. Both
+workflows pin `supabase/setup-cli` to an explicit CLI version instead of `latest`; resolving
+`latest` calls the unauthenticated GitHub API and fails when its rate limit is hit. Bump the
+pinned version deliberately when the CLI needs updating.
 
 `release.yml` uses Conventional Commits to decide whether a release is needed. `fix` and
 `perf` create patches, `feat` creates minors, and breaking changes create majors. Releases
