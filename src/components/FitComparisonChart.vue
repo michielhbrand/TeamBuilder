@@ -31,14 +31,18 @@ const groupLabels: Record<FitWeightKey, string> = {
 const visibleKeys = computed(() => FIT_WEIGHT_KEYS.filter((key) => props.selection[key]))
 
 const chartLabel = computed(() => {
-  const mode = props.mode === 'weighted' ? 'Weighted fit' : 'Unweighted fit'
+  const mode = props.mode === 'custom' ? 'Custom weights comparison' : 'Default comparison'
   const values = props.rows
-    .map(
-      (row) => `${row.name} ${row.total === null ? 'not comparable' : `${Math.round(row.total)}%`}`,
-    )
+    .map((row, index) => {
+      if (props.mode === 'custom') {
+        return `${row.name} ${row.total === null ? 'not comparable' : `${Math.round(row.total)}%`}`
+      }
+
+      return `${index + 1}. ${row.name}`
+    })
     .join(', ')
 
-  return `${mode} comparison for ${props.rows.length} applicants: ${values}`
+  return `${mode} for ${props.rows.length} applicants: ${values}`
 })
 
 function percent(value: number | null): string {
@@ -75,13 +79,23 @@ function tooltipText(row: FitComparisonRow, key: FitWeightKey): string {
   return `${parts.join(' · ')} · ${percent(row.shares[key])}`
 }
 
-function openLabel(row: FitComparisonRow): string {
-  const total =
-    row.total === null
-      ? 'not comparable'
-      : `${props.mode === 'weighted' ? 'weighted' : 'unweighted'} fit ${Math.round(row.total)}%`
+function openLabel(row: FitComparisonRow, index: number): string {
+  const order =
+    props.mode === 'custom'
+      ? row.total === null
+        ? 'not comparable'
+        : `custom weights fit ${Math.round(row.total)}%`
+      : `default order position ${index + 1}`
 
-  return `Open ${row.name}, ${row.stageName}, ${total}`
+  return `Open ${row.name}, ${row.stageName}, ${order}`
+}
+
+function displayValue(row: FitComparisonRow, index: number): string {
+  return props.mode === 'custom' ? percent(row.total) : `#${index + 1}`
+}
+
+function fitCell(row: FitComparisonRow, index: number): string {
+  return props.mode === 'custom' ? percent(row.total) : `#${index + 1}`
 }
 
 function cellValue(row: FitComparisonRow, key: FitWeightKey): string {
@@ -110,11 +124,11 @@ function cellValue(row: FitComparisonRow, key: FitWeightKey): string {
         </div>
 
         <ul class="fit-compare-clusters" :aria-label="chartLabel">
-          <li v-for="row in rows" :key="row.applicantId" class="fit-compare-cluster">
+          <li v-for="(row, index) in rows" :key="row.applicantId" class="fit-compare-cluster">
             <button
               type="button"
               class="fit-compare-cluster__button"
-              :aria-label="openLabel(row)"
+              :aria-label="openLabel(row, index)"
               @click="emit('open-applicant', row.applicantId)"
             >
               <span class="fit-compare-cluster__bars">
@@ -135,7 +149,7 @@ function cellValue(row: FitComparisonRow, key: FitWeightKey): string {
                 </span>
               </span>
 
-              <span class="fit-compare-cluster__value">{{ percent(row.total) }}</span>
+              <span class="fit-compare-cluster__value">{{ displayValue(row, index) }}</span>
               <span class="fit-compare-cluster__name">{{ row.name }}</span>
               <span class="fit-compare-cluster__stage">{{ row.stageName }}</span>
               <span class="fit-compare-cluster__counts">
@@ -152,10 +166,10 @@ function cellValue(row: FitComparisonRow, key: FitWeightKey): string {
 
     <table class="sr-only">
       <caption>
+        Candidate comparison,
         {{
-          mode === 'weighted' ? 'Weighted' : 'Unweighted'
+          mode === 'custom' ? 'custom weights' : 'default order'
         }}
-        fit comparison
       </caption>
       <thead>
         <tr>
@@ -164,18 +178,18 @@ function cellValue(row: FitComparisonRow, key: FitWeightKey): string {
           <th scope="col">Minimum</th>
           <th scope="col">Recommended</th>
           <th scope="col">Skills</th>
-          <th scope="col">Fit</th>
+          <th scope="col">{{ mode === 'custom' ? 'Custom weights fit' : 'Default order' }}</th>
           <th scope="col">Minimum missed</th>
         </tr>
       </thead>
       <tbody>
-        <tr v-for="row in rows" :key="row.applicantId">
+        <tr v-for="(row, index) in rows" :key="row.applicantId">
           <th scope="row">{{ row.name }}</th>
           <td>{{ row.stageName }}</td>
           <td>{{ cellValue(row, 'minimum') }}</td>
           <td>{{ cellValue(row, 'recommended') }}</td>
           <td>{{ cellValue(row, 'skills') }}</td>
-          <td>{{ percent(row.total) }}</td>
+          <td>{{ fitCell(row, index) }}</td>
           <td>{{ row.summary.minimum.none ? 'Yes' : 'No' }}</td>
         </tr>
       </tbody>

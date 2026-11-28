@@ -1,7 +1,7 @@
 import { compareFitSummaries, type FitRequirementCounts, type FitSummary } from '@/lib/fit-rank'
 import type { FitWeightKey, FitWeights } from '@/types/fit'
 
-export type FitComparisonMode = 'weighted' | 'unweighted'
+export type FitComparisonMode = 'default' | 'custom'
 
 export type FitComparisonSelection = Record<FitWeightKey, boolean>
 
@@ -65,6 +65,29 @@ export function isValidFitWeights(value: unknown): value is FitWeights {
 
 export function parseFitWeights(value: unknown): FitWeights {
   return isValidFitWeights(value) ? { ...value } : { ...DEFAULT_FIT_WEIGHTS }
+}
+
+export function rebalanceWeights(
+  weights: FitWeights,
+  key: FitWeightKey,
+  value: number,
+): FitWeights {
+  const clamped = Math.max(0, Math.min(100, Math.round(Number(value) || 0)))
+  const firstKey: FitWeightKey = key === 'minimum' ? 'recommended' : 'minimum'
+  const secondKey: FitWeightKey = key === 'skills' ? 'recommended' : 'skills'
+  const remaining = 100 - clamped
+  const otherTotal = Number(weights[firstKey]) + Number(weights[secondKey])
+  const first =
+    otherTotal > 0
+      ? Math.round((remaining * Number(weights[firstKey])) / otherTotal)
+      : Math.floor(remaining / 2)
+
+  return {
+    ...weights,
+    [key]: clamped,
+    [firstKey]: first,
+    [secondKey]: remaining - first,
+  }
 }
 
 export function metShare(counts: FitRequirementCounts): number | null {
@@ -139,28 +162,52 @@ export function weightedFitScore(
   return score * 100
 }
 
-export function unweightedFitScore(
-  summary: FitSummary,
-  selection: FitComparisonSelection,
-): number | null {
-  const keys = presentKeys(summary, selection)
-
-  if (!keys.length) {
-    return null
-  }
-
-  const score = keys.reduce((sum, key) => sum + (metShare(summary[key]) ?? 0), 0)
-
-  return (score / keys.length) * 100
-}
-
 export function minimumTier(summary: FitSummary): 0 | 1 {
   return summary.minimum.none > 0 ? 1 : 0
 }
 
-export function compareFitComparisonRows(left: FitComparisonRow, right: FitComparisonRow): number {
+function compareFallback(left: FitComparisonRow, right: FitComparisonRow): number {
+  const summary = compareFitSummaries(left.summary, right.summary)
+
+  if (summary !== 0) {
+    return summary
+  }
+
+  return left.name.localeCompare(right.name)
+}
+
+function compareDefaultRows(
+  left: FitComparisonRow,
+  right: FitComparisonRow,
+  selection: FitComparisonSelection,
+): number {
+  if (left.comparable !== right.comparable) {
+    return left.comparable ? -1 : 1
+  }
+
   if (left.tier !== right.tier) {
     return left.tier - right.tier
+  }
+
+  for (const key of FIT_WEIGHT_KEYS) {
+    if (!selection[key]) {
+      continue
+    }
+
+    const leftShare = left.shares[key] ?? 0
+    const rightShare = right.shares[key] ?? 0
+
+    if (leftShare !== rightShare) {
+      return rightShare - leftShare
+    }
+  }
+
+  return compareFallback(left, right)
+}
+
+function compareCustomRows(left: FitComparisonRow, right: FitComparisonRow): number {
+  if (left.comparable !== right.comparable) {
+    return left.comparable ? -1 : 1
   }
 
   if (left.total !== right.total) {
@@ -175,13 +222,17 @@ export function compareFitComparisonRows(left: FitComparisonRow, right: FitCompa
     return right.total - left.total
   }
 
-  const summary = compareFitSummaries(left.summary, right.summary)
+  return compareFallback(left, right)
+}
 
-  if (summary !== 0) {
-    return summary
-  }
-
-  return left.name.localeCompare(right.name)
+export function compareFitComparisonRows(
+  left: FitComparisonRow,
+  right: FitComparisonRow,
+  options: FitComparisonOptions,
+): number {
+  return options.mode === 'default'
+    ? compareDefaultRows(left, right, options.selection)
+    : compareCustomRows(left, right)
 }
 
 export function buildFitComparison(
@@ -189,19 +240,21 @@ export function buildFitComparison(
   options: FitComparisonOptions,
 ): FitComparisonRow[] {
   const rows = entries.map((entry) => {
-    const total =
-      options.mode === 'weighted'
-        ? weightedFitScore(entry.summary, options.weights, options.selection)
-        : unweightedFitScore(entry.summary, options.selection)
+    const comparable = FIT_WEIGHT_KEYS.some(
+      (key) => options.selection[key] && entry.summary[key].total > 0,
+    )
 
     return {
       ...entry,
       shares: selectedShares(entry.summary, options.selection),
-      total,
+      total:
+        options.mode === 'custom'
+          ? weightedFitScore(entry.summary, options.weights, options.selection)
+          : null,
       tier: minimumTier(entry.summary),
-      comparable: total !== null,
+      comparable,
     }
   })
 
-  return [...rows].sort(compareFitComparisonRows)
+  return [...rows].sort((left, right) => compareFitComparisonRows(left, right, options))
 }

@@ -65,22 +65,22 @@ function setMode(mode: FitComparisonMode): void {
         </button>
       </div>
 
-      <div class="fit-compare-toggle" role="group" aria-label="Weighting">
+      <div class="fit-compare-toggle" role="group" aria-label="Ordering">
         <button
           class="ov-chip"
           type="button"
-          :aria-pressed="mode === 'weighted'"
-          @click="setMode('weighted')"
+          :aria-pressed="mode === 'default'"
+          @click="setMode('default')"
         >
-          Weighted
+          Default
         </button>
         <button
           class="ov-chip"
           type="button"
-          :aria-pressed="mode === 'unweighted'"
-          @click="setMode('unweighted')"
+          :aria-pressed="mode === 'custom'"
+          @click="setMode('custom')"
         >
-          Unweighted
+          Custom weights
         </button>
       </div>
     </div>
@@ -101,8 +101,14 @@ function setMode(mode: FitComparisonMode): void {
     </div>
 
     <p class="meta fit-compare-note">
-      {{ mode === 'weighted' ? 'Weighted fit' : 'Unweighted fit' }} orders this chart only. Stage
-      columns stay minimum-first.
+      <template v-if="mode === 'default'">
+        Default order compares Minimum first, then Recommended, then Skills. Candidates with a
+        missed minimum rank after those without.
+      </template>
+      <template v-else>
+        Custom weights order this chart by weighted fit; a missed minimum does not gate the order.
+      </template>
+      Stage columns stay minimum-first.
     </p>
 
     <p v-if="loading" class="fit-compare-empty">Loading CV analyses…</p>

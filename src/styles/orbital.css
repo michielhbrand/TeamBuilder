@@ -5147,7 +5147,7 @@ body > .v-navigation-drawer__scrim {
   }
 }
 
-/* CV fit comparison */
+/* Candidate comparison */
 
 .fit-compare-band {
   margin-bottom: 16px;
@@ -5466,9 +5466,32 @@ body > .v-navigation-drawer__scrim {
 
 .fit-compare-weights__fields {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
-  gap: 10px;
-  margin-top: 12px;
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.fit-compare-weights__field-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.fit-compare-weights__label {
+  color: var(--orbital-ink);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.fit-compare-weights__value {
+  color: var(--orbital-muted);
+  font-family: var(--orbital-font-mono);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.fit-compare-weights__field .v-slider {
+  margin-top: 2px;
 }
 
 .fit-compare-weights__sum {
@@ -5480,6 +5503,10 @@ body > .v-navigation-drawer__scrim {
 
 .fit-compare-weights__sum--error {
   color: var(--orbital-danger);
+}
+
+.fit-compare-weights__hint {
+  margin: 4px 0 0;
 }
 
 .fit-compare-weights__error {

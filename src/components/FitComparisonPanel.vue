@@ -8,6 +8,8 @@ import {
   buildFitComparison,
   fitWeightsTotal,
   isValidFitWeights,
+  parseFitWeights,
+  rebalanceWeights,
   type FitComparisonEntry,
   type FitComparisonMode,
   type FitComparisonSelection,
@@ -30,10 +32,11 @@ const isPhone = useMediaQuery('(max-width: 720px)')
 
 const expanded = ref(false)
 const phoneOpen = ref(false)
-const mode = ref<FitComparisonMode>('weighted')
+const mode = ref<FitComparisonMode>('default')
 const selection = ref<FitComparisonSelection>({ ...DEFAULT_FIT_SELECTION })
 const weightsOpen = ref(false)
 const draftWeights = ref<FitWeights>({ ...DEFAULT_FIT_WEIGHTS })
+const weightDragBase = ref<FitWeights | null>(null)
 const savingWeights = ref(false)
 const weightsError = ref('')
 
@@ -66,7 +69,7 @@ const entries = computed<FitComparisonEntry[]>(() =>
     }),
 )
 
-const boardWeights = computed(() => props.board.fitWeights ?? DEFAULT_FIT_WEIGHTS)
+const boardWeights = computed(() => parseFitWeights(props.board.fitWeights))
 const draftTotal = computed(() => fitWeightsTotal(draftWeights.value))
 const draftValid = computed(() => isValidFitWeights(draftWeights.value))
 const previewWeights = computed(() =>
@@ -110,7 +113,7 @@ const summaryText = computed(() => {
   }
 
   if (analysedCount.value) {
-    parts.push(mode.value === 'weighted' ? 'weighted' : 'unweighted')
+    parts.push(mode.value === 'default' ? 'default order' : 'custom weights')
   }
 
   return parts.join(' · ')
@@ -122,7 +125,8 @@ watch(
     expanded.value = false
     phoneOpen.value = false
     weightsOpen.value = false
-    mode.value = 'weighted'
+    weightDragBase.value = null
+    mode.value = 'default'
     selection.value = { ...DEFAULT_FIT_SELECTION }
   },
 )
@@ -138,12 +142,34 @@ function toggleExpanded(): void {
 
 function openWeights(): void {
   draftWeights.value = { ...boardWeights.value }
+  weightDragBase.value = null
   weightsError.value = ''
   weightsOpen.value = true
+  mode.value = 'custom'
 }
 
 function resetWeights(): void {
   draftWeights.value = { ...DEFAULT_FIT_WEIGHTS }
+  weightDragBase.value = null
+  weightsError.value = ''
+}
+
+function beginWeightDrag(): void {
+  weightDragBase.value = { ...draftWeights.value }
+}
+
+function endWeightDrag(): void {
+  weightDragBase.value = null
+}
+
+function setWeight(key: FitWeightKey, value: number | number[]): void {
+  const next = Array.isArray(value) ? value[0] : value
+
+  if (typeof next !== 'number' || !Number.isFinite(next)) {
+    return
+  }
+
+  draftWeights.value = rebalanceWeights(weightDragBase.value ?? draftWeights.value, key, next)
   weightsError.value = ''
 }
 
@@ -164,7 +190,7 @@ async function saveWeights(): Promise<void> {
     return
   }
 
-  weightsError.value = boards.error ?? 'The fit weights could not be saved.'
+  weightsError.value = boards.error ?? 'The custom weights could not be saved.'
 }
 
 function openApplicant(applicantId: string): void {
@@ -177,7 +203,7 @@ function openApplicant(applicantId: string): void {
   <section class="fit-compare-band" aria-labelledby="fit-compare-title">
     <div class="fit-compare-band__head">
       <div>
-        <h2 id="fit-compare-title" class="fit-compare-band__title">CV fit comparison</h2>
+        <h2 id="fit-compare-title" class="fit-compare-band__title">Candidate Comparison</h2>
         <p class="meta fit-compare-band__summary">{{ summaryText }}</p>
       </div>
 
@@ -215,7 +241,7 @@ function openApplicant(applicantId: string): void {
     <v-dialog v-model="phoneOpen" fullscreen transition="dialog-bottom-transition">
       <v-card class="fit-compare-phone">
         <v-toolbar density="compact">
-          <v-toolbar-title>CV fit comparison</v-toolbar-title>
+          <v-toolbar-title>Candidate Comparison</v-toolbar-title>
           <v-btn variant="text" size="small" prepend-icon="mdi-tune-variant" @click="openWeights">
             Weights
           </v-btn>
@@ -244,26 +270,33 @@ function openApplicant(applicantId: string): void {
 
     <v-dialog v-model="weightsOpen" max-width="460">
       <v-card class="fit-compare-weights">
-        <v-card-title>Fit weights</v-card-title>
+        <v-card-title>Custom weights</v-card-title>
         <v-card-text>
           <p class="meta fit-compare-weights__intro">
-            Weights change the comparison order only. Stage columns stay minimum-first.
+            Custom weights order the comparison by weighted fit. The default order compares Minimum,
+            then Recommended, then Skills. Stage columns stay minimum-first.
           </p>
 
           <div class="fit-compare-weights__fields">
-            <v-text-field
-              v-for="key in FIT_WEIGHT_KEYS"
-              :key="key"
-              v-model.number="draftWeights[key]"
-              :label="groupLabels[key]"
-              type="number"
-              min="0"
-              max="100"
-              suffix="%"
-              density="compact"
-              variant="outlined"
-              hide-details
-            />
+            <div v-for="key in FIT_WEIGHT_KEYS" :key="key" class="fit-compare-weights__field">
+              <div class="fit-compare-weights__field-head">
+                <span class="fit-compare-weights__label">{{ groupLabels[key] }}</span>
+                <span class="fit-compare-weights__value">{{ draftWeights[key] }}%</span>
+              </div>
+              <v-slider
+                :model-value="draftWeights[key]"
+                :min="0"
+                :max="100"
+                :step="1"
+                color="primary"
+                density="compact"
+                hide-details
+                :aria-label="`${groupLabels[key]} weight`"
+                @start="beginWeightDrag"
+                @end="endWeightDrag"
+                @update:model-value="setWeight(key, $event)"
+              />
+            </div>
           </div>
 
           <p
@@ -273,6 +306,7 @@ function openApplicant(applicantId: string): void {
             Total {{ draftTotal }}%
             <template v-if="!draftValid"> · weights must add up to 100%</template>
           </p>
+          <p class="meta fit-compare-weights__hint">Moving one slider rebalances the other two.</p>
 
           <p v-if="weightsError" class="fit-compare-weights__error">{{ weightsError }}</p>
         </v-card-text>

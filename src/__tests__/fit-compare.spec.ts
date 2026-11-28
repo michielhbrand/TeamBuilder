@@ -6,7 +6,7 @@ import {
   metShare,
   minimumTier,
   parseFitWeights,
-  unweightedFitScore,
+  rebalanceWeights,
   weightedFitScore,
   type FitComparisonEntry,
 } from '@/lib/fit-compare'
@@ -102,6 +102,40 @@ describe('parseFitWeights', () => {
   })
 })
 
+describe('rebalanceWeights', () => {
+  it('keeps the total at 100 and redistributes the other two proportionally', () => {
+    expect(rebalanceWeights(DEFAULT_FIT_WEIGHTS, 'minimum', 60)).toEqual({
+      minimum: 60,
+      recommended: 24,
+      skills: 16,
+    })
+  })
+
+  it('splits the remainder equally when the other two are zero', () => {
+    expect(rebalanceWeights({ minimum: 0, recommended: 0, skills: 0 }, 'minimum', 40)).toEqual({
+      minimum: 40,
+      recommended: 30,
+      skills: 30,
+    })
+  })
+
+  it('can move one weight to 100', () => {
+    expect(rebalanceWeights(DEFAULT_FIT_WEIGHTS, 'recommended', 100)).toEqual({
+      minimum: 0,
+      recommended: 100,
+      skills: 0,
+    })
+  })
+
+  it('keeps a zero weight at zero when the other has a value', () => {
+    expect(rebalanceWeights({ minimum: 50, recommended: 50, skills: 0 }, 'minimum', 40)).toEqual({
+      minimum: 40,
+      recommended: 60,
+      skills: 0,
+    })
+  })
+})
+
 describe('weightedFitScore', () => {
   it('weights each group met-share', () => {
     const summary = fitSummary(result({ full: 1 }, { full: 1, none: 1 }, { full: 1 }))
@@ -137,14 +171,6 @@ describe('weightedFitScore', () => {
   })
 })
 
-describe('unweightedFitScore', () => {
-  it('averages selected groups with equal weight', () => {
-    const summary = fitSummary(result({ full: 1 }, { full: 1, none: 1 }, { full: 1 }))
-
-    expect(unweightedFitScore(summary, DEFAULT_FIT_SELECTION)).toBeCloseTo(83.333)
-  })
-})
-
 describe('minimumTier', () => {
   it('is tier one only when a minimum is missed', () => {
     expect(minimumTier(fitSummary(result({ full: 1, none: 1 })))).toBe(1)
@@ -154,26 +180,48 @@ describe('minimumTier', () => {
 })
 
 describe('buildFitComparison', () => {
-  it('always places candidates without minimum misses above candidates with one', () => {
-    const allMinimums = entry('all-minimums', { full: 1 }, { none: 3 }, { none: 3 })
-    const minimumMiss = entry('minimum-miss', { full: 4, none: 1 }, { full: 3 }, { full: 3 })
+  it('default keeps the gate and then compares minimum, recommended, then skills', () => {
+    const minHigh = entry('min-high', { full: 1 }, { none: 1 }, { none: 1 })
+    const minLowRecHigh = entry('min-low-rec-high', { partial: 1 }, { full: 1 }, { none: 1 })
+    const minLowRecLowSkillsHigh = entry(
+      'min-low-rec-low-skills-high',
+      { partial: 1 },
+      { partial: 1 },
+      { full: 1 },
+    )
+    const minLowRecLowSkillsLow = entry(
+      'min-low-rec-low-skills-low',
+      { partial: 1 },
+      { partial: 1 },
+      { none: 1 },
+    )
 
-    const rows = buildFitComparison([minimumMiss, allMinimums], {
-      mode: 'weighted',
-      weights: DEFAULT_FIT_WEIGHTS,
-      selection: DEFAULT_FIT_SELECTION,
-    })
+    const rows = buildFitComparison(
+      [minLowRecLowSkillsLow, minLowRecLowSkillsHigh, minLowRecHigh, minHigh],
+      {
+        mode: 'default',
+        weights: DEFAULT_FIT_WEIGHTS,
+        selection: DEFAULT_FIT_SELECTION,
+      },
+    )
 
-    expect(rows.map((row) => row.applicantId)).toEqual(['all-minimums', 'minimum-miss'])
+    expect(rows.map((row) => row.applicantId)).toEqual([
+      'min-high',
+      'min-low-rec-high',
+      'min-low-rec-low-skills-high',
+      'min-low-rec-low-skills-low',
+    ])
+    expect(rows.every((row) => row.total === null)).toBe(true)
+    expect(rows.every((row) => row.comparable)).toBe(true)
   })
 
-  it('keeps the gate when the minimum bar is unselected', () => {
+  it('default keeps the gate when the minimum bar is unselected', () => {
     const allMinimums = entry('all-minimums', { full: 1 }, { none: 1 })
     const minimumMiss = entry('minimum-miss', { full: 1, none: 1 }, { full: 1 })
     const selection = { ...DEFAULT_FIT_SELECTION, minimum: false }
 
     const rows = buildFitComparison([minimumMiss, allMinimums], {
-      mode: 'weighted',
+      mode: 'default',
       weights: DEFAULT_FIT_WEIGHTS,
       selection,
     })
@@ -181,13 +229,41 @@ describe('buildFitComparison', () => {
     expect(rows.map((row) => row.applicantId)).toEqual(['all-minimums', 'minimum-miss'])
   })
 
-  it('orders by total within a tier, then by the shared lexicographic key', () => {
+  it('default skips hidden groups in the order', () => {
+    const minHigh = entry('min-high', { full: 1 }, { none: 1 })
+    const recHigh = entry('rec-high', { partial: 1 }, { full: 1 })
+    const selection = { ...DEFAULT_FIT_SELECTION, minimum: false }
+
+    const rows = buildFitComparison([minHigh, recHigh], {
+      mode: 'default',
+      weights: DEFAULT_FIT_WEIGHTS,
+      selection,
+    })
+
+    expect(rows.map((row) => row.applicantId)).toEqual(['rec-high', 'min-high'])
+  })
+
+  it('custom weights ignores the minimum gate', () => {
+    const noMiss = entry('no-miss', { partial: 1 }, { none: 1 }, { none: 1 })
+    const minimumMiss = entry('minimum-miss', { full: 4, none: 1 }, { full: 1 }, { full: 1 })
+
+    const rows = buildFitComparison([noMiss, minimumMiss], {
+      mode: 'custom',
+      weights: DEFAULT_FIT_WEIGHTS,
+      selection: DEFAULT_FIT_SELECTION,
+    })
+
+    expect(rows.map((row) => row.applicantId)).toEqual(['minimum-miss', 'no-miss'])
+    expect(rows[0]?.total).toBeCloseTo(90)
+  })
+
+  it('custom weights orders by weighted total then the shared key', () => {
     const strong = entry('strong', { full: 1 }, { full: 1 })
     const weak = entry('weak', { full: 1 }, { none: 1 })
     const same = entry('same', { full: 1 }, { full: 1 })
 
     const rows = buildFitComparison([weak, strong, same], {
-      mode: 'unweighted',
+      mode: 'custom',
       weights: DEFAULT_FIT_WEIGHTS,
       selection: DEFAULT_FIT_SELECTION,
     })
@@ -195,19 +271,21 @@ describe('buildFitComparison', () => {
     expect(rows.map((row) => row.applicantId)).toEqual(['same', 'strong', 'weak'])
   })
 
-  it('marks candidates without a selected group as not comparable and sorts them last', () => {
+  it('sorts candidates without a selected group last in both modes', () => {
     const comparable = entry('comparable', { full: 1 })
     const notComparable = entry('not-comparable', {}, { full: 1 })
     const selection = { minimum: true, recommended: false, skills: false }
 
-    const rows = buildFitComparison([notComparable, comparable], {
-      mode: 'weighted',
-      weights: DEFAULT_FIT_WEIGHTS,
-      selection,
-    })
+    for (const mode of ['default', 'custom'] as const) {
+      const rows = buildFitComparison([notComparable, comparable], {
+        mode,
+        weights: DEFAULT_FIT_WEIGHTS,
+        selection,
+      })
 
-    expect(rows[0]?.applicantId).toBe('comparable')
-    expect(rows[1]?.comparable).toBe(false)
-    expect(rows[1]?.total).toBeNull()
+      expect(rows[0]?.applicantId).toBe('comparable')
+      expect(rows[1]?.comparable).toBe(false)
+      expect(rows[1]?.total).toBeNull()
+    }
   })
 })

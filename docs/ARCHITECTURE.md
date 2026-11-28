@@ -488,24 +488,27 @@ This guarantees that any candidate with zero minimum misses ranks above every ca
 a minimum miss. The board always sorts each stage by this ranking; candidates without a
 complete analysis keep their existing order after the ranked ones.
 
-### CV fit comparison
+### Candidate comparison
 
-The board page also has a collapsible **CV fit comparison** band
+The board page also has a collapsible **Candidate Comparison** band
 (`FitComparisonPanel.vue`, `FitComparisonContent.vue`, `FitComparisonChart.vue`). It is a
 read-only view over the analyses the fit store already loaded with `loadBoard`; it does not
 call Supabase or the Edge Function. `src/lib/fit-compare.ts` is pure and owns the met-share
-formula `(full + 0.5 × partial) / total`, weight parsing, weighted and unweighted totals, the
-two-tier minimum gate, and the ordering. The band includes every active applicant on the board,
-labels each with its stage, and excludes incomplete or unanalyzed applicants with a count.
+formula `(full + 0.5 × partial) / total`, weight parsing and slider rebalancing, the Default
+group-priority order with a minimum gate, the Custom weights order without a gate, and the
+comparison ordering. The band includes every active applicant on the board, labels each with
+its stage, and excludes incomplete or unanalyzed applicants with a count.
 
-The comparison order is separate from the stage ranking. It sorts by tier (no missed minimum
-before any missed minimum), then by total descending, then by the lexicographic fit key, then
-name. Weights and group selection affect only this chart; `rankForStage` and the stage columns
-stay minimum-first. The Weighted mode uses the per-board percentages stored in
-`public.boards.fit_weights`; the Unweighted mode uses an equal mean across the selected groups
-that have requirements. Weights are saved pessimistically through the boards store and the
-existing board update policy. The defaults are 50 / 30 / 20, and deselecting a group removes
-it from both the chart and the total while the minimum gate still applies.
+The comparison order is separate from the stage ranking. **Default** sorts by tier (no missed
+minimum before any missed minimum), then by Minimum, Recommended, and Skills met-shares, then by
+the lexicographic fit key, then name; it shows positions instead of a combined score. **Custom
+weights** sorts by weighted total descending with no minimum gate, then by the lexicographic fit
+key, then name. Weights and group selection affect only this chart; `rankForStage` and the stage
+columns stay minimum-first. Custom weights use the per-board percentages stored in
+`public.boards.fit_weights`; the dialog's sliders keep the total at 100 by rebalancing the other
+two. Weights are saved pessimistically through the boards store and the existing board update
+policy. The defaults are 50 / 30 / 20, and deselecting a group removes it from both the chart and
+the ordering while the Default gate still applies.
 
 RLS is enabled on all seven tables. Table privileges are explicitly granted to
 `authenticated` and revoked from `anon`; RLS policies then grant the operations each table

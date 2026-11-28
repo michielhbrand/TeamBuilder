@@ -115,9 +115,10 @@ npm run build
   minimum misses, recommended penalty, recommended misses, skills penalty, skills misses, then
   name. A penalty is one per miss plus half per partial match; only complete analyses with at
   least one requirement rank.
-- `src/lib/fit-compare.ts` — pure board-level CV fit comparison: default weights (50 / 30 / 20),
-  weight parsing, met-share per group, weighted and unweighted totals, the two-tier minimum
-  gate, and the comparison ordering. It never changes the lexicographic stage ranking.
+- `src/lib/fit-compare.ts` — pure board-level Candidate Comparison: default weights (50 / 30 /
+  20), weight parsing and slider rebalancing, met-share per group, the Default group-priority
+  order with a minimum gate, the Custom weights order without a gate, and the comparison
+  ordering. It never changes the lexicographic stage ranking.
 - `src/lib/history-api.ts` — select-only reads of `public.hiring_monthly` and
   `public.hire_history` with their row mappers. Both fetchers page through `fetchAllPages` in
   1000-row `.range()` pages (the API caps a response at 1000 rows), and `fetchHireHistory` only
@@ -235,10 +236,10 @@ npm run build
   legend), **Gaps only** switch, and collapsible requirement groups; `FitStatusGlyph.vue` draws
   the met / partly met / not shown shapes. `src/lib/fit-view.ts` holds the status wording and
   verdict headline. A missing minimum is the only danger-colored requirement.
-- `src/components/FitComparisonPanel.vue` — the board's collapsible **CV fit comparison** band,
-  including the Weights dialog and the phone full-screen sheet.
-- `src/components/FitComparisonContent.vue` — comparison toolbar (group toggles, Weighted /
-  Unweighted), legend, empty states, and the excluded-applicant note.
+- `src/components/FitComparisonPanel.vue` — the board's collapsible **Candidate Comparison**
+  band, including the Custom weights slider dialog and the phone full-screen sheet.
+- `src/components/FitComparisonContent.vue` — comparison toolbar (group toggles, Default /
+  Custom weights), legend, empty states, and the excluded-applicant note.
 - `src/components/FitComparisonChart.vue` — grouped met-share bars per active applicant, shared
   0–100% axis, tooltips, and a visually hidden data table.
 - `src/components/FitConsentDialog.vue` — per-analysis consent dialog for sending redacted CV
@@ -281,7 +282,7 @@ npm run build
 - `src/views/BoardsView.vue` — all role boards grouped by department.
 - `src/views/BoardView.vue` — stage-column pipeline for one role: `PageHeader` with
   breadcrumb, switch-role button, meta chips, Job spec, Add applicant, and a Board menu; a
-  collapsible CV fit comparison band; stage tabs at 720px and below; and a collapsible
+  collapsible Candidate Comparison band; stage tabs at 720px and below; and a collapsible
   closed-applicants summary row. Each stage is always sorted by CV-fit ranking.
 - `src/views/AccountView.vue` — protected session, identity, full-name editing, and password
   reset.
@@ -507,14 +508,16 @@ See `docs/ARCHITECTURE.md` for the auth lifecycle and deployment pipeline.
   ascending by minimum penalty (one per miss, half per partial), minimum misses, recommended
   penalty, recommended misses, skills penalty, skills misses, then name. This means any
   candidate with zero minimum misses ranks above all candidates with a minimum miss.
-- The board's CV fit comparison is separate from the stage ranking. It includes all active
-  applicants on the board, uses a met-share of `(full + 0.5 × partial) / total` per group, and
-  supports Weighted (saved per-board percentages, default 50 / 30 / 20) and Unweighted (equal
-  weights) modes. Its ordering is two-tier: candidates with no missed minimum always rank above
-  candidates with a missed minimum, then by total descending, then the lexicographic key, then
-  name. Deselecting a group removes it from the chart and the total; the minimum gate still
-  applies. Weight changes persist on `public.boards.fit_weights` and reorder the chart only —
-  stage columns and cards stay minimum-first. Documented gaps live in `docs/FIT_COMPARISON.md`.
+- The board's Candidate Comparison is separate from the stage ranking. It includes all active
+  applicants on the board and uses a met-share of `(full + 0.5 × partial) / total` per group.
+  **Default** keeps a minimum gate, then orders by Minimum, Recommended, and Skills shares; it
+  shows positions instead of a combined score. **Custom weights** uses saved per-board
+  percentages (default 50 / 30 / 20), has no minimum gate, and orders by weighted total. Group
+  chips remove a group from the chart and the ordering; the Default gate still applies when
+  Minimum is hidden. The Custom weights dialog uses horizontal sliders that keep the total at
+  100 by rebalancing the other two. Weight changes persist on `public.boards.fit_weights` and
+  reorder the chart only — stage columns and cards stay minimum-first. Documented gaps live in
+  `docs/FIT_COMPARISON.md`.
 - Replacing an applicant's CV opens a `ResyncCvDialog` asking whether to re-sync education,
   experience, and skills from the new CV or keep the existing profile details.
 - Do not add LinkedIn or other third-party profile scraping. LinkedIn blocks automated
