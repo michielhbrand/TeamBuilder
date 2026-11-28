@@ -7,10 +7,13 @@ import AppShell from '@/components/AppShell.vue'
 import BoardColumn from '@/components/BoardColumn.vue'
 import BoardFormDialog from '@/components/BoardFormDialog.vue'
 import BoardSwitcher from '@/components/BoardSwitcher.vue'
+import ChartTooltip from '@/components/ChartTooltip.vue'
 import ColumnDialog from '@/components/ColumnDialog.vue'
+import FitComparisonPanel from '@/components/FitComparisonPanel.vue'
 import JobSpecDialog from '@/components/JobSpecDialog.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import StageTabs from '@/components/StageTabs.vue'
+import { provideChartTooltip } from '@/lib/chart-tooltip'
 import {
   candidatesInStep,
   closedCandidates,
@@ -26,6 +29,8 @@ import { useBoardsStore } from '@/stores/boards'
 import { useFitStore } from '@/stores/fit'
 import type { FitRankEntry } from '@/lib/fit-rank'
 import type { Board, Candidate } from '@/types/pipeline'
+
+provideChartTooltip()
 
 const route = useRoute()
 const router = useRouter()
@@ -141,6 +146,14 @@ function openCreatedApplicant(candidate: Candidate): void {
   autoFitCandidateId.value = candidate.cvPath ? candidate.id : null
   profileCandidateId.value = candidate.id
   profileOpen.value = true
+}
+
+function openComparisonApplicant(applicantId: string): void {
+  const candidate = board.value?.candidates.find((item) => item.id === applicantId)
+
+  if (candidate) {
+    openProfile(candidate)
+  }
 }
 
 function onCandidateDragStart(candidate: Candidate): void {
@@ -355,6 +368,8 @@ onBeforeUnmount(() => {
         {{ fit.boardErrorFor(board.id) }}
       </v-alert>
 
+      <FitComparisonPanel :board="board" @open-applicant="openComparisonApplicant" />
+
       <StageTabs
         v-if="isPhone && selectedStepId"
         v-model="selectedStepId"
@@ -482,5 +497,6 @@ onBeforeUnmount(() => {
       :candidate-id="profileCandidateId"
       :auto-fit-candidate-id="autoFitCandidateId"
     />
+    <ChartTooltip />
   </AppShell>
 </template>

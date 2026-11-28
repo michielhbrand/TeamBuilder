@@ -1,3 +1,5 @@
+import type { FitWeights } from '@/types/fit'
+
 export const departments = [
   'Engineering',
   'Design',
@@ -64,6 +66,7 @@ export interface Board {
   candidates: Candidate[]
   jobSpecPath?: string | null
   jobSpecName?: string | null
+  fitWeights?: FitWeights
 }
 
 export interface StepCount {
@@ -99,6 +102,7 @@ export interface BoardInput {
   department: Department
   openPositions: number
   deadline: string
+  fitWeights?: FitWeights
 }
 
 export interface ApplicantInput {

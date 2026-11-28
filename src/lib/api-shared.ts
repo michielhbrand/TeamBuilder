@@ -20,6 +20,7 @@ import type {
   FitRequirementStatus,
 } from '@/types/fit'
 import { normalizeEntries, serializeEntries } from '@/lib/career'
+import { parseFitWeights } from '@/lib/fit-compare'
 
 export interface BoardRow {
   id: string
@@ -30,6 +31,7 @@ export interface BoardRow {
   created_at: string
   job_spec_path: string | null
   job_spec_name: string | null
+  fit_weights?: unknown
   board_columns: ColumnRow[] | null
   applicants: ApplicantRow[] | null
 }
@@ -172,6 +174,7 @@ export const BOARD_SELECT = `
   created_at,
   job_spec_path,
   job_spec_name,
+  fit_weights,
   board_columns ( id, board_id, name, position ),
   applicants (
     id,
@@ -377,6 +380,7 @@ export function mapBoard(row: BoardRow): Board {
     candidates,
     jobSpecPath: row.job_spec_path,
     jobSpecName: row.job_spec_name,
+    fitWeights: parseFitWeights(row.fit_weights),
   }
 }
 
@@ -387,6 +391,7 @@ export function boardPatch(input: Partial<BoardInput>): Record<string, unknown> 
   if (input.department !== undefined) patch.department = input.department
   if (input.openPositions !== undefined) patch.open_positions = input.openPositions
   if (input.deadline !== undefined) patch.deadline = input.deadline
+  if (input.fitWeights !== undefined) patch.fit_weights = input.fitWeights
 
   return patch
 }

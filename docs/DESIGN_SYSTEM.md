@@ -50,6 +50,7 @@ scale, Orbital can read as a generic SaaS theme. Use the motif and the tokens de
 | Overview charts     | `QuarterChart.vue`, `HireTimeChart.vue`, `PipelineLine.vue`, `StageBars.vue`, `FlowRows.vue` |
 | Overview lists      | `AttentionList.vue`, `ActivityFeed.vue`, `RoleDeadlineTable.vue`                             |
 | Chart tooltip       | `src/components/ChartTooltip.vue`                                                            |
+| CV fit comparison   | `FitComparison{Panel,Content,Chart}.vue`                                                     |
 | Theme toggle        | `src/components/ThemeToggle.vue`                                                             |
 | Visual exploration  | `design/ui-directions.html`                                                                  |
 | Board concept       | `design/hiring-pipeline-step-columns.html`                                                   |
@@ -324,7 +325,9 @@ that prototype's palette, gradients, or Bricolage/Hanken fonts.
   text and strokes use tokens. Every mark has a hover tooltip through the shared `ChartTooltip`.
   The SVG charts have `role="img"` and a summary `aria-label`, plus a visually hidden data table
   (`.sr-only`) where they plot data; `StageBars` and `FlowRows` are accessible lists and buttons
-  with `sr-only` text. Meaning is also in visible labels, never color alone.
+  with `sr-only` text. Meaning is also in visible labels, never color alone. The board CV fit
+  comparison uses grouped CSS bars with a shared 0–100% axis, a visible scrollbar for overflow,
+  hover tooltips, and an `sr-only` table; its bars are also clickable applicant buttons.
 - Color roles: accent is work in progress (applicants in, active), signal is hired or filled
   positions, `--orbital-line-input` is rejected, and danger is only for a deadline that has
   passed. Never color by time in stage. The current quarter is marked partial with an asterisk.
@@ -585,7 +588,8 @@ class. Keep the rules attached to the field.
   (or the analysis uses the earlier format, schema version below 3), a hairline `fit-note`
   explains it and **Similarities and gaps** becomes the main content under "How the CV compares
   with the job spec". Do not add a composite score, percentage, verdict pill, or confidence
-  label; the counts and bars are facts, not a rating.
+  label to the drawer verdict; the counts and bars are facts, not a rating. The separate
+  board-level CV fit comparison is the only place a weighted fit value is allowed.
 - Similarities use the signal marker and gaps use the danger marker. Color is never the only
   cue because the section labels carry the meaning.
 - On the board, each stage is always sorted by the shared CV-fit ranking; there is no toggle.
@@ -598,6 +602,38 @@ class. Keep the rules attached to the field.
   warning-tonal alert for the privacy notice.
 - While analysis runs, show an indeterminate progress line or spinner with the current progress
   text. A failure stays in the tab and never hides the previous result.
+
+### CV fit comparison
+
+- The board page has a **CV fit comparison** band between `PageHeader` and the stage tabs. It
+  is collapsed by default with a one-line summary and a **Weights** button. Expanding shows the
+  chart inline on desktop and in a full-screen sheet at `720px` and below.
+- It includes every active applicant on the board, labeled with their stage, in one flat
+  left-to-right order. Closed applicants are excluded. Only complete analyses with at least one
+  requirement are shown; a muted note counts active applicants that are unanalyzed or
+  incomplete.
+- Each candidate has three bars: **Minimum**, **Recommended**, and **Skills**. A bar is a
+  met-share of `(full + 0.5 × partial) / total`, drawn on a shared 0–100% axis. Group toggle
+  chips hide a group's bars and remove it from the total and ordering.
+- **Weighted** uses the board's saved percentages (default 50 / 30 / 20) and renormalizes over
+  the selected groups that have requirements. **Unweighted** uses an equal mean of those
+  groups. The header states which mode is active.
+- Ordering is two-tier: candidates with no missed minimum always come first; within each tier
+  the total sorts descending, then the shared lexicographic key, then name. The minimum gate
+  applies even when the Minimum bar is deselected. The chart note must say that stage columns
+  stay minimum-first; weights never reorder cards or stages.
+- The Weights dialog uses three percent inputs that must total 100, with **Reset**, **Cancel**,
+  and **Save weights**. The draft previews the chart while the dialog is open; saving is
+  pessimistic and shows Saving / error states. Weights are shared per board and persisted on
+  `public.boards.fit_weights`.
+- Bar fills are **Minimum = ink**, **Recommended = accent**, **Skills = `--orbital-line-input`**.
+  Never use signal or danger for a group; a missed minimum is a tier and a text/`aria` fact,
+  not a color. Keep the legend, per-bar `full/total` counts, and the candidate's total visible.
+- Each candidate cluster is a button that opens the applicant drawer. Hovering a bar shows the
+  exact counts and met-share. The chart scrolls horizontally with a visible token-colored
+  scrollbar, never an edge fade, and includes an `sr-only` data table.
+- Empty states: no complete analyses, no selected group with requirements, and loading. Do not
+  invent a verdict or a confidence label.
 
 ### Brand, avatar, and status
 

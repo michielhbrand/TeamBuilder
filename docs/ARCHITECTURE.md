@@ -147,7 +147,8 @@ updates consistent.
 
 The hiring workspace is split by domain, and each store owns its own `error` state:
 
-- `src/stores/boards.ts` owns boards, stages (`board_columns`), and the derived groups and ordered boards.
+- `src/stores/boards.ts` owns boards, stages (`board_columns`), the derived groups and ordered
+  boards, and the per-board `fit_weights` save.
 - `src/stores/applicants.ts` owns applicant lookup, applicant CRUD, moves, status changes,
   debounced autosave (`retryCandidateSave` retries a failed save without touching the edit
   snapshot; `flushCandidate` saves and records the profile-edit event on close), and edit
@@ -228,7 +229,8 @@ session current while the tab is open.
 The schema lives in `supabase/migrations/`:
 
 - `public.boards` — free-text department, name unique per department, open positions,
-  deadline, job spec path and filename, timestamps.
+  deadline, job spec path and filename, `fit_weights` (jsonb percentages defaulting to
+  50 / 30 / 20 and required to sum to 100), timestamps.
 - `public.board_columns` — board, unique name per board, ordered `position`.
 - `public.applicants` — board, assigned stage, contact details, current role, notice period
   in months (one decimal), salary expectation in cents defaulting to `0`, structured
@@ -485,6 +487,25 @@ misses, then name, where a penalty is one per missed requirement plus half per p
 This guarantees that any candidate with zero minimum misses ranks above every candidate with
 a minimum miss. The board always sorts each stage by this ranking; candidates without a
 complete analysis keep their existing order after the ranked ones.
+
+### CV fit comparison
+
+The board page also has a collapsible **CV fit comparison** band
+(`FitComparisonPanel.vue`, `FitComparisonContent.vue`, `FitComparisonChart.vue`). It is a
+read-only view over the analyses the fit store already loaded with `loadBoard`; it does not
+call Supabase or the Edge Function. `src/lib/fit-compare.ts` is pure and owns the met-share
+formula `(full + 0.5 × partial) / total`, weight parsing, weighted and unweighted totals, the
+two-tier minimum gate, and the ordering. The band includes every active applicant on the board,
+labels each with its stage, and excludes incomplete or unanalyzed applicants with a count.
+
+The comparison order is separate from the stage ranking. It sorts by tier (no missed minimum
+before any missed minimum), then by total descending, then by the lexicographic fit key, then
+name. Weights and group selection affect only this chart; `rankForStage` and the stage columns
+stay minimum-first. The Weighted mode uses the per-board percentages stored in
+`public.boards.fit_weights`; the Unweighted mode uses an equal mean across the selected groups
+that have requirements. Weights are saved pessimistically through the boards store and the
+existing board update policy. The defaults are 50 / 30 / 20, and deselecting a group removes
+it from both the chart and the total while the minimum gate still applies.
 
 RLS is enabled on all seven tables. Table privileges are explicitly granted to
 `authenticated` and revoked from `anon`; RLS policies then grant the operations each table
@@ -764,7 +785,9 @@ Function secrets are separate from the Vite build:
   and redaction in `supabase/functions/fit-analysis`, bump `PROMPT_VERSION`, and keep the Edge
   Function as the only writer of `public.applicant_fit_analyses` and
   `public.board_requirement_sets`. Keep the ranking rules in `src/lib/fit-rank.ts` aligned with
-  the documented lexicographic order. Prompt version is currently `2026-11-22.3`.
+  the documented lexicographic order, and keep the separate comparison rules in
+  `src/lib/fit-compare.ts` aligned with `docs/FIT_COMPARISON.md`. Prompt version is currently
+  `2026-11-22.3`.
 - Keep the first board stage as the fallback bucket. If stage reordering is added, update
   the atomic delete function and the `position` ordering together.
 - Password recovery links (requested from `/forgot-password`) use the same `/set-password` flow. If magic links are

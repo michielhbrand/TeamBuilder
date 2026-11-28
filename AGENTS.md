@@ -89,7 +89,8 @@ npm run build
   actor-name derivation, password setup, sign-out, and dependent-store resets when the
   session becomes `null`.
 - `src/types/pipeline.ts` — board, stage, applicant, applicant event, and summary types.
-- `src/types/fit.ts` — applicant CV/job-spec analysis types.
+- `src/types/fit.ts` — applicant CV/job-spec analysis types and the per-board `FitWeights`
+  shape.
 - `src/types/history.ts` — `HiringMonth` and `HireRecord`, the camel-cased rows of the history
   tables.
 - `src/lib/career.ts` — structured education/work entries: normalising, serialising, month and
@@ -114,6 +115,9 @@ npm run build
   minimum misses, recommended penalty, recommended misses, skills penalty, skills misses, then
   name. A penalty is one per miss plus half per partial match; only complete analyses with at
   least one requirement rank.
+- `src/lib/fit-compare.ts` — pure board-level CV fit comparison: default weights (50 / 30 / 20),
+  weight parsing, met-share per group, weighted and unweighted totals, the two-tier minimum
+  gate, and the comparison ordering. It never changes the lexicographic stage ranking.
 - `src/lib/history-api.ts` — select-only reads of `public.hiring_monthly` and
   `public.hire_history` with their row mappers. Both fetchers page through `fetchAllPages` in
   1000-row `.range()` pages (the API caps a response at 1000 rows), and `fetchHireHistory` only
@@ -154,7 +158,8 @@ npm run build
 - `src/lib/use-media-query.ts` — `useMediaQuery(query)` composable returning a reactive
   `matchMedia` result that removes its listener when the scope stops.
 - `src/stores/boards.ts` — persisted board and stage state, derived `groups` / `orderedBoards`,
-  board actions, and the focus/visibility refresh used to keep the shared workspace current.
+  board actions (including the pessimistic `fit_weights` save), and the focus/visibility
+  refresh used to keep the shared workspace current.
 - `src/stores/applicants.ts` — applicant lookup, applicant CRUD, moves, status changes,
   dirty-field debounced autosave, and edit snapshots.
 - `src/stores/applicant-activity.ts` — applicant events and notes with per-applicant loading
@@ -178,6 +183,9 @@ npm run build
   functions, and the backfill from live data.
 - `supabase/migrations/20261121000000_board_requirements_and_skills.sql` —
   `public.applicants.skills`, `public.board_requirement_sets`, its RLS policy, and grants.
+- `supabase/migrations/20261127000000_board_fit_weights.sql` — `public.boards.fit_weights`
+  (jsonb, default 50 / 30 / 20) with a shape and 100% sum check. Authenticated users update it
+  through the existing board update policy.
 - `supabase/functions/fit-analysis/` — authenticated Edge Function that extracts and caches
   job-spec requirements (`requirements.ts`), assesses every requirement (`assess.ts`), redacts
   CV fields, calls the free Kilo model, validates the result, and upserts the shared analysis.
@@ -227,6 +235,12 @@ npm run build
   legend), **Gaps only** switch, and collapsible requirement groups; `FitStatusGlyph.vue` draws
   the met / partly met / not shown shapes. `src/lib/fit-view.ts` holds the status wording and
   verdict headline. A missing minimum is the only danger-colored requirement.
+- `src/components/FitComparisonPanel.vue` — the board's collapsible **CV fit comparison** band,
+  including the Weights dialog and the phone full-screen sheet.
+- `src/components/FitComparisonContent.vue` — comparison toolbar (group toggles, Weighted /
+  Unweighted), legend, empty states, and the excluded-applicant note.
+- `src/components/FitComparisonChart.vue` — grouped met-share bars per active applicant, shared
+  0–100% axis, tooltips, and a visually hidden data table.
 - `src/components/FitConsentDialog.vue` — per-analysis consent dialog for sending redacted CV
   and skills data to the hosted model.
 - `src/components/ResyncCvDialog.vue` — after a CV replacement, asks whether to re-sync
@@ -266,9 +280,9 @@ npm run build
   board in focus" section with a board picker for stage-level charts.
 - `src/views/BoardsView.vue` — all role boards grouped by department.
 - `src/views/BoardView.vue` — stage-column pipeline for one role: `PageHeader` with
-  breadcrumb, switch-role button, meta chips, Job spec, Add applicant, and a Board menu; stage
-  tabs at 720px and below; and a collapsible closed-applicants summary row. Each stage is
-  always sorted by CV-fit ranking.
+  breadcrumb, switch-role button, meta chips, Job spec, Add applicant, and a Board menu; a
+  collapsible CV fit comparison band; stage tabs at 720px and below; and a collapsible
+  closed-applicants summary row. Each stage is always sorted by CV-fit ranking.
 - `src/views/AccountView.vue` — protected session, identity, full-name editing, and password
   reset.
 - `src/styles/orbital.css` — locked design tokens, layout primitives, board styling, and
@@ -493,6 +507,14 @@ See `docs/ARCHITECTURE.md` for the auth lifecycle and deployment pipeline.
   ascending by minimum penalty (one per miss, half per partial), minimum misses, recommended
   penalty, recommended misses, skills penalty, skills misses, then name. This means any
   candidate with zero minimum misses ranks above all candidates with a minimum miss.
+- The board's CV fit comparison is separate from the stage ranking. It includes all active
+  applicants on the board, uses a met-share of `(full + 0.5 × partial) / total` per group, and
+  supports Weighted (saved per-board percentages, default 50 / 30 / 20) and Unweighted (equal
+  weights) modes. Its ordering is two-tier: candidates with no missed minimum always rank above
+  candidates with a missed minimum, then by total descending, then the lexicographic key, then
+  name. Deselecting a group removes it from the chart and the total; the minimum gate still
+  applies. Weight changes persist on `public.boards.fit_weights` and reorder the chart only —
+  stage columns and cards stay minimum-first. Documented gaps live in `docs/FIT_COMPARISON.md`.
 - Replacing an applicant's CV opens a `ResyncCvDialog` asking whether to re-sync education,
   experience, and skills from the new CV or keep the existing profile details.
 - Do not add LinkedIn or other third-party profile scraping. LinkedIn blocks automated

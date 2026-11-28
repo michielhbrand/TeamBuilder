@@ -57,6 +57,7 @@ export const useBoardsStore = defineStore('boards', () => {
       local.deadline = remoteBoard.deadline
       local.jobSpecPath = remoteBoard.jobSpecPath
       local.jobSpecName = remoteBoard.jobSpecName
+      local.fitWeights = remoteBoard.fitWeights
       local.steps = remoteBoard.steps
 
       const existing = new Map(local.candidates.map((candidate) => [candidate.id, candidate]))

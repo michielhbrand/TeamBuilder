@@ -1,5 +1,13 @@
 export type FitRequirementKind = 'minimum' | 'recommended' | 'skill'
 
+export interface FitWeights {
+  minimum: number
+  recommended: number
+  skills: number
+}
+
+export type FitWeightKey = keyof FitWeights
+
 export type FitRequirementStatus = 'full' | 'partial' | 'none'
 
 export interface FitRequirementAssessment {
